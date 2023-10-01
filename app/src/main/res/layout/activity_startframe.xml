@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/startframe_background"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:id="@+id/title_coup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Coup"
+        android:textSize="100sp"
+        android:fontFamily="@font/coup_main_font"
+        android:textColor="@color/red"
+        android:gravity="center"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"/>
+    <TextView
+        android:id="@+id/title_registance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Registance"
+        android:textSize="25sp"
+        android:fontFamily="@font/irishgrover_regular"
+        android:textColor="@color/black"
+        app:layout_constraintBottom_toTopOf="@+id/title_coup"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"/>
+    <TextView
+        android:id="@+id/title_dystopian"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="The Dystopian Universe"
+        android:textSize="25sp"
+        android:fontFamily="@font/irishgrover_regular"
+        android:textColor="@color/black"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/title_coup"/>
+
+    <TextView
+        android:id="@+id/title_corporation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="L.H.D.J. corporation®"
+        android:textSize="20sp"
+        android:fontFamily="@font/niagsol"
+        android:textColor="@color/white"
+        android:layout_marginBottom="15dp"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
