@@ -1,6 +1,9 @@
 package com.example.coup
 
+import android.content.Intent
 import android.os.Bundle
+import android.os.Looper
+import android.os.Handler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,37 +13,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.coup.ui.login.LoginActivity
 import com.example.coup.ui.theme.CoupTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            CoupTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Greeting("Android")
-                }
-            }
-        }
-    }
-}
+        setContentView(R.layout.activity_startframe)
+        // 일정 시간 지연 이후 실행하기 위한 코드
+        Handler(Looper.getMainLooper()).postDelayed({
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+            // 일정 시간이 지나면 LoginActivity로 이동
+            val intent= Intent( this, LoginActivity::class.java)
+            startActivity(intent)
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    CoupTheme {
-        Greeting("Android")
+            // 이전 키를 눌렀을 때 스플래스 스크린 화면으로 이동을 방지하기 위해
+            // 이동한 다음 사용안함으로 finish 처리
+            finish()
+
+        }, 3000) // 시간 3초 이후 실행
     }
+
 }
