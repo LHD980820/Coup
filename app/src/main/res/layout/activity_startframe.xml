@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/startframe_background"
+    android:backgroundTint="#4DFFFFFF"
+    android:backgroundTintMode="src_over"
     tools:context=".MainActivity">
 
     <TextView
@@ -47,7 +49,7 @@
         android:id="@+id/title_corporation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="L.H.D.J. corporation®"
+        android:text="L.D.Y.J. corporation®"
         android:textSize="20sp"
         android:fontFamily="@font/niagsol"
         android:textColor="@color/white"

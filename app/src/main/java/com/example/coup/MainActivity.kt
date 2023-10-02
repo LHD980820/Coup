@@ -33,5 +33,4 @@ class MainActivity : ComponentActivity() {
 
         }, 3000) // 시간 3초 이후 실행
     }
-
 }
