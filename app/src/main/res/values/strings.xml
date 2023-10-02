@@ -17,4 +17,6 @@
     <string name="prompt_check_password">Check Password</string>
     <string name="text_reset_password">Reset Password</string>
     <string name="back_to_log_in_page">Back to Log-in Page</string>
+    <string name="password_recovery_email_sent">Password Recovery Email Sent</string>
+    <string name="please_check_your_email">Please check your email.</string>
 </resources>

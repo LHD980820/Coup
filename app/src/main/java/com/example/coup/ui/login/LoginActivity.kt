@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
-import com.example.coup.MainActivity
+import com.example.coup.HomeActivity
 import com.example.coup.R
 import com.google.android.gms.common.SignInButton
 
@@ -49,7 +49,7 @@ class LoginActivity : Activity() {
 
         // event handler
         mEmailSignInButton.setOnClickListener {
-            val intent = Intent(applicationContext, MainActivity::class.java)
+            val intent = Intent(applicationContext, HomeActivity::class.java)
             startActivity(intent)
             finish()
         }

@@ -7,7 +7,6 @@ import android.view.Window
 import com.example.coup.R
 
 class RegisterDialog(context: Context) : Dialog(context) {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
