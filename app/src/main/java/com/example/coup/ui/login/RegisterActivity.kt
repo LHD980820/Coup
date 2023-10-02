@@ -9,22 +9,24 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import com.example.coup.R
+import androidx.appcompat.app.AppCompatActivity
 
 class RegisterActivity : Activity(){
     // UI references.
     private lateinit var mEmailView: EditText
     private lateinit var mPasswordView: EditText
     private lateinit var mPasswordCheckView: EditText
-
+    private lateinit var mEmailSignUpButton: Button
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
+
 
         // Set up the register form.
         mEmailView = findViewById(R.id.editview_email2)
         mPasswordView = findViewById(R.id.editview_password2)
         mPasswordCheckView = findViewById(R.id.editview_check_password)
-
+        mEmailSignUpButton = findViewById<Button>(R.id.email_sign_up_button2)
         // Event handlers for EditTexts
         mEmailView.setOnEditorActionListener { _, id, _ ->
             if (id == EditorInfo.IME_ACTION_DONE || id == EditorInfo.IME_NULL) {
@@ -50,7 +52,16 @@ class RegisterActivity : Activity(){
         }
 
         // Buttons
-        val mEmailSignUpButton = findViewById<Button>(R.id.email_sign_in_button2)
+        val mEmailSignInButton = findViewById<Button>(R.id.email_sign_up_button2)
+
+        // event handler
+        mEmailSignInButton.setOnClickListener {
+            val intent = Intent(applicationContext, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+        }
+
+
 
         // sign-up button event handler
         mEmailSignUpButton.setOnClickListener {
