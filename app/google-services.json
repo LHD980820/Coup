@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "300921857777",
+    "project_id": "coup-de59d",
+    "storage_bucket": "coup-de59d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:300921857777:android:8695d291334d5e18d7ab50",
+        "android_client_info": {
+          "package_name": "com.example.coup"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe8c6OPanJkJE0yFKQDM5lF5I5qsfUBuA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
