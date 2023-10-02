@@ -4,8 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.Button
+import android.widget.EditText
 import com.example.coup.MainActivity
 import com.example.coup.R
 
@@ -41,6 +41,7 @@ class LoginActivity : Activity() {
         // Buttons
         val mEmailSignInButton = findViewById<Button>(R.id.email_sign_in_button)
         val mEmailSignUpButton = findViewById<Button>(R.id.email_sign_up_button)
+        val forgotPasswordButton = findViewById<Button>(R.id.password_forgot)
 
         // event handler
         mEmailSignInButton.setOnClickListener {
@@ -53,7 +54,11 @@ class LoginActivity : Activity() {
         mEmailSignUpButton.setOnClickListener {
             val intent = Intent(applicationContext, RegisterActivity::class.java)
             startActivity(intent)
-            finish()
+        }
+
+        forgotPasswordButton.setOnClickListener{
+            val intent = Intent(applicationContext, LoginResetPassword::class.java)
+            startActivity(intent)
         }
     }
 }

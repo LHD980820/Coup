@@ -20,6 +20,11 @@ android {
             useSupportLibrary true
         }
     }
+    
+    // 뷰 바인딩 옵션 활성화
+    viewBinding {
+        enabled = true
+    }
 
     buildTypes {
         release {

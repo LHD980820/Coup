@@ -2,19 +2,10 @@ package com.example.coup
 
 import android.content.Intent
 import android.os.Bundle
-import android.os.Looper
 import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.coup.ui.login.LoginActivity
-import com.example.coup.ui.theme.CoupTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +22,6 @@ class MainActivity : ComponentActivity() {
             // 이동한 다음 사용안함으로 finish 처리
             finish()
 
-        }, 3000) // 시간 3초 이후 실행
+        }, 1500) // 시간 3초 이후 실행
     }
 }
