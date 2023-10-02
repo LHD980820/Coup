@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/icon_room"
+        android:enabled="true"
+        android:icon="@drawable/rooms"
+        android:title="@string/room_list" />
+
+    <item
+        android:id="@+id/icon_ranking"
+        android:enabled="true"
+        android:icon="@drawable/ranking"
+        android:title="@string/ranking" />
+
+    <item
+        android:id="@+id/icon_user_info"
+        android:enabled="true"
+        android:icon="@drawable/info"
+        android:title="@string/user_info" />
+</menu>

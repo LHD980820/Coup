@@ -9,4 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="red">#FFFF0000</color>
     <color name="transparent">#00FF0000</color>
+    <color name="selected_color">#C45D3E</color>
+    <color name="box_color">#5470FF</color>
+    <color name="gray">#807878</color>
 </resources>

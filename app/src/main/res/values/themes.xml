@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Coup" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Coup" parent="Theme.AppCompat.Light.NoActionBar" />
+    <style name="coup">
+        <item name="android:textSize">48sp</item>
+        <item name="android:textColor">#FF0000</item>
+        <item name="android:shadowColor">#40000000</item>
+        <item name="android:shadowDx">0</item>
+        <item name="android:shadowDy">4</item>
+        <item name="android:shadowRadius">4</item>
+    </style>
 </resources>

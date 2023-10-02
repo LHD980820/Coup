@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.example.coup'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.example.coup"
@@ -70,7 +70,9 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
     implementation(platform("com.google.firebase:firebase-bom:32.3.1")) //firebase
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation("com.google.android.gms:play-services-auth:20.7.0")  //firebase end
+    implementation 'androidx.navigation:navigation-fragment-ktx:2.7.3'  //navigation bar
+    implementation 'androidx.navigation:navigation-ui-ktx:2.7.3'        //navigation bar end
     implementation 'com.google.android.gms:play-services-base:18.2.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
