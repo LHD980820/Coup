@@ -8,12 +8,13 @@ import android.widget.Button
 import android.widget.EditText
 import com.example.coup.MainActivity
 import com.example.coup.R
+import com.google.android.gms.common.SignInButton
 
 class LoginActivity : Activity() {
     // UI references.
     private lateinit var mEmailView: EditText
     private lateinit var mPasswordView: EditText
-    private lateinit var mGoogleLogin: Button
+    private lateinit var mGoogleLogin: SignInButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,7 +25,6 @@ class LoginActivity : Activity() {
         mEmailView = findViewById(R.id.editview_email)
         mPasswordView = findViewById(R.id.editview_password)
         mGoogleLogin = findViewById(R.id.google_login)
-        mGoogleLogin.setOnClickListener {  }
 
         // Event handlers for EditTexts
         mEmailView.setOnEditorActionListener { _, id, _ ->
