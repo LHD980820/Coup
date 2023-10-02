@@ -13,4 +13,5 @@
     <string name="text_log_in">Log In</string>
     <string name="text_sign_up">Sign Up</string>
     <string name="prompt_check_password">Check Password</string>
+    <string name="text_reset_password">Reset Password</string>
 </resources>
