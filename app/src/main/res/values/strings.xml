@@ -10,4 +10,7 @@
     <string name="invalid_password">비밀번호는 5자리 이상이어야 합니다!</string>
     <string name="login_failed">"로그인 실패"</string>
     <string name="forgot_password">Forgot Password?</string>
+    <string name="text_log_in">Log In</string>
+    <string name="text_sign_up">Sign Up</string>
+    <string name="prompt_check_password">Check Password</string>
 </resources>
