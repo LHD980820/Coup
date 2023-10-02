@@ -12,7 +12,20 @@
           "package_name": "com.example.coup"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "300921857777-ef0dl297r8b22rlistn9a2fklsje9gad.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.coup",
+            "certificate_hash": "a9ca8ff63be584673115689c7bbd8e456d38b5d7"
+          }
+        },
+        {
+          "client_id": "300921857777-qpf43mp6tpjs93d3jo96juckpe00cnbf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDe8c6OPanJkJE0yFKQDM5lF5I5qsfUBuA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "300921857777-qpf43mp6tpjs93d3jo96juckpe00cnbf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

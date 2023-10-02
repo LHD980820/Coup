@@ -13,14 +13,18 @@ class LoginActivity : Activity() {
     // UI references.
     private lateinit var mEmailView: EditText
     private lateinit var mPasswordView: EditText
+    private lateinit var mGoogleLogin: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+
         // Set up the login form.
         mEmailView = findViewById(R.id.editview_email)
         mPasswordView = findViewById(R.id.editview_password)
+        mGoogleLogin = findViewById(R.id.google_login)
+        mGoogleLogin.setOnClickListener {  }
 
         // Event handlers for EditTexts
         mEmailView.setOnEditorActionListener { _, id, _ ->
@@ -39,7 +43,7 @@ class LoginActivity : Activity() {
         }
 
         // Buttons
-        val mEmailSignInButton = findViewById<Button>(R.id.email_sign_in_button)
+        val mEmailSignInButton = findViewById<Button>(R.id.email_log_in_button)
         val mEmailSignUpButton = findViewById<Button>(R.id.email_sign_up_button)
         val forgotPasswordButton = findViewById<Button>(R.id.password_forgot)
 
