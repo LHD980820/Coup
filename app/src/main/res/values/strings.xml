@@ -24,6 +24,10 @@
     <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="password_recovery_email_sent">Password Recovery Email Sent</string>
     <string name="please_check_your_email">Please check your email.</string>
+    <string name="waiting_room">Waiting Room</string>
+    <string name="room_title">Room Title</string>
+    <string name="game_start">Game Start</string>
+    <string name="option">option</string>
     <string name="rooms">Rooms</string>
     <string name="create_room">Create Room</string>
     <string name="room_option">Room Option</string>
@@ -35,4 +39,6 @@
     <string name="current">Current</string>
     <string name="change_to">Change to</string>
     <string name="password_check">Password Check</string>
+    <string name="name_text">NAME_TEXT</string>
+    <string name="score_text">SCORE_TEXT</string>
 </resources>

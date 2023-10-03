@@ -9,6 +9,12 @@
     <color name="white">#FFFFFFFF</color>
     <color name="red">#FFFF0000</color>
     <color name="transparent">#00FF0000</color>
+    <color name="background_color">#FFF5F0C4</color>
+    <color name="panel_color">#FFC6C5B3</color>
+    <color name="panel_solid_color">#FFAEAEA6</color>
+    <color name="game_start_bgcolor">#FF4BD37B</color>
+    <color name="option_bgcolor">#FF999999</color>
+    <color name="waiting_room_title_bgcolor">#FFBB9E8B</color>
     <color name="selected_color">#C45D3E</color>
     <color name="box_color">#5470FF</color>
     <color name="gray">#807878</color>
