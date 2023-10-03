@@ -26,4 +26,13 @@
     <string name="please_check_your_email">Please check your email.</string>
     <string name="rooms">Rooms</string>
     <string name="create_room">Create Room</string>
+    <string name="room_option">Room Option</string>
+    <string name="title">Title</string>
+    <string name="password">Password</string>
+    <string name="person">Person</string>
+    <string name="create_your_room">Create Your Room</string>
+    <string name="change_password">Change Password</string>
+    <string name="current">Current</string>
+    <string name="change_to">Change to</string>
+    <string name="password_check">Password Check</string>
 </resources>
