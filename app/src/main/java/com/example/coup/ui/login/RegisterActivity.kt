@@ -118,19 +118,15 @@ class RegisterActivity : Activity(){
                     // [END set_firestore_settings]
 
                     val email2name = user!!.email!!.split("@")[0]
-                    val user_db = hashMapOf(
+                    val user_data = hashMapOf(
                         "nickname" to email2name,
                         "rating" to 1000,
                         "plays" to 0
                     )
-                    db.collection(user!!.email!!.toString())
-                        .add(user_db)
-                        .addOnSuccessListener { documentReference ->
-                            Log.d(TAG, "DocumentSnapshot added with ID: ${documentReference.id}")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.w(TAG, "Error adding document", e)
-                        }
+                    db.collection("user")
+                        .document(user!!.email!!.toString())
+                        .set(user_data)
+
 
                     val dialog = RegisterDialog(this)
                     dialog.show()
@@ -161,7 +157,6 @@ class RegisterActivity : Activity(){
     }
 
     companion object {
-        private const val TAG = "EmailPassword"
+        private const val TAG = "RegisterActivity"
     }
-
 }

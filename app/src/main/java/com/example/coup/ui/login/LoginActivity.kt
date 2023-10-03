@@ -22,6 +22,10 @@ import com.google.firebase.auth.FirebaseAuth    //밑에 전부 다 파이어베
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.firestoreSettings
+import com.google.firebase.firestore.ktx.memoryCacheSettings
+import com.google.firebase.firestore.ktx.persistentCacheSettings
 import com.google.firebase.ktx.Firebase
 
 class LoginActivity : Activity() {
@@ -197,6 +201,30 @@ class LoginActivity : Activity() {
                     val user = auth.currentUser
                     updateUI(user)
 
+                    // [START get_firestore_instance]
+                    val db = Firebase.firestore
+                    // [END get_firestore_instance]
+
+                    // [START set_firestore_settings]
+                    val settings = firestoreSettings {
+                        // Use memory cache
+                        setLocalCacheSettings(memoryCacheSettings {})
+                        // Use persistent disk cache (default)
+                        setLocalCacheSettings(persistentCacheSettings {})
+                    }
+                    db.firestoreSettings = settings
+                    // [END set_firestore_settings]
+
+                    val email2name = user!!.email!!.split("@")[0]
+                    val user_data = hashMapOf(
+                        "nickname" to email2name,
+                        "rating" to 1000,
+                        "plays" to 0
+                    )
+                    db.collection("user")
+                        .document(user!!.email!!.toString())
+                        .set(user_data)
+
                     Toast.makeText(baseContext, "${user!!.email}님 환영합니다!", Toast.LENGTH_SHORT).show()
                     val intent = Intent(applicationContext, HomeActivity::class.java)
                     intent.putExtra("userinfo", user)
@@ -228,8 +256,7 @@ class LoginActivity : Activity() {
     }
 
     companion object {
-        private const val TAG = "EmailPassword"
-        private const val TAG_google = "GoogleActivity"
+        private const val TAG = "LoginActivity"
         private const val RC_SIGN_IN = 9001
     }
 

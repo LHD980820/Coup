@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "300921857777",
+    "firebase_url": "https://coup-de59d-default-rtdb.firebaseio.com",
     "project_id": "coup-de59d",
     "storage_bucket": "coup-de59d.appspot.com"
   },
@@ -14,11 +15,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "300921857777-d23pdl4ep8h8e2e2ql2crcp32rq0fimq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.coup",
+            "certificate_hash": "ceddb7f9141c14506c57b7776705d8e2086c3e69"
+          }
+        },
+        {
           "client_id": "300921857777-ef0dl297r8b22rlistn9a2fklsje9gad.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.example.coup",
             "certificate_hash": "a9ca8ff63be584673115689c7bbd8e456d38b5d7"
+          }
+        },
+        {
+          "client_id": "300921857777-ougaupboimckg2ce7f35cpqgd259l25d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.coup",
+            "certificate_hash": "72bd1d7524b17b10628039d664889d89980cdf9d"
           }
         },
         {

@@ -1,11 +1,18 @@
 package com.example.coup
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.firestoreSettings
+import com.google.firebase.firestore.ktx.memoryCacheSettings
+import com.google.firebase.firestore.ktx.persistentCacheSettings
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.ktx.Firebase
 
 // TODO: Rename parameter arguments, choose names that match
@@ -23,25 +30,72 @@ class info : Fragment() {
     private var param1: String? = null
     private var param2: String? = null
 
+    private lateinit var auth: FirebaseAuth
+    private lateinit var mNickname: TextView
+    private lateinit var mRating: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
             param1 = it.getString(ARG_PARAM1)
             param2 = it.getString(ARG_PARAM2)
         }
-
     }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+
+        // [START initialize_auth]
+        // Initialize Firebase Auth
+        auth = FirebaseAuth.getInstance()
+        // [END initialize_auth]
         // Inflate the layout for this fragment
-        /*val user = Firebase.auth.currentUser
-        user?.let {
-            val name
-        }*/
-        return inflater.inflate(R.layout.fragment_info, container, false)
+        val user = auth.currentUser
+
+        // [START get_firestore_instance]
+        val db = Firebase.firestore
+        // [END get_firestore_instance]
+
+        // [START set_firestore_settings]
+        val settings = firestoreSettings {
+            // Use memory cache
+            setLocalCacheSettings(memoryCacheSettings {})
+            // Use persistent disk cache (default)
+            setLocalCacheSettings(persistentCacheSettings {})
+        }
+        db.firestoreSettings = settings
+        // [END set_firestore_settings]
+
+        val view = inflater.inflate(R.layout.fragment_info, container, false)
+        mNickname = view.findViewById(R.id.nickname_info)
+        mRating = view.findViewById(R.id.score_info)
+
+        db.collection("user")
+            .document(user!!.email!!.toString())
+            .get()
+            .addOnCompleteListener { task->
+                if(task.isSuccessful) {
+                    val document = task.result
+                    if(document != null) {
+                        if(document.exists()) {
+                            mNickname.text = document.get("nickname").toString()
+                            mRating.text = document.get("rating").toString()
+                            Log.d(TAG, "확인하였습니다.${user!!.email!!.toString()}")
+                        } else {
+                            Log.d(TAG, "문서가 존재하지 않습니다.${user!!.email!!.toString()}")
+                        }
+                    } else {
+                        Log.d(TAG, "문서가 null입니다.")
+                    }
+                } else {
+                    Log.d(TAG, "데이터를 가져오는 동안 오류 발생: ${task.exception}")
+                }
+            }
+
+
+        return view
     }
 
     companion object {
@@ -62,5 +116,6 @@ class info : Fragment() {
                     putString(ARG_PARAM2, param2)
                 }
             }
+        private const val TAG = "Info_Fragment"
     }
 }
