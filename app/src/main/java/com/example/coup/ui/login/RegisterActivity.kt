@@ -68,13 +68,13 @@ class RegisterActivity : Activity(){
             val id: String = mEmailView.text.toString()
             val pw: String = mPasswordView.text.toString()
             val pwc: String = mPasswordCheckView.text.toString()
-            if(id == null) {
+            if(id.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "이메일을 입력하세요", Toast.LENGTH_SHORT).show()
             }
-            if(pw == null) {
+            if(pw.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "비밀번호를 입력하세요", Toast.LENGTH_SHORT).show()
             }
-            if(pwc == null) {
+            if(pwc.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "밑에 칸에 비밀번호를 한번 더 입력하세요", Toast.LENGTH_SHORT).show()
             }
             if(pw != pwc) {

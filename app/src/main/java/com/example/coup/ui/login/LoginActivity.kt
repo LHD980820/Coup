@@ -93,11 +93,11 @@ class LoginActivity : Activity() {
 
     //로그인
     private fun signIn(email: String, password: String) {
-        if(email == null) {
+        if(email.isNullOrEmpty()) {
             Toast.makeText(baseContext, "이메일을 입력하세요", Toast.LENGTH_SHORT).show()
             return
         }
-        if(password == null) {
+        if(password.isNullOrEmpty()) {
             Toast.makeText(baseContext, "비밀번호를 입력하세요", Toast.LENGTH_SHORT).show()
             return
         }
