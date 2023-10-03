@@ -6,6 +6,8 @@ import com.google.android.material.navigation.NavigationBarView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import android.view.MenuItem
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 
 private const val TAG_LIST = "list_fragment"

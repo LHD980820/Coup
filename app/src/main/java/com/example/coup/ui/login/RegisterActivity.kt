@@ -15,6 +15,10 @@ import com.example.coup.R
 import com.google.firebase.auth.FirebaseAuth    //밑에 전부 다 파이어베이스
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.firestoreSettings
+import com.google.firebase.firestore.ktx.memoryCacheSettings
+import com.google.firebase.firestore.ktx.persistentCacheSettings
 import com.google.firebase.ktx.Firebase
 
 class RegisterActivity : Activity(){
@@ -98,6 +102,36 @@ class RegisterActivity : Activity(){
                     val user = auth.currentUser
                     updateUI(user)
 
+
+                    // [START get_firestore_instance]
+                    val db = Firebase.firestore
+                    // [END get_firestore_instance]
+
+                    // [START set_firestore_settings]
+                    val settings = firestoreSettings {
+                        // Use memory cache
+                        setLocalCacheSettings(memoryCacheSettings {})
+                        // Use persistent disk cache (default)
+                        setLocalCacheSettings(persistentCacheSettings {})
+                    }
+                    db.firestoreSettings = settings
+                    // [END set_firestore_settings]
+
+                    val email2name = user!!.email!!.split("@")[0]
+                    val user_db = hashMapOf(
+                        "nickname" to email2name,
+                        "rating" to 1000,
+                        "plays" to 0
+                    )
+                    db.collection(user!!.email!!.toString())
+                        .add(user_db)
+                        .addOnSuccessListener { documentReference ->
+                            Log.d(TAG, "DocumentSnapshot added with ID: ${documentReference.id}")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.w(TAG, "Error adding document", e)
+                        }
+
                     val dialog = RegisterDialog(this)
                     dialog.show()
 
@@ -129,4 +163,5 @@ class RegisterActivity : Activity(){
     companion object {
         private const val TAG = "EmailPassword"
     }
+
 }
