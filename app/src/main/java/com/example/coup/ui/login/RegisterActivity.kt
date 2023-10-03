@@ -82,7 +82,6 @@ class RegisterActivity : Activity(){
             }
             else {
                 createAccount(id, pw)
-
             }
         }
     }
