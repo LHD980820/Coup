@@ -25,6 +25,8 @@ class CreateRoomDialog(context: Context): Dialog(context) {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.dialog_create_room)
 
+        mTitleView = findViewById(R.id.edit_title_create_room)
+        mPasswordView = findViewById(R.id.edit_password_create_room)
         mOkayButton = findViewById(R.id.button_okay_create_room)
         mCloseButton = findViewById(R.id.button_cancel_create_room)
         mMinusPersonButton = findViewById(R.id.button_minus_person_create)
@@ -35,9 +37,27 @@ class CreateRoomDialog(context: Context): Dialog(context) {
 
         //Okay Button -> Activate GameWaitingRoomActivity
         mOkayButton.setOnClickListener{
-            val intent = Intent(context,GameWaitingRoomActivity::class.java)
-            context.startActivity(intent)
-            dismiss()
+            if(mTitleView.text.isNullOrEmpty()) Toast.makeText(context, "방 제목을 입력해 주세요", Toast.LENGTH_SHORT).show()
+            else {
+                val db = FirestoreManager.getFirestore()
+                val gameData = hashMapOf(
+                    "title" to mTitleView.text.toString(),
+                    "password" to mPasswordView.text.toString(),
+                    "players" to number
+                )
+                db.collection("game_rooms")
+                    .add(gameData)
+                    .addOnSuccessListener { documentReference ->
+                        val gameId = documentReference.id
+                        val intent = Intent(context,GameWaitingRoomActivity::class.java)
+                        intent.putExtra("gameId", gameId)
+                        context.startActivity(intent)
+                        dismiss()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(context, "방 생성에 실패하였습니다. error code : $e", Toast.LENGTH_SHORT).show()
+                    }
+            }
         }
 
         //X Button -> Close Dialog
