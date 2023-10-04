@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import com.example.coup.FirebaseManager
+import com.example.coup.FirestoreManager
 import com.example.coup.HomeActivity
 import com.example.coup.R
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
@@ -53,6 +54,7 @@ class LoginActivity : Activity() {
 
         // [START initialize_auth]
         FirebaseManager.initialize()
+        FirestoreManager.initialize()
         // [END initialize_auth]
         auth = FirebaseManager.getFirebaseAuth()
         // [START config_signin]
@@ -202,18 +204,8 @@ class LoginActivity : Activity() {
                     updateUI(user)
 
                     // [START get_firestore_instance]
-                    val db = Firebase.firestore
+                    val db = FirestoreManager.getFirestore()
                     // [END get_firestore_instance]
-
-                    // [START set_firestore_settings]
-                    val settings = firestoreSettings {
-                        // Use memory cache
-                        setLocalCacheSettings(memoryCacheSettings {})
-                        // Use persistent disk cache (default)
-                        setLocalCacheSettings(persistentCacheSettings {})
-                    }
-                    db.firestoreSettings = settings
-                    // [END set_firestore_settings]
 
                     val email2name = user!!.email!!.split("@")[0]
                     val user_data = hashMapOf(

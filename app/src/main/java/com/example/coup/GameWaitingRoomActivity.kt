@@ -24,8 +24,9 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mOptionButton = findViewById(R.id.option_btn)
 
         mOutButton.setOnClickListener {
-            val intent = Intent(applicationContext,HomeActivity::class.java)
-            startActivity(intent)
+            finish()
+//            val intent = Intent(applicationContext,HomeActivity::class.java)
+//            startActivity(intent)
         }
 
         mGameStartButton.setOnClickListener {

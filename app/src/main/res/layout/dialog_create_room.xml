@@ -120,6 +120,10 @@
             android:id="@+id/text_now_person_create"
             android:layout_width="50dp"
             android:layout_height="50dp"
+            android:fontFamily="@font/mulish_bold"
+            android:textSize="35sp"
+            android:textColor="@color/black"
+            android:gravity="center"
             android:background="@drawable/icon_now_person"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -137,7 +141,7 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <Button
-        android:id="@+id/button_okay_change_password"
+        android:id="@+id/button_okay_create_room"
         android:layout_width="50dp"
         android:layout_height="50dp"
         android:layout_marginStart="80dp"
@@ -147,7 +151,7 @@
         app:layout_constraintTop_toBottomOf="@+id/constraintLayout" />
 
     <Button
-        android:id="@+id/button_cancel_change_password"
+        android:id="@+id/button_cancel_create_room"
         android:layout_width="50dp"
         android:layout_height="50dp"
         android:layout_marginTop="16dp"
