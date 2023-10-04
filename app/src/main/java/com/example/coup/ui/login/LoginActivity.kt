@@ -213,9 +213,15 @@ class LoginActivity : Activity() {
                         "rating" to 1000,
                         "plays" to 0
                     )
-                    db.collection("user")
-                        .document(user!!.email!!.toString())
-                        .set(user_data)
+                    val user_doc = db.collection("user").document(user!!.email!!.toString())
+                    user_doc.get().addOnCompleteListener { task ->
+                        if(task.isSuccessful) {
+                            val document = task.result
+                            if(document == null || !document.exists()) {
+                                user_doc.set(user_data)
+                            }
+                        }
+                    }
 
                     Toast.makeText(baseContext, "${user!!.email}님 환영합니다!", Toast.LENGTH_SHORT).show()
                     val intent = Intent(applicationContext, HomeActivity::class.java)
