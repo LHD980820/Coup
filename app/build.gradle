@@ -73,6 +73,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-auth-ktx:22.1.2")
     implementation("com.google.firebase:firebase-firestore-ktx:24.8.1")
+    implementation 'com.firebaseui:firebase-ui-firestore:7.2.0'
     implementation("com.google.android.gms:play-services-auth:20.7.0")  //firebase end
     implementation 'androidx.navigation:navigation-fragment-ktx:2.7.3'  //navigation bar
     implementation 'androidx.navigation:navigation-ui-ktx:2.7.3'        //navigation bar end

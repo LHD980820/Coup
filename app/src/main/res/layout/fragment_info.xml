@@ -115,6 +115,7 @@
                 android:id="@+id/button_logout_info"
                 android:layout_width="30dp"
                 android:layout_height="30dp"
+                android:layout_marginEnd="8dp"
                 android:background="@drawable/icon_logout"
                 app:layout_constraintBottom_toBottomOf="@+id/button_change_password_info"
                 app:layout_constraintEnd_toEndOf="parent"

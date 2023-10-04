@@ -8,6 +8,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import com.example.coup.FirebaseManager
 import com.example.coup.HomeActivity
 import com.example.coup.R
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
@@ -51,10 +52,9 @@ class LoginActivity : Activity() {
         setContentView(R.layout.activity_login)
 
         // [START initialize_auth]
-        // Initialize Firebase Auth
-        auth = FirebaseAuth.getInstance()
+        FirebaseManager.initialize()
         // [END initialize_auth]
-
+        auth = FirebaseManager.getFirebaseAuth()
         // [START config_signin]
         // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)

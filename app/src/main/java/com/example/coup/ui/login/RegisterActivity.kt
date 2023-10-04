@@ -11,6 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import com.example.coup.FirebaseManager
 import com.example.coup.R
 import com.google.firebase.auth.FirebaseAuth    //밑에 전부 다 파이어베이스
 import com.google.firebase.auth.FirebaseUser
@@ -33,10 +34,7 @@ class RegisterActivity : Activity(){
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
-        // [START initialize_auth]
-        // Initialize Firebase Auth
-        auth = FirebaseAuth.getInstance()
-        // [END initialize_auth]
+        auth = FirebaseManager.getFirebaseAuth()
 
         // Set up the register form.
         mEmailView = findViewById(R.id.editview_email2)

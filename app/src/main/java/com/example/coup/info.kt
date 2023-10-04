@@ -47,26 +47,11 @@ class info : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
 
-        // [START initialize_auth]
-        // Initialize Firebase Auth
-        auth = FirebaseAuth.getInstance()
-        // [END initialize_auth]
+        auth = FirebaseManager.getFirebaseAuth()
         // Inflate the layout for this fragment
         val user = auth.currentUser
 
-        // [START get_firestore_instance]
-        val db = Firebase.firestore
-        // [END get_firestore_instance]
-
-        // [START set_firestore_settings]
-        val settings = firestoreSettings {
-            // Use memory cache
-            setLocalCacheSettings(memoryCacheSettings {})
-            // Use persistent disk cache (default)
-            setLocalCacheSettings(persistentCacheSettings {})
-        }
-        db.firestoreSettings = settings
-        // [END set_firestore_settings]
+        val db = FirestoreManager.getFirestore()
 
         val view = inflater.inflate(R.layout.fragment_info, container, false)
         mNickname = view.findViewById(R.id.nickname_info)
@@ -118,4 +103,6 @@ class info : Fragment() {
             }
         private const val TAG = "Info_Fragment"
     }
+
+
 }

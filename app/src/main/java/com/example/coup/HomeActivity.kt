@@ -20,6 +20,8 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
+        FirestoreManager.initialize()
+
         bottomNavigationView = findViewById(R.id.bottom_navigation)
 
         supportFragmentManager.beginTransaction().add(R.id.home_frame, room_list()).commit()
