@@ -177,7 +177,7 @@ class LoginActivity : Activity() {
                     Log.w(TAG, "signInWithEmail:failure", task.exception)
                     Toast.makeText(
                         baseContext,
-                        "Authentication failed.",
+                        "로그인 실패",
                         Toast.LENGTH_SHORT,
                     ).show()
                     updateUI(null)

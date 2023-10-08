@@ -3,6 +3,7 @@ package com.example.coup
 import android.app.AlertDialog
 import android.os.Bundle
 import android.service.autofill.Dataset
+import android.text.InputType
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -11,10 +12,12 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.compose.material3.AlertDialog
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 
@@ -81,47 +84,45 @@ class room_list : Fragment() {
          */
         private val db = FirestoreManager.getFirestore()
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val constraint: ConstraintLayout
             val title: TextView
             val nickname: TextView
             val person: TextView
             val secret: ImageView
             init {
                 // Define click listener for the ViewHolder's View.
-                constraint = view.findViewById(R.id.constraint_rooms_item)
                 title = view.findViewById(R.id.title_rooms_item)
                 nickname = view.findViewById(R.id.nickname_rooms_item)
                 person = view.findViewById(R.id.person_rooms_item)
                 secret = view.findViewById(R.id.secret_rooms_item)
-            }
-            fun bind() {
-                constraint.setOnClickListener {
-                    val position = adapterPosition
-                    /*if()
-                        if(position != RecyclerView.NO_POSITION) {
-                            // 다이얼로그의 레이아웃을 인플레이트합니다.
-                            val inflater = LayoutInflater.from(view.context)
-                            val dialogView = inflater.inflate(R.layout.dialog_check_password, null)
 
-                            val dialogBuilder = AlertDialog.Builder(view.context)
-                            dialogBuilder.setView(dialogView)
+                view.setOnClickListener {
+                    if(dataSet.documents[adapterPosition].get("password").toString() != "") {
+                        val builder = AlertDialog.Builder(itemView.context).create()
+                        val inflater = LayoutInflater.from(itemView.context)
+                        val dialogview = inflater.inflate(R.layout.dialog_check_password, null)
+                        builder.setView(dialogview)
 
-                            val mCheckPasswordEditView =
-                                dialogView.findViewById<EditText>(R.id.edit_check_password)
-                            val mOkayButton =
-                                dialogView.findViewById<Button>(R.id.button_okay_check_password)
-                            val mCancelButton =
-                                dialogView.findViewById<Button>(R.id.button_cancel_check_password)
+                        val mCheckEditText = dialogview.findViewById<EditText>(R.id.edit_check_password)
+                        val mOkayButton = dialogview.findViewById<Button>(R.id.button_okay_check_password)
+                        val mCancelButton = dialogview.findViewById<Button>(R.id.button_cancel_check_password)
 
-                            mOkayButton.setOnClickListener {
-                                val pw = mCheckPasswordEditView.text.toString()
-                                if (pw != dataSet)
+                        mOkayButton.setOnClickListener {
+                            if(mCheckEditText.text.toString() == dataSet.documents[adapterPosition].get("password").toString()) {
+
                             }
-                            mCancelButton.setOnClickListener {
+                            else {
+                                Toast.makeText(itemView.context, "비밀번호가 일치하지 않습니다", Toast.LENGTH_SHORT).show()
                             }
-                        }*/
+                        }
+
+                        mCancelButton.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
+                    }
                 }
             }
+
         }
 
         // Create new views (invoked by the layout manager)
@@ -143,7 +144,7 @@ class room_list : Fragment() {
                 viewHolder.title.text = data?.get("title").toString()
                 viewHolder.nickname.text = "@"+documentSnapshot["nickname"].toString()
                 viewHolder.person.text = data?.get("now_players").toString() + " / " + data?.get("max_players").toString()
-                if(data?.get("password") == null) {
+                if(data?.get("password").toString() == "") {
                     viewHolder.secret.visibility = View.INVISIBLE
                 }
             }
