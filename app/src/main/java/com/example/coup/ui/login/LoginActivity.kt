@@ -8,6 +8,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import com.example.coup.FirebaseManager
 import com.example.coup.FirestoreManager
 import com.example.coup.HomeActivity

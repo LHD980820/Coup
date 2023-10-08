@@ -98,21 +98,32 @@
                     app:layout_constraintStart_toStartOf="@+id/nickname_info"
                     app:layout_constraintTop_toBottomOf="@id/nickname_info" />
 
-                <ImageView
+                <de.hdodenhof.circleimageview.CircleImageView
                     android:id="@+id/image_info"
                     android:layout_width="80dp"
                     android:layout_height="80dp"
                     android:layout_marginStart="8dp"
                     android:layout_marginTop="8dp"
                     android:layout_marginBottom="8dp"
-                    android:background="@drawable/profile_circle"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="5dp"
+                    app:civ_border_color="#000000"
                     android:src="@drawable/icon"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
+                <ProgressBar
+                    android:id="@+id/progressBar_info"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/image_info"
+                    app:layout_constraintEnd_toEndOf="@+id/image_info"
+                    app:layout_constraintStart_toStartOf="@+id/image_info"
+                    app:layout_constraintTop_toTopOf="@+id/image_info" />
+
                 <TextView
-                    android:id="@+id/text_plays"
+                    android:id="@+id/plays_info"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/stylish"
