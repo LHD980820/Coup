@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.media.MediaBrowserServiceCompat.RESULT_OK
 import com.bumptech.glide.Glide
+import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.ktx.userProfileChangeRequest
@@ -52,6 +53,7 @@ class info : Fragment() {
     private lateinit var mPlays: TextView
     private lateinit var mUserImage : CircleImageView
     private lateinit var mProgressBar: ProgressBar
+    private lateinit var mLogoutButton: Button
 
     private lateinit var dialog_image: CircleImageView
     private lateinit var dialog_okay: Button
@@ -98,6 +100,7 @@ class info : Fragment() {
         mUserImage = view.findViewById(R.id.image_info)
         mPlays = view.findViewById(R.id.plays_info)
         mProgressBar = view.findViewById(R.id.progressBar_info)
+        mLogoutButton = view.findViewById(R.id.button_logout_info)
 
         mProgressBar.visibility = View.INVISIBLE
 
@@ -162,6 +165,28 @@ class info : Fragment() {
                 builder.dismiss()
             }
             builder.show()
+        }
+
+        mLogoutButton.setOnClickListener {
+            val builder_logout = AlertDialog.Builder(requireContext())
+            builder_logout.setTitle("로그아웃") // 다이얼로그 제목 설정
+            builder_logout.setMessage("로그아웃 하시겠습니까?") // 다이얼로그 내용 설정
+
+            builder_logout.setPositiveButton("예") { dialog, which ->
+                // 확인 버튼을 클릭했을 때 수행할 작업을 여기에 추가
+                auth.signOut()
+                val intent = Intent(requireContext(), LoginActivity::class.java)
+                startActivity(intent)
+                activity?.finish()
+                dialog.dismiss() // 다이얼로그 닫기
+            }
+
+            builder_logout.setNegativeButton("아니요") { dialog, which ->
+                // 취소 버튼을 클릭했을 때 수행할 작업을 여기에 추가
+                dialog.dismiss() // 다이얼로그 닫기
+            }
+            val dialog = builder_logout.create()
+            dialog.show()
         }
 
         return view
