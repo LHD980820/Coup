@@ -46,7 +46,7 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                     "password" to mPasswordView.text.toString(),
                     "max_players" to number,
                     "state" to 1,
-                    "now_players" to 0,
+                    "now_players" to 1,
                     "p1" to null,
                     "p2" to null,
                     "p3" to null,
@@ -58,9 +58,9 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                 db.collection("game_rooms")
                     .add(gameData)
                     .addOnSuccessListener { documentReference ->
-                        val gameId = documentReference.id
+                        val roomId = documentReference.id
                         val intent = Intent(context,GameWaitingRoomActivity::class.java)
-                        intent.putExtra("gameId", gameId)
+                        intent.putExtra("roomId", roomId)
                         context.startActivity(intent)
                         Log.d(TAG, "성공")
                         dismiss()

@@ -12,6 +12,9 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.core.snap
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import org.w3c.dom.Text
 
 class GameWaitingRoomActivity : AppCompatActivity() {
@@ -22,8 +25,12 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     private lateinit var mOptionButton: Button
     private lateinit var mPlayerNickname: Array<TextView>
     private lateinit var mPlayerRating: Array<TextView>
-    private var my_number: Int = 0
-    private var now_players: Int = 0
+
+    private lateinit var user: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
+    private lateinit var gameId: String
+    private var max_number: Int = 0
+    private var number: Int = 0
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_waiting_room)
@@ -47,56 +54,49 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mPlayerRating[4] = findViewById(R.id.player5_rating_waiting_room)
         mPlayerNickname[5] = findViewById(R.id.player6_nickname_waiting_room)
         mPlayerRating[5] = findViewById(R.id.player6_rating_waiting_room)
-        val user = FirebaseManager.getFirebaseAuth()
-        val db = FirestoreManager.getFirestore()
-        val gameId = intent.getStringExtra("gameId")
-        Log.d(TAG, gameId.toString())
+        user = FirebaseManager.getFirebaseAuth()
+        db = FirestoreManager.getFirestore()
+        gameId = intent.getStringExtra("roomId").toString()
+        number = intent.getStringExtra("number")!!.toInt()
+        Log.d(TAG, gameId)
 
         val game_room = db.collection("game_rooms").document(gameId!!)
 
-        // 방 제목 설정, 없는 자리 처음부터 찾아서 넣기(제거, 충돌 문제 처리 : room_list에서 설정해야 함)
+        // 방 제목 설정, 없는 자리 처음부터 찾아서 넣기
         game_room.get().addOnCompleteListener { task->
             if(task.isSuccessful) {
                 val document = task.result
                 if(document != null) {
                     if(document.exists()) {
+                        max_number = document.get("max_players").toString().toInt()
+                        Log.d(TAG, "max_number : " + max_number.toString())
                         mTitleText.text = document.get("title").toString()
-                        if(document.get("now_players").toString().toInt() >= document.get("max_players").toString().toInt()) {
-                            Toast.makeText(baseContext, "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
-                            finish()
-                        }
-                        now_players = document.get("now_players").toString().toInt()
-                        now_players++
-                        for(i in 1 until document.get("max_players").toString().toInt() + 1) {
-                            if(document.data?.get("p${i}").toString() != null) {
-                                my_number = i
-                                Log.d(TAG, "my_number = ${my_number}")
-                                game_room.update("p${my_number}", user.currentUser!!.email)
-                                db.collection("user").document(user.currentUser!!.email.toString()).get().addOnSuccessListener { documentSnapshot ->
-                                    mPlayerNickname[my_number - 1].text = documentSnapshot.get("nickname").toString()
-                                    mPlayerRating[my_number - 1].text = documentSnapshot.get("rating").toString()
+                        for( i in 1 until max_number + 1) {
+                            if(document.get("p${i}") != null) {
+                                db.collection("user").document(document.get("p${i}").toString()).get().addOnSuccessListener { snapshot ->
+                                    mPlayerNickname[i - 1].text = snapshot.get("nickname").toString()
+                                    mPlayerRating[i - 1].text = snapshot.get("rating").toString()
                                 }
-                                break
                             }
                         }
-
                         Log.d(TAG, "확인하였습니다.")
                     } else {
-                        Toast.makeText(baseContext,"방 생성에 실패하였습니다.",Toast.LENGTH_SHORT).show()
+                        Toast.makeText(baseContext,"방 입장에 실패하였습니다.1",Toast.LENGTH_SHORT).show()
                         finish()
                         Log.d(TAG, "문서가 존재하지 않습니다.")
                     }
                 } else {
-                    Toast.makeText(baseContext,"방 생성에 실패하였습니다.",Toast.LENGTH_SHORT).show()
+                    Toast.makeText(baseContext,"방 입장에 실패하였습니다.2",Toast.LENGTH_SHORT).show()
                     finish()
                     Log.d(TAG, "문서가 null입니다.")
                 }
             } else {
-                Toast.makeText(baseContext,"방 생성에 실패하였습니다.",Toast.LENGTH_SHORT).show()
+                Toast.makeText(baseContext,"방 입장에 실패하였습니다.3",Toast.LENGTH_SHORT).show()
                 finish()
                 Log.d(TAG, "데이터를 가져오는 동안 오류 발생: ${task.exception}")
             }
         }
+
 
         mOutButton.setOnClickListener {
             finish()

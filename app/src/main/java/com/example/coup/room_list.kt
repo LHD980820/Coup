@@ -1,9 +1,11 @@
 package com.example.coup
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.os.Bundle
 import android.service.autofill.Dataset
 import android.text.InputType
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -17,7 +19,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 
@@ -36,6 +40,8 @@ class room_list : Fragment() {
     private var param1: String? = null
     private var param2: String? = null
     private lateinit var createRoomButton: Button
+    private lateinit var db: FirebaseFirestore
+    private lateinit var user: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +52,7 @@ class room_list : Fragment() {
 
     }
 
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -55,7 +62,8 @@ class room_list : Fragment() {
         // "create_room" 버튼 찾기
         createRoomButton = view.findViewById(R.id.create_room)
 
-        val db = FirestoreManager.getFirestore()
+        user = FirebaseManager.getFirebaseAuth()
+        db = FirestoreManager.getFirestore()
         db.collection("game_rooms")
             .get()
             .addOnSuccessListener { documentSnapshots ->
@@ -75,7 +83,7 @@ class room_list : Fragment() {
 
     }
 
-    class CustomAdapter(private val dataSet: QuerySnapshot) :
+    inner class CustomAdapter(private val dataSet: QuerySnapshot) :
         RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
 
         /**
@@ -108,7 +116,8 @@ class room_list : Fragment() {
 
                         mOkayButton.setOnClickListener {
                             if(mCheckEditText.text.toString() == dataSet.documents[adapterPosition].get("password").toString()) {
-
+                                RoomIn(dataSet.documents[adapterPosition])
+                                builder.dismiss()
                             }
                             else {
                                 Toast.makeText(itemView.context, "비밀번호가 일치하지 않습니다", Toast.LENGTH_SHORT).show()
@@ -120,9 +129,11 @@ class room_list : Fragment() {
                         }
                         builder.show()
                     }
+                    else {
+                        RoomIn(dataSet.documents[adapterPosition])
+                    }
                 }
             }
-
         }
 
         // Create new views (invoked by the layout manager)
@@ -153,6 +164,40 @@ class room_list : Fragment() {
         // Return the size of your dataset (invoked by the layout manager)
         override fun getItemCount() = dataSet.size()
     }
+    private fun RoomIn(Docsnapshot: DocumentSnapshot) {
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(Docsnapshot.reference)
+            val now_player = snapshot.get("now_players").toString().toInt()
+            if(now_player >= snapshot.get("max_players").toString().toInt()) {
+                Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
+                activity?.runOnUiThread {
+                    Toast.makeText(requireContext(), "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
+                }
+                Log.d(TAG, "토스트 출력 후")
+            }
+            else if(snapshot.get("state").toString().toInt() != 1) {
+                activity?.runOnUiThread {
+                    Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
+                }
+            }
+            else {
+                transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
+                var my_number: Int = 1
+                for(i in 1 until Docsnapshot.get("max_players").toString().toInt() + 1) {
+                    if(Docsnapshot.get("p${i}") == null) {
+                        transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
+                        my_number = i
+                        break
+                    }
+                }
+                val intent = Intent(requireContext(), GameWaitingRoomActivity::class.java)
+                intent.putExtra("roomId", Docsnapshot.id)
+                intent.putExtra("number", my_number.toString())
+                startActivity(intent)
+            }
+        }
+    }
+
 
     companion object {
         /**
@@ -172,5 +217,6 @@ class room_list : Fragment() {
                     putString(ARG_PARAM2, param2)
                 }
             }
+        private const val TAG = "RoomList"
     }
 }
