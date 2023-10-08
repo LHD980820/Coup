@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ranking">
+    tools:context=".ranking"
+    android:background="#F5F0C4">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -49,9 +50,11 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rooms_recyclerview"
+            android:id="@+id/ranking_recyclerview"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/ranking_recycler_box"
+            android:layout_margin="4dp"
             android:layout_weight="1" />
 
     </LinearLayout>

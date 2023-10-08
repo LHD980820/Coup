@@ -6,7 +6,11 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.compose.material3.AlertDialog
+import com.bumptech.glide.Glide
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.firestoreSettings
@@ -33,6 +37,7 @@ class info : Fragment() {
     private lateinit var auth: FirebaseAuth
     private lateinit var mNickname: TextView
     private lateinit var mRating: TextView
+    private lateinit var mUserImage : ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +61,7 @@ class info : Fragment() {
         val view = inflater.inflate(R.layout.fragment_info, container, false)
         mNickname = view.findViewById(R.id.nickname_info)
         mRating = view.findViewById(R.id.score_info)
+        mUserImage = view.findViewById(R.id.image_info)
 
         db.collection("user")
             .document(user!!.email!!.toString())
@@ -67,9 +73,14 @@ class info : Fragment() {
                         if(document.exists()) {
                             mNickname.text = document.get("nickname").toString()
                             mRating.text = document.get("rating").toString()
-                            Log.d(TAG, "확인하였습니다.${user!!.email!!.toString()}")
+                            user.photoUrl?.let { imageUrl ->
+                                Glide.with(this)
+                                    .load(imageUrl)
+                                    .into(mUserImage)
+                            }
+                            Log.d(TAG, "확인하였습니다.${user!!.email!!}")
                         } else {
-                            Log.d(TAG, "문서가 존재하지 않습니다.${user!!.email!!.toString()}")
+                            Log.d(TAG, "문서가 존재하지 않습니다.${user!!.email!!}")
                         }
                     } else {
                         Log.d(TAG, "문서가 null입니다.")
@@ -78,7 +89,10 @@ class info : Fragment() {
                     Log.d(TAG, "데이터를 가져오는 동안 오류 발생: ${task.exception}")
                 }
             }
-
+        mUserImage.setOnClickListener {
+            val builder = AlertDialog.Builder(requireContext())
+            builder.setView(R.layout.dialog_change_profile_image)
+        }
 
         return view
     }

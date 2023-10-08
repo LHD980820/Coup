@@ -4,6 +4,7 @@ import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.Window
 import android.widget.Button
 import android.widget.EditText
@@ -43,7 +44,16 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                 val gameData = hashMapOf(
                     "title" to mTitleView.text.toString(),
                     "password" to mPasswordView.text.toString(),
-                    "players" to number
+                    "max_players" to number,
+                    "state" to 1,
+                    "now_players" to 0,
+                    "p1" to null,
+                    "p2" to null,
+                    "p3" to null,
+                    "p4" to null,
+                    "p5" to null,
+                    "p6" to null,
+                    "action_code" to null
                 )
                 db.collection("game_rooms")
                     .add(gameData)
@@ -52,6 +62,7 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                         val intent = Intent(context,GameWaitingRoomActivity::class.java)
                         intent.putExtra("gameId", gameId)
                         context.startActivity(intent)
+                        Log.d(TAG, "성공")
                         dismiss()
                     }
                     .addOnFailureListener { e ->
@@ -84,5 +95,9 @@ class CreateRoomDialog(context: Context): Dialog(context) {
 
     private fun init() {
         mNowPerson.text = number.toString()
+    }
+
+    companion object{
+        private const val TAG = "CreateRoom"
     }
 }

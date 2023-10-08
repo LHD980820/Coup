@@ -36,7 +36,7 @@
                 app:layout_constraintLeft_toLeftOf="parent">
             </TextView>
             <TextView
-                android:id="@+id/waiting_subtitle"
+                android:id="@+id/text_waiting_room"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="7dp"
@@ -52,10 +52,10 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <ImageButton
-            android:id="@+id/back_lobby"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginRight="5dp"
+            android:id="@+id/back_lobby_waiting_room"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginRight="12dp"
             android:background="@color/transparent"
             android:src="@drawable/logout_icon"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -95,7 +95,7 @@
             android:layout_marginBottom="10dp"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/game_start_btn">
+            app:layout_constraintBottom_toTopOf="@id/game_start_btn_waiting_room">
 
             <TableRow>
                 <androidx.cardview.widget.CardView
@@ -112,7 +112,7 @@
                     android:elevation="40dp"
                     app:cardCornerRadius="15dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -120,24 +120,52 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player1_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/player1_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player1_image_waiting_room" />
+
                         <TextView
+                            android:id="@+id/player1_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player1_nickname_waiting_room" />
 
-                    </LinearLayout>
+                        <ImageView
+                            android:id="@+id/crown_waiting_room"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:layout_marginEnd="8dp"
+                            android:src="@drawable/icon_crown"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
@@ -154,7 +182,7 @@
                     app:cardCornerRadius="15dp"
                     app:cardElevation="8dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -162,25 +190,43 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player2_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"/>
 
                         <TextView
+                            android:id="@+id/player2_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player2_image_waiting_room"/>
 
                         <TextView
+                            android:id="@+id/player2_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player2_nickname_waiting_room" />
 
-                    </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
             </TableRow>
 
@@ -200,7 +246,7 @@
                     app:cardCornerRadius="15dp"
                     app:cardElevation="8dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -208,25 +254,42 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player3_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/player3_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player3_image_waiting_room" />
 
                         <TextView
+                            android:id="@+id/player3_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
-
-                    </LinearLayout>
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player3_nickname_waiting_room" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
@@ -243,7 +306,7 @@
                     app:cardCornerRadius="15dp"
                     app:cardElevation="8dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -251,25 +314,43 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player4_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/player4_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player4_image_waiting_room" />
 
                         <TextView
+                            android:id="@+id/player4_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player4_nickname_waiting_room" />
 
-                    </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
             </TableRow>
 
@@ -288,7 +369,7 @@
                     app:cardCornerRadius="15dp"
                     app:cardElevation="8dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -296,25 +377,43 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player5_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/player5_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player5_image_waiting_room" />
 
                         <TextView
+                            android:id="@+id/player5_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player5_nickname_waiting_room" />
 
-                    </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
@@ -331,7 +430,7 @@
                     app:cardCornerRadius="15dp"
                     app:cardElevation="8dp">
 
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical|center_horizontal"
@@ -339,32 +438,50 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:id="@+id/player6_image_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:src="@drawable/icon" />
+                            android:layout_marginStart="4dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="4dp"
+                            android:background="@drawable/profile_circle"
+                            android:src="@drawable/icon"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/player6_nickname_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/name_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player6_image_waiting_room" />
 
                         <TextView
+                            android:id="@+id/player6_rating_waiting_room"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/score_text"
                             android:textAlignment="center"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            android:textColor="@color/black"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/player6_nickname_waiting_room" />
 
-                    </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
                 </androidx.cardview.widget.CardView>
             </TableRow>
 
         </TableLayout>
 
         <Button
-            android:id="@+id/game_start_btn"
+            android:id="@+id/game_start_btn_waiting_room"
             android:layout_width="330dp"
             android:layout_height="40dp"
             android:layout_marginBottom="10dp"
@@ -374,11 +491,11 @@
             android:text="@string/game_start"
             android:fontFamily="@font/mulish_bold"
             android:textColor="@color/black"
-            app:layout_constraintBottom_toTopOf="@id/option_btn"
+            app:layout_constraintBottom_toTopOf="@id/option_btn_waiting_room"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintLeft_toLeftOf="parent"/>
         <Button
-            android:id="@+id/option_btn"
+            android:id="@+id/option_btn_waiting_room"
             android:layout_width="330dp"
             android:layout_height="40dp"
             android:layout_marginBottom="10dp"
@@ -389,8 +506,8 @@
             android:fontFamily="@font/mulish_bold"
             android:textColor="@color/black"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintRight_toRightOf="@id/game_start_btn"
-            app:layout_constraintLeft_toLeftOf="@id/game_start_btn"/>
+            app:layout_constraintRight_toRightOf="@id/game_start_btn_waiting_room"
+            app:layout_constraintLeft_toLeftOf="@id/game_start_btn_waiting_room"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

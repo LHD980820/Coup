@@ -51,12 +51,12 @@ class ranking : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_ranking, container, false)
         val db = FirestoreManager.getFirestore()
-        val query = db.collection("user")
+        db.collection("user")
             .orderBy("rating", Query.Direction.DESCENDING).limit(100)
             .get()
             .addOnSuccessListener { documentSnapshots ->
                 val adapter = CustomAdapter(documentSnapshots)
-                val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)
+                val recyclerView = view.findViewById<RecyclerView>(R.id.ranking_recyclerview)
                 recyclerView.layoutManager = LinearLayoutManager(requireContext())
                 recyclerView.adapter = adapter
             }

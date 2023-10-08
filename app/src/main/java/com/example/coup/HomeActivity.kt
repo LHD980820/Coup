@@ -20,7 +20,6 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        FirestoreManager.initialize()
 
         bottomNavigationView = findViewById(R.id.bottom_navigation)
 
