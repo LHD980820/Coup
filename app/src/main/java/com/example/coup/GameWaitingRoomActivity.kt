@@ -1,5 +1,6 @@
 package com.example.coup
 
+import android.app.PendingIntent.OnFinished
 import android.content.Intent
 import android.os.Bundle
 import android.provider.ContactsContract.CommonDataKinds.Nickname
@@ -12,6 +13,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import android.window.OnBackInvokedDispatcher
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.core.snap
 import com.bumptech.glide.Glide
@@ -78,6 +80,18 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
         val game_room = db.collection("game_rooms").document(gameId!!)
         db.collection("game_rooms").document(gameId).addSnapshotListener { snapshot, e->
+            if (e != null) {
+                // 오류 처리
+                Log.e("FirestoreListener", "Error: ${e.message}")
+                return@addSnapshotListener
+            }
+            if (snapshot != null && !snapshot.exists()) {
+                // 문서가 삭제됐을 때 실행할 코드
+                Log.d("FirestoreListener", "방장이 방을 폭파시켰습니다")
+                finish()
+                // 여기에서 삭제된 문서에 대한 추가 작업을 수행할 수 있습니다.
+                // 예를 들어, UI 업데이트 또는 다른 동작을 수행할 수 있습니다.
+            }
             for( i in 1 until max_number + 1) {
                 if(snapshot?.get("p${i}") != null) {
                     db.collection("user").document(snapshot.get("p${i}").toString()).get().addOnSuccessListener { Document ->
@@ -133,9 +147,28 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         }
 
         mOutButton.setOnClickListener {
-            finish()
-//            val intent = Intent(applicationContext,HomeActivity::class.java)
-//            startActivity(intent)
+            Log.d(TAG, "number : $number")
+            if(number == 1) {
+                val builder = AlertDialog.Builder(this)
+                    .setTitle("나가기")
+                    .setMessage("방을 폭파시키겠습니까?")
+                    .setPositiveButton("예") { dialog, which ->
+                        Log.d(TAG, "성공")
+                        db.collection("game_rooms").document(gameId).delete()
+                        Log.d(TAG, "성공1")
+                        dialog.dismiss()
+                        Log.d(TAG, "성공2")
+                        finish()
+                        Log.d(TAG, "성공3")
+                    }
+                    .setNegativeButton("아니요") { dialog, which ->
+                        dialog.dismiss()
+                    }
+                builder.show()
+            }
+            else {
+                finish()
+            }
         }
 
         mGameStartButton.setOnClickListener {
@@ -148,6 +181,13 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        db.collection("game_rooms").document(gameId).update("p${number}", null)
+        db.collection("game_rooms").document(gameId).get().addOnSuccessListener { document->
+            document.reference.update("now_players", document["now_players"].toString().toInt() - 1)
+        }
+    }
 
     companion object{
         private const val TAG = "GameWaitingRoom"
