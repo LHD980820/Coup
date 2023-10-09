@@ -110,9 +110,9 @@ class ranking : Fragment() {
             if (position < 3) {
                 //1,2,3등의 배경은 금,은,동
                 when (position) {
-                    0 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#ffd700"))
-                    1 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#c0c0c0"))
-                    else -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#bf8970"))
+                    0 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80ffd700"))
+                    1 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80c0c0c0"))
+                    else -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80bf8970"))
                 }
 
                 // Apply (Blinking) Animation
