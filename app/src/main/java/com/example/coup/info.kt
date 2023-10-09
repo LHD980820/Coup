@@ -147,13 +147,11 @@ class info : Fragment() {
             dialog_okay = dialogview.findViewById(R.id.button_okay_change_profile_image)
             dialog_cancel = dialogview.findViewById(R.id.button_cancel_change_profile_image)
 
-            user.photoUrl?.let { imageUrl ->
+            storage.reference.child("profile_images/${user.email}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
                 Glide.with(this)
                     .load(imageUrl)
                     .into(dialog_image)
             }
-
-
 
             dialog_image.setOnClickListener {
                 Log.d(TAG, "사진 눌러짐")
