@@ -86,10 +86,10 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/waiting_room_profile_box"/>
+            app:layout_constraintBottom_toTopOf="@id/StateLayout"/>
 
         <TableLayout
-            android:id="@+id/waiting_room_profile_box"
+            android:id="@+id/StateLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
@@ -191,14 +191,16 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
+                        <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/player2_image_waiting_room"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
                             android:layout_marginStart="4dp"
                             android:layout_marginTop="4dp"
                             android:layout_marginEnd="4dp"
-                            android:background="@drawable/profile_circle"
+                            app:civ_border_overlay="true"
+                            app:civ_border_width="5dp"
+                            app:civ_border_color="#000000"
                             android:src="@drawable/icon"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
@@ -255,14 +257,16 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
+                        <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/player3_image_waiting_room"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
                             android:layout_marginStart="4dp"
                             android:layout_marginTop="4dp"
                             android:layout_marginEnd="4dp"
-                            android:background="@drawable/profile_circle"
+                            app:civ_border_overlay="true"
+                            app:civ_border_width="5dp"
+                            app:civ_border_color="#000000"
                             android:src="@drawable/icon"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
@@ -315,15 +319,16 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
+                        <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/player4_image_waiting_room"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
                             android:layout_marginStart="4dp"
                             android:layout_marginTop="4dp"
                             android:layout_marginEnd="4dp"
-                            android:background="@drawable/profile_circle"
-                            android:src="@drawable/icon"
+                            app:civ_border_overlay="true"
+                            app:civ_border_width="5dp"
+                            app:civ_border_color="#000000"                            android:src="@drawable/icon"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintTop_toTopOf="parent" />
@@ -378,15 +383,16 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
+                        <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/player5_image_waiting_room"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
                             android:layout_marginStart="4dp"
                             android:layout_marginTop="4dp"
                             android:layout_marginEnd="4dp"
-                            android:background="@drawable/profile_circle"
-                            android:src="@drawable/icon"
+                            app:civ_border_overlay="true"
+                            app:civ_border_width="5dp"
+                            app:civ_border_color="#000000"                            android:src="@drawable/icon"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintTop_toTopOf="parent" />
@@ -439,15 +445,16 @@
                         android:gravity="center"
                         android:orientation="vertical">
 
-                        <ImageView
+                        <de.hdodenhof.circleimageview.CircleImageView
                             android:id="@+id/player6_image_waiting_room"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_width="100dp"
+                            android:layout_height="100dp"
                             android:layout_marginStart="4dp"
                             android:layout_marginTop="4dp"
                             android:layout_marginEnd="4dp"
-                            android:background="@drawable/profile_circle"
-                            android:src="@drawable/icon"
+                            app:civ_border_overlay="true"
+                            app:civ_border_width="5dp"
+                            app:civ_border_color="#000000"                            android:src="@drawable/icon"
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintTop_toTopOf="parent" />
