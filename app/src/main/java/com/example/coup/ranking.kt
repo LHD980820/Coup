@@ -1,13 +1,16 @@
 package com.example.coup
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.ui.res.colorResource
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.firebase.ui.firestore.FirestoreRecyclerOptions
@@ -102,6 +105,20 @@ class ranking : Fragment() {
             viewHolder.number.text = (position + 1).toString()
             viewHolder.nickname.text = dataSet.documents[position].data?.get("nickname").toString()
             viewHolder.rating.text = dataSet.documents[position].data?.get("rating").toString()
+
+            // Check if the position is 0, 1, or 2 (1st, 2nd, or 3rd place)
+            if (position < 3) {
+                //1,2,3등의 배경은 금,은,동
+                when (position) {
+                    0 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#ffd700"))
+                    1 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#c0c0c0"))
+                    else -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#bf8970"))
+                }
+
+                // Apply (Blinking) Animation
+                val blinkingAnimation = AnimationUtils.loadAnimation(viewHolder.itemView.context, R.anim.blink_animation)
+                viewHolder.itemView.startAnimation(blinkingAnimation)
+            }
         }
 
         // Return the size of your dataset (invoked by the layout manager)
