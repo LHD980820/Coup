@@ -90,7 +90,6 @@ class room_list : Fragment() {
          * Provide a reference to the type of views that you are using
          * (custom ViewHolder).
          */
-        private val db = FirestoreManager.getFirestore()
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val title: TextView
             val nickname: TextView
@@ -104,33 +103,16 @@ class room_list : Fragment() {
                 secret = view.findViewById(R.id.secret_rooms_item)
 
                 view.setOnClickListener {
-                    if(dataSet.documents[adapterPosition].get("password").toString() != "") {
-                        val builder = AlertDialog.Builder(itemView.context).create()
-                        val inflater = LayoutInflater.from(itemView.context)
-                        val dialogview = inflater.inflate(R.layout.dialog_check_password, null)
-                        builder.setView(dialogview)
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val document = dataSet.documents[position]
+                        val password = document.get("password").toString()
 
-                        val mCheckEditText = dialogview.findViewById<EditText>(R.id.edit_check_password)
-                        val mOkayButton = dialogview.findViewById<Button>(R.id.button_okay_check_password)
-                        val mCancelButton = dialogview.findViewById<Button>(R.id.button_cancel_check_password)
-
-                        mOkayButton.setOnClickListener {
-                            if(mCheckEditText.text.toString() == dataSet.documents[adapterPosition].get("password").toString()) {
-                                RoomIn(dataSet.documents[adapterPosition])
-                                builder.dismiss()
-                            }
-                            else {
-                                Toast.makeText(itemView.context, "비밀번호가 일치하지 않습니다", Toast.LENGTH_SHORT).show()
-                            }
+                        if (password.isNotEmpty()) {
+                            showPasswordDialog(document)
+                        } else {
+                            RoomIn(document)
                         }
-
-                        mCancelButton.setOnClickListener {
-                            builder.dismiss()
-                        }
-                        builder.show()
-                    }
-                    else {
-                        RoomIn(dataSet.documents[adapterPosition])
                     }
                 }
             }
@@ -150,53 +132,90 @@ class room_list : Fragment() {
 
             // Get element from your dataset at this position and replace the
             // contents of the view with that element
-            val data = dataSet.documents[position].data
-            db.collection("user").document(data?.get("p1").toString()).get().addOnSuccessListener { documentSnapshot ->
-                viewHolder.title.text = data?.get("title").toString()
-                viewHolder.nickname.text = "@"+documentSnapshot["nickname"].toString()
-                viewHolder.person.text = data?.get("now_players").toString() + " / " + data?.get("max_players").toString()
-                if(data?.get("password").toString() == "") {
-                    viewHolder.secret.visibility = View.INVISIBLE
-                }
+            val document = dataSet.documents[position]
+            val title = document.get("title").toString()
+            val p1Id = document.get("p1").toString()
+
+            val nowPlayers = document.get("now_players").toString().toInt()
+            val maxPlayers = document.get("max_players").toString().toInt()
+            val password = document.get("password").toString()
+
+            viewHolder.title.text = title
+            viewHolder.nickname.text = "@" + p1Id
+            viewHolder.person.text = "$nowPlayers / $maxPlayers"
+
+            if (password.isNotEmpty()) {
+                viewHolder.secret.visibility = View.VISIBLE
+            } else {
+                viewHolder.secret.visibility = View.INVISIBLE
             }
         }
 
         // Return the size of your dataset (invoked by the layout manager)
         override fun getItemCount() = dataSet.size()
-    }
-    private fun RoomIn(Docsnapshot: DocumentSnapshot) {
-        db.runTransaction { transaction ->
-            val snapshot = transaction.get(Docsnapshot.reference)
-            val now_player = snapshot.get("now_players").toString().toInt()
-            if(now_player >= snapshot.get("max_players").toString().toInt()) {
-                Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
-                activity?.runOnUiThread {
-                    Toast.makeText(requireContext(), "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
+
+        private fun showPasswordDialog(document: DocumentSnapshot) {
+            // 비밀번호 확인 다이얼로그 표시
+            val builder = AlertDialog.Builder(requireContext()).create()
+            val inflater = LayoutInflater.from(requireContext())
+            val dialogview = inflater.inflate(R.layout.dialog_check_password, null)
+            builder.setView(dialogview)
+
+            val mCheckEditText = dialogview.findViewById<EditText>(R.id.edit_check_password)
+            val mOkayButton = dialogview.findViewById<Button>(R.id.button_okay_check_password)
+            val mCancelButton = dialogview.findViewById<Button>(R.id.button_cancel_check_password)
+
+            mOkayButton.setOnClickListener {
+                if(mCheckEditText.text.toString().isEmpty()) {
+                    Toast.makeText(requireContext(), "비밀번호를 입력해주세요", Toast.LENGTH_SHORT).show()
                 }
-                Log.d(TAG, "토스트 출력 후")
-            }
-            else if(snapshot.get("state").toString().toInt() != 1) {
-                activity?.runOnUiThread {
-                    Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
+                else if (mCheckEditText.text.toString() == document.get("password").toString()) {
+                    RoomIn(document)
+                    builder.dismiss()
+                } else {
+                    Toast.makeText(requireContext(), "비밀번호가 일치하지 않습니다", Toast.LENGTH_SHORT).show()
                 }
             }
-            else {
-                transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
-                var my_number: Int = 1
-                for(i in 1 until Docsnapshot.get("max_players").toString().toInt() + 1) {
-                    if(Docsnapshot.get("p${i}") == null) {
-                        transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
-                        my_number = i
-                        break
+            mCancelButton.setOnClickListener {
+                builder.dismiss()
+            }
+            builder.show()
+        }
+        private fun RoomIn(Docsnapshot: DocumentSnapshot) {
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(Docsnapshot.reference)
+                val now_player = snapshot.get("now_players").toString().toInt()
+                if(now_player >= snapshot.get("max_players").toString().toInt()) {
+                    Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
+                    activity?.runOnUiThread {
+                        Toast.makeText(requireContext(), "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
+                    }
+                    Log.d(TAG, "토스트 출력 후")
+                }
+                else if(snapshot.get("state").toString().toInt() != 1) {
+                    activity?.runOnUiThread {
+                        Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
                     }
                 }
-                val intent = Intent(requireContext(), GameWaitingRoomActivity::class.java)
-                intent.putExtra("roomId", Docsnapshot.id)
-                intent.putExtra("number", my_number.toString())
-                startActivity(intent)
+                else {
+                    transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
+                    var my_number: Int = 1
+                    for(i in 1 until Docsnapshot.get("max_players").toString().toInt() + 1) {
+                        if(Docsnapshot.get("p${i}") == null) {
+                            transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
+                            my_number = i
+                            break
+                        }
+                    }
+                    val intent = Intent(requireContext(), GameWaitingRoomActivity::class.java)
+                    intent.putExtra("roomId", Docsnapshot.id)
+                    intent.putExtra("number", my_number.toString())
+                    startActivity(intent)
+                }
             }
         }
     }
+
 
 
     companion object {

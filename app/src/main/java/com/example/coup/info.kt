@@ -26,6 +26,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.ktx.userProfileChangeRequest
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
 import java.io.File
@@ -46,7 +47,6 @@ class info : Fragment() {
     private var param1: String? = null
     private var param2: String? = null
 
-    private val PICK_IMAGE_REQUEST = 123
     private lateinit var auth: FirebaseAuth
     private lateinit var mNickname: TextView
     private lateinit var mRating: TextView
@@ -59,6 +59,7 @@ class info : Fragment() {
     private lateinit var dialog_okay: Button
     private lateinit var dialog_cancel: Button
 
+    private lateinit var storage: FirebaseStorage
     private lateinit var selectedImageUri: Uri
 
 
@@ -90,6 +91,7 @@ class info : Fragment() {
     ): View? {
 
         auth = FirebaseManager.getFirebaseAuth()
+        storage = Firebase.storage
         // Inflate the layout for this fragment
         val user = auth.currentUser
         val db = FirestoreManager.getFirestore()
@@ -115,11 +117,13 @@ class info : Fragment() {
                             mNickname.text = document.get("nickname").toString()
                             mRating.text = document.get("rating").toString()
                             mPlays.text = "plays : " + document.get("plays").toString()
-                            user.photoUrl?.let { imageUrl ->
+                            mProgressBar.visibility = View.VISIBLE
+                            storage.reference.child("profile_images/${user.email}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
                                 Glide.with(this)
                                     .load(imageUrl)
                                     .into(mUserImage)
                             }
+                            mProgressBar.visibility = View.INVISIBLE
                             Log.d(TAG, "확인하였습니다.${user!!.email!!}")
                         } else {
                             Log.d(TAG, "문서가 존재하지 않습니다.${user!!.email!!}")
@@ -148,7 +152,7 @@ class info : Fragment() {
                     .load(imageUrl)
                     .into(dialog_image)
             }
-            dialog_image.setBackgroundResource(R.drawable.profile_circle)
+
 
 
             dialog_image.setOnClickListener {
@@ -158,7 +162,9 @@ class info : Fragment() {
                 imagePicker.launch(intent)
             }
             dialog_okay.setOnClickListener {
-                uploadImage(selectedImageUri)
+                if(::selectedImageUri.isInitialized) {
+                    uploadImage(selectedImageUri)
+                }
                 builder.dismiss()
             }
             dialog_cancel.setOnClickListener {
@@ -195,7 +201,6 @@ class info : Fragment() {
     private fun uploadImage(imageUri: Uri?) {
         auth = FirebaseManager.getFirebaseAuth()
         val user = auth.currentUser
-        val storage = Firebase.storage
         val storageRef = storage.reference
         Log.d(TAG, "성공")
         if (user != null && imageUri != null) {
@@ -223,7 +228,7 @@ class info : Fragment() {
                             if (updateTask.isSuccessful) {
                                 // 프로필 업데이트 성공.
                                 mProgressBar.visibility = View.INVISIBLE
-                                user.photoUrl?.let { imageUrl ->
+                                storage.reference.child("profile_images/${user.email}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
                                     Glide.with(this)
                                         .load(imageUrl)
                                         .into(mUserImage)
