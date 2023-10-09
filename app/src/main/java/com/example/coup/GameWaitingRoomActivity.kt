@@ -1,21 +1,13 @@
 package com.example.coup
 
-import android.app.PendingIntent.OnFinished
-import android.content.Intent
 import android.os.Bundle
-import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import android.window.OnBackInvokedDispatcher
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.animation.core.snap
 import com.bumptech.glide.Glide
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,7 +15,6 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
-import org.w3c.dom.Text
 
 class GameWaitingRoomActivity : AppCompatActivity() {
     //UI Preferences
@@ -44,7 +35,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_waiting_room)
-
 
         mPlayerNickname = Array(6) { TextView(this) }
         mPlayerRating = Array(6) { TextView(this) }
@@ -85,25 +75,19 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 Log.e("FirestoreListener", "Error: ${e.message}")
                 return@addSnapshotListener
             }
+            Log.d(TAG, "스냅샷 감지")
             if (snapshot != null && !snapshot.exists()) {
                 // 문서가 삭제됐을 때 실행할 코드
-                Log.d("FirestoreListener", "방장이 방을 폭파시켰습니다")
+                Log.d("FirestoreListener", "방 폭파")
+                Toast.makeText(this, "방이 폭파되었습니다", Toast.LENGTH_SHORT).show()
                 finish()
                 // 여기에서 삭제된 문서에 대한 추가 작업을 수행할 수 있습니다.
                 // 예를 들어, UI 업데이트 또는 다른 동작을 수행할 수 있습니다.
             }
-            for( i in 1 until max_number + 1) {
-                if(snapshot?.get("p${i}") != null) {
-                    db.collection("user").document(snapshot.get("p${i}").toString()).get().addOnSuccessListener { Document ->
-                        mPlayerNickname[i - 1].text = Document.get("nickname").toString()
-                        mPlayerRating[i - 1].text = Document.get("rating").toString()
-                        storage.reference.child("profile_images/${Document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                            Glide.with(this)
-                                .load(imageUrl)
-                                .into(mPlayerImage[i - 1])
-                        }
-                    }
-                }
+            val snapshotData = snapshot?.data
+            if(snapshotData != null) {
+                Log.d(TAG, "데이터 감지")
+                RoomInfo(snapshotData)
             }
         }
         // 방 제목 설정
@@ -167,6 +151,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 builder.show()
             }
             else {
+                //
                 finish()
             }
         }
@@ -181,14 +166,105 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        db.collection("game_rooms").document(gameId).update("p${number}", null)
-        db.collection("game_rooms").document(gameId).get().addOnSuccessListener { document->
-            document.reference.update("now_players", document["now_players"].toString().toInt() - 1)
+    private fun RoomInfo(snapshotData: Map<String, Any>) {
+        for (i in 1 until max_number + 1) {
+            val playerData = snapshotData["p$i"]
+            if (playerData != null) {
+                db.collection("user").document(playerData.toString()).get()
+                    .addOnSuccessListener { Document ->
+                        Log.d(TAG, "읽기 성공$i")
+                        mPlayerNickname[i - 1].text = Document.get("nickname").toString()
+                        mPlayerRating[i - 1].text = Document.get("rating").toString()
+                        storage.reference.child("profile_images/${Document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
+                            if (!this.isDestroyed) {
+                                Glide.with(this)
+                                    .load(imageUrl)
+                                    .into(mPlayerImage[i - 1])
+                            }
+                        }
+                    }
+                    .addOnFailureListener {
+                        Log.d(TAG, "읽기 실패")
+                        mPlayerNickname[i - 1].text = "NAME_TEXT"
+                        mPlayerRating[i - 1].text = "SCORE_TEXT"
+                        mPlayerImage[i - 1].setImageResource(R.drawable.icon)
+                    }
+            } else {
+                mPlayerNickname[i - 1].text = "NAME_TEXT"
+                mPlayerRating[i - 1].text = "SCORE_TEXT"
+                mPlayerImage[i - 1].setImageResource(R.drawable.icon)
+            }
         }
     }
 
+    override fun onDestroy() {
+        if(number == 1) {
+            db.collection("game_rooms").document(gameId).delete()
+        }
+        else {
+            db.collection("game_rooms").document(gameId).get().addOnSuccessListener { documentSnapShot ->
+                Log.d(TAG, "onDestroy읽기 성공")
+                if(documentSnapShot.exists()) {
+                    documentSnapShot.reference.update("p${number}", null)
+                    documentSnapShot.reference.update("now_players", documentSnapShot["now_players"].toString().toInt() - 1)
+                }
+            }
+        }
+        super.onDestroy()
+    }
+
+    override fun finish() {
+        super.finish()
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+        finish()
+
+    }
+    override fun onStop() {
+        super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+        if(number == 1) {
+            val builder = AlertDialog.Builder(this)
+                .setTitle("나가기")
+                .setMessage("방을 폭파시키겠습니까?")
+                .setPositiveButton("예") { dialog, which ->
+                    Log.d(TAG, "성공")
+                    db.collection("game_rooms").document(gameId).delete()
+                    Log.d(TAG, "성공1")
+                    dialog.dismiss()
+                    Log.d(TAG, "성공2")
+                    finish()
+                    Log.d(TAG, "성공3")
+                }
+                .setNegativeButton("아니요") { dialog, which ->
+                    dialog.dismiss()
+                }
+            builder.show()
+        }
+        else {
+            val builder = AlertDialog.Builder(this)
+                .setTitle("방 나가기")
+                .setMessage("방에서 나가시겠습니까?")
+                .setPositiveButton("예") { dialog, which->
+                    dialog.dismiss()
+                    finish()
+                }
+                .setNegativeButton("아니요") {dialog, which->
+                    dialog.dismiss()
+                }
+                .show()
+        }
+    }
     companion object{
         private const val TAG = "GameWaitingRoom"
     }
