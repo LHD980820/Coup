@@ -10,6 +10,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class CreateRoomDialog(context: Context): Dialog(context) {
     //UI references
@@ -20,6 +22,8 @@ class CreateRoomDialog(context: Context): Dialog(context) {
     private lateinit var mPlusPersonButton: Button
     private lateinit var mOkayButton: Button
     private lateinit var mCloseButton: Button
+    private lateinit var db: FirebaseFirestore
+    private lateinit var user: FirebaseAuth
     private var number: Int = 2
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,12 +39,14 @@ class CreateRoomDialog(context: Context): Dialog(context) {
         mNowPerson = findViewById(R.id.text_now_person_create)
 
         init()
+        db = FirestoreManager.getFirestore()
+        user = FirebaseManager.getFirebaseAuth()
 
         //Okay Button -> Activate GameWaitingRoomActivity
         mOkayButton.setOnClickListener{
             if(mTitleView.text.isNullOrEmpty()) Toast.makeText(context, "방 제목을 입력해 주세요", Toast.LENGTH_SHORT).show()
             else {
-                val db = FirestoreManager.getFirestore()
+
                 val gameData = hashMapOf(
                     "title" to mTitleView.text.toString(),
                     "password" to mPasswordView.text.toString(),
@@ -61,6 +67,8 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                         val roomId = documentReference.id
                         val intent = Intent(context,GameWaitingRoomActivity::class.java)
                         intent.putExtra("roomId", roomId)
+                        intent.putExtra("number", "1")
+                        db.collection("game_rooms").document(roomId).update("p1", user.currentUser!!.email)
                         context.startActivity(intent)
                         Log.d(TAG, "성공")
                         dismiss()

@@ -62,7 +62,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
         val game_room = db.collection("game_rooms").document(gameId!!)
 
-        // 방 제목 설정, 없는 자리 처음부터 찾아서 넣기
+        // 방 제목 설정
         game_room.get().addOnCompleteListener { task->
             if(task.isSuccessful) {
                 val document = task.result
