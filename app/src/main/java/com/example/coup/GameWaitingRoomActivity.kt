@@ -1,16 +1,26 @@
 package com.example.coup
 
+import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.constraintlayout.widget.ConstraintLayout
 import com.bumptech.glide.Glide
+import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
@@ -21,17 +31,28 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     private lateinit var mTitleText: TextView
     private lateinit var mOutButton: ImageButton
     private lateinit var mGameStartButton: Button
-    private lateinit var mOptionButton: Button
     private lateinit var mPlayerNickname: Array<TextView>
     private lateinit var mPlayerRating: Array<TextView>
     private lateinit var mPlayerImage: Array<CircleImageView>
+    private lateinit var mPlayerThumbsUpImage: Array<ImageView>
+    private lateinit var mNoPersonImage3: ImageView
+    private lateinit var mNoPersonImage4: ImageView
+    private lateinit var mNoPersonImage5: ImageView
+    private lateinit var mNoPersonImage6: ImageView
+    private lateinit var mCard3: ConstraintLayout
+    private lateinit var mCard4: ConstraintLayout
+    private lateinit var mCard5: ConstraintLayout
+    private lateinit var mCard6: ConstraintLayout
 
     private lateinit var user: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private lateinit var storage: FirebaseStorage
+    private lateinit var database: FirebaseDatabase
+
     private lateinit var gameId: String
     private var max_number: Int = 0
     private var number: Int = 0
+    private lateinit var snapshotListener: ListenerRegistration
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_waiting_room)
@@ -39,9 +60,9 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mPlayerNickname = Array(6) { TextView(this) }
         mPlayerRating = Array(6) { TextView(this) }
         mPlayerImage = Array(6) { CircleImageView(this) }
+        mPlayerThumbsUpImage  = Array(6) { ImageView(this) }
         mOutButton = findViewById(R.id.back_lobby_waiting_room)
         mGameStartButton = findViewById(R.id.game_start_btn_waiting_room)
-        mOptionButton = findViewById(R.id.option_btn_waiting_room)
         mTitleText = findViewById(R.id.waiting_room_title)
         mPlayerNickname[0] = findViewById(R.id.player1_nickname_waiting_room)
         mPlayerRating[0] = findViewById(R.id.player1_rating_waiting_room)
@@ -49,27 +70,74 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mPlayerNickname[1] = findViewById(R.id.player2_nickname_waiting_room)
         mPlayerRating[1] = findViewById(R.id.player2_rating_waiting_room)
         mPlayerImage[1] = findViewById(R.id.player2_image_waiting_room)
+        mPlayerThumbsUpImage[1] = findViewById(R.id.player2_thumbs_up_waiting_room)
         mPlayerNickname[2] = findViewById(R.id.player3_nickname_waiting_room)
         mPlayerRating[2] = findViewById(R.id.player3_rating_waiting_room)
         mPlayerImage[2] = findViewById(R.id.player3_image_waiting_room)
+        mPlayerThumbsUpImage[2] = findViewById(R.id.player3_thumbs_up_waiting_room)
         mPlayerNickname[3] = findViewById(R.id.player4_nickname_waiting_room)
         mPlayerRating[3] = findViewById(R.id.player4_rating_waiting_room)
         mPlayerImage[3] = findViewById(R.id.player4_image_waiting_room)
+        mPlayerThumbsUpImage[3] = findViewById(R.id.player4_thumbs_up_waiting_room)
         mPlayerNickname[4] = findViewById(R.id.player5_nickname_waiting_room)
         mPlayerRating[4] = findViewById(R.id.player5_rating_waiting_room)
         mPlayerImage[4] = findViewById(R.id.player5_image_waiting_room)
+        mPlayerThumbsUpImage[4] = findViewById(R.id.player5_thumbs_up_waiting_room)
         mPlayerNickname[5] = findViewById(R.id.player6_nickname_waiting_room)
         mPlayerRating[5] = findViewById(R.id.player6_rating_waiting_room)
         mPlayerImage[5] = findViewById(R.id.player6_image_waiting_room)
+        mPlayerThumbsUpImage[5] = findViewById(R.id.player6_thumbs_up_waiting_room)
+        mCard3 = findViewById(R.id.card3)
+        mCard4 = findViewById(R.id.card4)
+        mCard5 = findViewById(R.id.card5)
+        mCard6 = findViewById(R.id.card6)
+        mNoPersonImage3 = findViewById(R.id.image_no_person3)
+        mNoPersonImage4 = findViewById(R.id.image_no_person4)
+        mNoPersonImage5 = findViewById(R.id.image_no_person5)
+        mNoPersonImage6 = findViewById(R.id.image_no_person6)
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
         storage = Firebase.storage
+        database = FirebaseDatabase.getInstance()
+
         gameId = intent.getStringExtra("roomId").toString()
         number = intent.getStringExtra("number")!!.toInt()
+        if(number != 1) {
+            mGameStartButton.text = "ready"
+        }
         Log.d(TAG, gameId)
 
+        mPlayerThumbsUpImage[1].visibility = View.INVISIBLE
+        mPlayerThumbsUpImage[2].visibility = View.INVISIBLE
+        mPlayerThumbsUpImage[3].visibility = View.INVISIBLE
+        mPlayerThumbsUpImage[4].visibility = View.INVISIBLE
+        mPlayerThumbsUpImage[5].visibility = View.INVISIBLE
+
+        mNoPersonImage3.visibility = View.INVISIBLE
+        mNoPersonImage4.visibility = View.INVISIBLE
+        mNoPersonImage5.visibility = View.INVISIBLE
+        mNoPersonImage6.visibility = View.INVISIBLE
+
         val game_room = db.collection("game_rooms").document(gameId!!)
-        db.collection("game_rooms").document(gameId).addSnapshotListener { snapshot, e->
+        game_room.get().addOnSuccessListener { document->
+            if(document["max_players"].toString().toInt() <= 5) {
+                mCard6.visibility = View.INVISIBLE
+                mNoPersonImage6.visibility = View.VISIBLE
+            }
+            if(document["max_players"].toString().toInt() <= 4) {
+                mCard5.visibility = View.INVISIBLE
+                mNoPersonImage5.visibility = View.VISIBLE
+            }
+            if(document["max_players"].toString().toInt() <= 3) {
+                mCard4.visibility = View.INVISIBLE
+                mNoPersonImage4.visibility = View.VISIBLE
+            }
+            if(document["max_players"].toString().toInt() <= 2) {
+                mCard3.visibility = View.INVISIBLE
+                mNoPersonImage3.visibility = View.VISIBLE
+            }
+        }
+        snapshotListener = db.collection("game_rooms").document(gameId).addSnapshotListener { snapshot, e->
             if (e != null) {
                 // 오류 처리
                 Log.e("FirestoreListener", "Error: ${e.message}")
@@ -157,16 +225,51 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         }
 
         mGameStartButton.setOnClickListener {
+            db.collection("game_rooms").document(gameId).get().addOnSuccessListener { document->
+                if(number != 1) {
+                    if(document["p${number}ready"].toString().toInt() == 0) {
+                        document.reference.update("p${number}ready", 1)
+                    }
+                    else {
+                        document.reference.update("p${number}ready", 0)
+                    }
+                }
+                else {
+                    var readys = 0
+                    for(i in 2 until max_number + 1) {
+                        if(document["p${i}ready"].toString().toInt() == 1) readys++
+                    }
+                    if(readys == max_number - 1) {
+                        Toast.makeText(this, "게임을 시작합니다", Toast.LENGTH_SHORT).show()
+                        document.reference.update("state", 0)
+                        val intent = Intent(this, GameRoomActivity::class.java)
+                        intent.putExtra("gameId", gameId)
+                        intent.putExtra("number", number)
+                        startActivity(intent)
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            finish()
+                        }, 3000)
+                    }
+                    else {
+                        Toast.makeText(this, "모든 인원이 다 준비해야 시작 가능합니다", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
             // TODO: Game Start
-        }
-
-        mOptionButton.setOnClickListener {
-            val dialog = RoomOptionDialog(this)
-            dialog.show()
         }
     }
 
     private fun RoomInfo(snapshotData: Map<String, Any>) {
+        if(snapshotData["state"].toString().toInt() == 0) {
+            Toast.makeText(this, "게임을 시작합니다", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, GameRoomActivity::class.java)
+            intent.putExtra("gameId", gameId)
+            intent.putExtra("number", number)
+            startActivity(intent)
+            Handler(Looper.getMainLooper()).postDelayed({
+                finish()
+            }, 3000)
+        }
         for (i in 1 until max_number + 1) {
             val playerData = snapshotData["p$i"]
             if (playerData != null) {
@@ -194,6 +297,14 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 mPlayerRating[i - 1].text = "SCORE_TEXT"
                 mPlayerImage[i - 1].setImageResource(R.drawable.icon)
             }
+            if(i != 1) {
+                if(snapshotData["p${i}ready"].toString().toInt() == 1) {
+                    mPlayerThumbsUpImage[i - 1].visibility = View.VISIBLE
+                }
+                else {
+                    mPlayerThumbsUpImage[i - 1].visibility = View.INVISIBLE
+                }
+            }
         }
     }
 
@@ -210,6 +321,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 }
             }
         }
+        snapshotListener.remove()
         super.onDestroy()
     }
 
@@ -220,7 +332,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        finish()
+        //finish()
 
     }
     override fun onStop() {
@@ -232,19 +344,15 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        super.onBackPressed()
+        //super.onBackPressed()
         if(number == 1) {
             val builder = AlertDialog.Builder(this)
                 .setTitle("나가기")
                 .setMessage("방을 폭파시키겠습니까?")
                 .setPositiveButton("예") { dialog, which ->
-                    Log.d(TAG, "성공")
                     db.collection("game_rooms").document(gameId).delete()
-                    Log.d(TAG, "성공1")
                     dialog.dismiss()
-                    Log.d(TAG, "성공2")
                     finish()
-                    Log.d(TAG, "성공3")
                 }
                 .setNegativeButton("아니요") { dialog, which ->
                     dialog.dismiss()

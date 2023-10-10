@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.sql.Timestamp
 
 class CreateRoomDialog(context: Context): Dialog(context) {
     //UI references
@@ -59,7 +60,12 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                     "p4" to null,
                     "p5" to null,
                     "p6" to null,
-                    "action_code" to null
+                    "p2ready" to 0,
+                    "p3ready" to 0,
+                    "p4ready" to 0,
+                    "p5ready" to 0,
+                    "p6ready" to 0,
+                    "timestamp" to com.google.firebase.Timestamp.now()
                 )
                 db.collection("game_rooms")
                     .add(gameData)

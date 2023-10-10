@@ -65,12 +65,15 @@ class room_list : Fragment() {
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
         db.collection("game_rooms")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documentSnapshots ->
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)
-                recyclerView.layoutManager = LinearLayoutManager(requireContext())
-                recyclerView.adapter = adapter
+                if(context != null) {
+                    recyclerView.layoutManager = LinearLayoutManager(requireContext())
+                    recyclerView.adapter = adapter
+                }
             }
 
         // "create_room" 버튼에 대한 클릭 이벤트 처리

@@ -1,0 +1,1024 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/coup"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F0C4"
+    tools:context=".GameRoomActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/constraint_up_game_room"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@drawable/home_upper_bar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/coup_game_room"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:fontFamily="@font/irishgrover_regular"
+            android:text="Coup"
+            android:textColor="@color/red"
+            android:textSize="32sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/constraint_second_game_room"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/constraint_up_game_room">
+
+        <ImageView
+            android:id="@+id/card_back_game_room"
+            android:layout_width="28dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="4dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/card_left_game_room"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/card_back" />
+
+        <TextView
+            android:id="@+id/card_left_game_room"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:fontFamily="@font/stylish"
+            android:text=": ? Left"
+            android:textColor="@color/black"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <ScrollView
+        android:id="@+id/scrollView_game_room"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginBottom="4dp"
+        app:layout_constraintBottom_toTopOf="@+id/action_game_room"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/constraint_second_game_room">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/constraint_players_game_room"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p1_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextView
+                    android:id="@+id/p1_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P1"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p1_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p1_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p1_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p1_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p1_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p1_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p1_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p1_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p1_card1" />
+
+                <TextView
+                    android:id="@+id/p1_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p1_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p1_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p1_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p1_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p1_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p1_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p1_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p1_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p1_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p1_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p1_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p1_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p1_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p1_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p1_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p1_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p1_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p1_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p1_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p2_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextView
+                    android:id="@+id/p2_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P2"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p2_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p2_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p2_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p2_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p2_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p2_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p2_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p2_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p2_card1" />
+
+                <TextView
+                    android:id="@+id/p2_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p2_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p2_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p2_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p2_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p2_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p2_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p2_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p2_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p2_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p2_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p2_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p2_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p2_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p2_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p2_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p2_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p2_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p2_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p2_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p3_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/p1_constraint">
+
+                <TextView
+                    android:id="@+id/p3_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P3"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p3_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p3_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p3_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p3_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p3_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p3_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p3_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p3_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p3_card1" />
+
+                <TextView
+                    android:id="@+id/p3_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p3_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p3_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p3_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p3_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p3_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p3_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p3_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p3_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p3_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p3_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p3_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p3_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p3_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p3_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p3_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p3_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p3_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p3_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p3_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p4_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/p2_constraint">
+
+                <TextView
+                    android:id="@+id/p4_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P4"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p4_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p4_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p4_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p4_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p4_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p4_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p4_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p4_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p4_card1" />
+
+                <TextView
+                    android:id="@+id/p4_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p4_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p4_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p4_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p4_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p4_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p4_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p4_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p4_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p4_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p4_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p4_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p4_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p4_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p4_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p4_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p4_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p4_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p4_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p4_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p5_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/p3_constraint">
+
+                <TextView
+                    android:id="@+id/p5_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P5"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p5_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p5_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p5_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p5_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p5_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p5_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p5_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p5_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p5_card1" />
+
+                <TextView
+                    android:id="@+id/p5_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p5_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p5_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p5_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p5_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p5_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p5_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p5_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p5_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p5_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p5_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p5_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p5_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p5_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p5_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p5_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p5_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p5_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p5_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p5_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/p6_constraint"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/card_big_box"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/p4_constraint">
+
+                <TextView
+                    android:id="@+id/p6_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="4dp"
+                    android:fontFamily="@font/stylish"
+                    android:text="P6"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p6_coin_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_coin_game_room"
+                    app:layout_constraintEnd_toStartOf="@+id/p6_coin_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p6_coin_game_room"
+                    app:srcCompat="@drawable/card_coin" />
+
+                <TextView
+                    android:id="@+id/p6_coin_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="8dp"
+                    android:fontFamily="@font/stylish"
+                    android:text=": ?"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <ImageView
+                    android:id="@+id/p6_card1"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_marginTop="40dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/card_back" />
+
+                <ImageView
+                    android:id="@+id/p6_card2"
+                    android:layout_width="66dp"
+                    android:layout_height="93dp"
+                    android:layout_marginEnd="12dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_card1"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@+id/p6_card1"
+                    app:srcCompat="@drawable/card_back" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/p6_profile_game_room"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:src="@drawable/icon"
+                    app:civ_border_color="@color/black"
+                    app:civ_border_overlay="true"
+                    app:civ_border_width="3dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/p6_card1" />
+
+                <TextView
+                    android:id="@+id/p6_nickname_game_room"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="TextView"
+                    android:textColor="@color/black"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_profile_game_room"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@+id/p6_profile_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p6_profile_game_room" />
+
+                <ImageView
+                    android:id="@+id/p6_die2"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_card2"
+                    app:layout_constraintEnd_toEndOf="@+id/p6_card2"
+                    app:layout_constraintStart_toStartOf="@+id/p6_card2"
+                    app:layout_constraintTop_toTopOf="@+id/p6_card2"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p6_die1"
+                    android:layout_width="79dp"
+                    android:layout_height="111dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_card1"
+                    app:layout_constraintEnd_toEndOf="@+id/p6_card1"
+                    app:layout_constraintStart_toStartOf="@+id/p6_card1"
+                    app:layout_constraintTop_toTopOf="@+id/p6_card1"
+                    app:srcCompat="@drawable/card_die" />
+
+                <ImageView
+                    android:id="@+id/p6_thumbs_up"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_game_room"
+                    app:layout_constraintStart_toEndOf="@+id/p6_game_room"
+                    app:layout_constraintTop_toTopOf="@+id/p6_game_room"
+                    app:layout_constraintVertical_bias="0.4"
+                    app:srcCompat="@drawable/icon_thumbs_up" />
+
+                <ImageView
+                    android:id="@+id/p6_die_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:srcCompat="@drawable/player_card_die" />
+
+                <ImageView
+                    android:id="@+id/p6_3dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintBottom_toBottomOf="@+id/p6_thumbs_up"
+                    app:layout_constraintEnd_toEndOf="@+id/p6_thumbs_up"
+                    app:layout_constraintStart_toStartOf="@+id/p6_thumbs_up"
+                    app:layout_constraintTop_toTopOf="@+id/p6_thumbs_up"
+                    app:srcCompat="@drawable/icon_3dot" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/action_game_room"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:background="@drawable/action_box"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageView
+            android:id="@+id/action_icon_left_game_room"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/card_coin" />
+
+        <ImageView
+            android:id="@+id/action_icon_right_game_room"
+            android:layout_width="25dp"
+            android:layout_height="25dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/card_coin" />
+
+        <TextView
+            android:id="@+id/action_text_game_room"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/stylish"
+            android:text="Action"
+            android:textColor="@color/black"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/action_icon_right_game_room"
+            app:layout_constraintStart_toEndOf="@+id/action_icon_left_game_room"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <FrameLayout
+        android:id="@+id/bottom_sheet_game_room"
+        style="@style/Widget.Material3.BottomSheet"
+        android:layout_width="407dp"
+        android:layout_height="wrap_content"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+            android:id="@+id/drag_handle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+
+    </FrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

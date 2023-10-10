@@ -119,9 +119,11 @@ class info : Fragment() {
                             mPlays.text = "plays : " + document.get("plays").toString()
                             mProgressBar.visibility = View.VISIBLE
                             storage.reference.child("profile_images/${user.email}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                                Glide.with(this)
-                                    .load(imageUrl)
-                                    .into(mUserImage)
+                                if(isAdded) {
+                                    Glide.with(requireContext())
+                                        .load(imageUrl)
+                                        .into(mUserImage)
+                                }
                             }
                             mProgressBar.visibility = View.INVISIBLE
                             Log.d(TAG, "확인하였습니다.${user!!.email!!}")
@@ -148,9 +150,11 @@ class info : Fragment() {
             dialog_cancel = dialogview.findViewById(R.id.button_cancel_change_profile_image)
 
             storage.reference.child("profile_images/${user.email}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                Glide.with(this)
-                    .load(imageUrl)
-                    .into(dialog_image)
+                if(isAdded) {
+                    Glide.with(this)
+                        .load(imageUrl)
+                        .into(dialog_image)
+                }
             }
 
             dialog_image.setOnClickListener {

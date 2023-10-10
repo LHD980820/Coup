@@ -13,6 +13,7 @@ import android.widget.TextView
 import androidx.compose.ui.res.colorResource
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.firebase.ui.firestore.FirestoreRecyclerOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.Query
@@ -22,6 +23,9 @@ import com.google.firebase.firestore.ktx.firestoreSettings
 import com.google.firebase.firestore.ktx.memoryCacheSettings
 import com.google.firebase.firestore.ktx.persistentCacheSettings
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
+import de.hdodenhof.circleimageview.CircleImageView
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -37,8 +41,6 @@ class ranking : Fragment() {
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
-
-    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,8 +62,10 @@ class ranking : Fragment() {
             .addOnSuccessListener { documentSnapshots ->
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.ranking_recyclerview)
-                recyclerView.layoutManager = LinearLayoutManager(requireContext())
-                recyclerView.adapter = adapter
+                if(context != null) {
+                    recyclerView.layoutManager = LinearLayoutManager(requireContext())
+                    recyclerView.adapter = adapter
+                }
             }
         // Inflate the layout for this fragment
         return view
@@ -74,11 +78,13 @@ class ranking : Fragment() {
          * Provide a reference to the type of views that you are using
          * (custom ViewHolder).
          */
+        private var auth = FirebaseManager.getFirebaseAuth()
+        private var storage = Firebase.storage
         class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val number: TextView
             val nickname: TextView
             val rating: TextView
-            val profile_image: ImageView
+            val profile_image: CircleImageView
             init {
                 // Define click listener for the ViewHolder's View.
                 number = view.findViewById(R.id.text_number_ranking_item)
@@ -105,6 +111,13 @@ class ranking : Fragment() {
             viewHolder.number.text = (position + 1).toString()
             viewHolder.nickname.text = dataSet.documents[position].data?.get("nickname").toString()
             viewHolder.rating.text = dataSet.documents[position].data?.get("rating").toString()
+            if(viewHolder.profile_image.context != null) {
+                storage.reference.child("profile_images/${dataSet.documents[position].id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
+                    Glide.with(viewHolder.profile_image.context)
+                        .load(imageUrl)
+                        .into(viewHolder.profile_image)
+                }
+            }
 
             // Check if the position is 0, 1, or 2 (1st, 2nd, or 3rd place)
             if (position < 3) {
