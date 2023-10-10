@@ -2,9 +2,11 @@ package com.example.coup
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,6 +42,13 @@ class GameRoomActivity : AppCompatActivity() {
         setContentView(R.layout.activity_game_room)
 
         init()
+
+        //action Button 클릭 시 bottom sheet dialog 띄우기
+        findViewById<Button>(R.id.action_button).setOnClickListener {
+            val bottomSheet = BottomSheetDialog()
+            bottomSheet.show(supportFragmentManager, bottomSheet.tag)
+        }
+
     }
 
     fun init() {

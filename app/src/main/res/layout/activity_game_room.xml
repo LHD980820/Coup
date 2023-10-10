@@ -966,6 +966,16 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
+        <Button
+            android:id="@+id/action_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:alpha="0.5"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="@+id/action_icon_right_game_room"
+            app:layout_constraintStart_toStartOf="@+id/action_icon_left_game_room"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <ImageView
             android:id="@+id/action_icon_left_game_room"
             android:layout_width="25dp"
