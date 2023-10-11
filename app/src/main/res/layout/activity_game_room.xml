@@ -74,8 +74,10 @@
         android:layout_marginBottom="4dp"
         app:layout_constraintBottom_toTopOf="@+id/action_game_room"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/constraint_second_game_room">
+        app:layout_constraintTop_toBottomOf="@+id/constraint_second_game_room"
+        app:layout_constraintVertical_bias="0.0">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/constraint_players_game_room"

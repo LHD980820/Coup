@@ -18,4 +18,5 @@
     <color name="selected_color">#C45D3E</color>
     <color name="box_color">#5470FF</color>
     <color name="gray">#807878</color>
+    <color name="actionbtn_bgcolor">#FFE2DD9E</color>
 </resources>

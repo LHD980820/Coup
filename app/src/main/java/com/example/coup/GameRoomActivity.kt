@@ -1,19 +1,17 @@
 package com.example.coup
 
-import androidx.appcompat.app.AppCompatActivity
+import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
-import org.w3c.dom.Text
 
 class GameRoomActivity : AppCompatActivity() {
 
@@ -37,6 +35,11 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var storage: FirebaseStorage
     private lateinit var db: FirebaseFirestore
 
+    private lateinit var gameId: String
+    private var max_number: Int = 0
+    private val players = ArrayList<ArrayList<Int>>()
+    private val cardDeck = ArrayList<Int>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_room)
@@ -49,8 +52,10 @@ class GameRoomActivity : AppCompatActivity() {
             bottomSheet.show(supportFragmentManager, bottomSheet.tag)
         }
 
+        cardReceive()
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     fun init() {
         mLeftCardText = findViewById(R.id.card_left_game_room)
 
@@ -147,5 +152,27 @@ class GameRoomActivity : AppCompatActivity() {
         auth = FirebaseManager.getFirebaseAuth()
         storage = FirebaseStorage.getInstance()
         db = FirestoreManager.getFirestore()
+    }
+
+    fun cardReceive(){
+        gameId = intent.getStringExtra("gameId").toString()
+
+        //파이어베이스에서 players & cardDeck 받아오기!
+
+
+        if (players != null) {
+            // 데이터 사용
+            for (row in players) {
+                for (item in row) {
+                    Log.d("GameRoomplayers", item.toString())
+                }
+            }
+        }
+        if (cardDeck != null) {
+            // 데이터 사용
+            for (item in cardDeck) {
+                Log.d("GameRoomcardDeck", item.toString())
+            }
+        }
     }
 }

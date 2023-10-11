@@ -42,4 +42,13 @@
     <string name="server_client_id">300921857777-qpf43mp6tpjs93d3jo96juckpe00cnbf.apps.googleusercontent.com</string>
     <string name="name_text">NAME_TEXT</string>
     <string name="score_text">SCORE_TEXT</string>
+    <string name="foreign_aid">Foreign Aid</string>
+    <string name="income">Income</string>
+    <string name="coup">Coup</string>
+    <string name="tax">Tax</string>
+    <string name="assassinate">Assassinate</string>
+    <string name="steal">Steal</string>
+    <string name="exchange">Exchange</string>
+    <string name="agree">Agree</string>
+    <string name="disagree">Disagree</string>
 </resources>
