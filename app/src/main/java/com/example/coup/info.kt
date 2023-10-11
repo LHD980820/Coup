@@ -2,7 +2,6 @@ package com.example.coup
 
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -10,26 +9,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.media.MediaBrowserServiceCompat.RESULT_OK
 import com.bumptech.glide.Glide
 import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
-import com.google.firebase.auth.ktx.userProfileChangeRequest
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
-import java.io.File
 
 
 // TODO: Rename parameter arguments, choose names that match
@@ -53,6 +46,7 @@ class info : Fragment() {
     private lateinit var mPlays: TextView
     private lateinit var mUserImage : CircleImageView
     private lateinit var mProgressBar: ProgressBar
+    private lateinit var mChangePasswordBtn: Button
     private lateinit var mLogoutButton: Button
 
     private lateinit var dialog_image: CircleImageView
@@ -102,6 +96,7 @@ class info : Fragment() {
         mUserImage = view.findViewById(R.id.image_info)
         mPlays = view.findViewById(R.id.plays_info)
         mProgressBar = view.findViewById(R.id.progressBar_info)
+        mChangePasswordBtn = view.findViewById(R.id.button_change_password_info)
         mLogoutButton = view.findViewById(R.id.button_logout_info)
 
         mProgressBar.visibility = View.INVISIBLE
@@ -173,6 +168,11 @@ class info : Fragment() {
                 builder.dismiss()
             }
             builder.show()
+        }
+
+        mChangePasswordBtn.setOnClickListener{
+            val Dialog = InfoChangePWDialog(requireContext())
+            Dialog.show()
         }
 
         mLogoutButton.setOnClickListener {

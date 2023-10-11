@@ -7,15 +7,21 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.Toast
+import com.example.coup.FirebaseManager
 import com.example.coup.R
+import com.google.firebase.auth.FirebaseAuth
 
 class LoginResetPassword : Activity() {
     private lateinit var mEmailView: EditText
     private lateinit var mEmailRequestResetButton: Button
     private lateinit var mEmailReset2LoginBtn: ImageButton
+    private lateinit var auth: FirebaseAuth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login_reset_password)
+
+        auth= FirebaseManager.getFirebaseAuth()
 
         mEmailView = findViewById(R.id.editview_email3)
         mEmailRequestResetButton = findViewById(R.id.button_request_reset)
@@ -29,8 +35,8 @@ class LoginResetPassword : Activity() {
         }
 
         mEmailRequestResetButton.setOnClickListener {
-            val dialog = DialogResetPasswordActivity(this)
-            dialog.show()
+            val id: String = mEmailView.text.toString()
+            requestReset(id)
         }
 
         mEmailReset2LoginBtn.setOnClickListener{
@@ -38,5 +44,23 @@ class LoginResetPassword : Activity() {
             startActivity(intent)
             finish()
         }
+    }
+
+    //비밀번호 재설정 이메일 전송
+    private fun requestReset(email: String) {
+        if(email.isNotEmpty()) {
+            auth.sendPasswordResetEmail(email)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        Toast.makeText(this, "이메일을 보냈습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+        }
+        else{
+            Toast.makeText(this,"이메일을 입력하세요",Toast.LENGTH_SHORT).show()
+            return
+        }
+        val dialog = DialogResetPasswordActivity(this)
+        dialog.show()
     }
 }
