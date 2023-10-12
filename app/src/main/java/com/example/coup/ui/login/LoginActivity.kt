@@ -4,9 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.example.coup.FirebaseManager
@@ -36,7 +38,9 @@ class LoginActivity : Activity() {
     private lateinit var mEmailView: EditText
     private lateinit var mPasswordView: EditText
     private lateinit var mGoogleLogin: SignInButton
-
+    private lateinit var mEmailLogInButton: Button
+    private lateinit var mEmailSignUpButton: Button
+    private lateinit var mForgotPasswordButton: Button
     // [START declare_auth]
     private lateinit var auth: FirebaseAuth
     // [END declare_auth]
@@ -48,6 +52,8 @@ class LoginActivity : Activity() {
 
     private val REQ_ONE_TAP = 2  // Can be any integer unique to the Activity
     private var showOneTapUI = true
+
+    private lateinit var mProgressBar: ProgressBar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +78,9 @@ class LoginActivity : Activity() {
         mEmailView = findViewById(R.id.editview_email)
         mPasswordView = findViewById(R.id.editview_password)
         mGoogleLogin = findViewById(R.id.google_login)
+        mProgressBar = findViewById(R.id.progressBar_login)
+        mProgressBar.visibility = View.INVISIBLE
+        mProgressBar.bringToFront()
 
         // Event handlers for EditTexts
         mEmailView.setOnEditorActionListener { _, id, _ ->
@@ -90,12 +99,13 @@ class LoginActivity : Activity() {
         }
 
         // Buttons
-        val mEmailLogInButton = findViewById<Button>(R.id.email_log_in_button)
-        val mEmailSignUpButton = findViewById<Button>(R.id.email_sign_up_button)
-        val forgotPasswordButton = findViewById<Button>(R.id.password_forgot)
+        mEmailLogInButton = findViewById(R.id.email_log_in_button)
+        mEmailSignUpButton = findViewById(R.id.email_sign_up_button)
+        mForgotPasswordButton = findViewById(R.id.password_forgot)
 
         // event handler
         mEmailLogInButton.setOnClickListener {
+            ProgressOnButtonOff()
             val id: String = mEmailView.text.toString()
             val pw: String = mPasswordView.text.toString()
             signIn(id, pw)
@@ -107,14 +117,31 @@ class LoginActivity : Activity() {
             startActivity(intent)
         }
 
-        forgotPasswordButton.setOnClickListener{
+        mForgotPasswordButton.setOnClickListener{
             val intent = Intent(applicationContext, LoginResetPassword::class.java)
             startActivity(intent)
         }
 
         mGoogleLogin.setOnClickListener {
+            ProgressOnButtonOff()
             signIn_google()
         }
+    }
+
+    private fun ProgressOnButtonOff() {
+        mProgressBar.visibility = View.VISIBLE
+        mEmailLogInButton.isClickable = false
+        mEmailSignUpButton.isClickable = false
+        mForgotPasswordButton.isClickable = false
+        mGoogleLogin.isClickable = false
+    }
+
+    private fun ProgressOffButtonOn() {
+        mProgressBar.visibility = View.INVISIBLE
+        mEmailLogInButton.isClickable = true
+        mEmailSignUpButton.isClickable = true
+        mForgotPasswordButton.isClickable = true
+        mGoogleLogin.isClickable = true
     }
 
     // [START on_start_check_user]
@@ -152,10 +179,12 @@ class LoginActivity : Activity() {
     private fun signIn(email: String, password: String) {
         if(email.isNullOrEmpty()) {
             Toast.makeText(baseContext, "이메일을 입력하세요", Toast.LENGTH_SHORT).show()
+            ProgressOffButtonOn()
             return
         }
         if(password.isNullOrEmpty()) {
             Toast.makeText(baseContext, "비밀번호를 입력하세요", Toast.LENGTH_SHORT).show()
+            ProgressOffButtonOn()
             return
         }
         // [START sign_in_with_email]
@@ -180,6 +209,7 @@ class LoginActivity : Activity() {
                         "로그인 실패",
                         Toast.LENGTH_SHORT,
                     ).show()
+                    ProgressOffButtonOn()
                     updateUI(null)
                 }
             }
@@ -232,6 +262,7 @@ class LoginActivity : Activity() {
                 } else {
                     // If sign in fails, display a message to the user.
                     Log.w(TAG, "signInWithCredential:failure", task.exception)
+                    ProgressOffButtonOn()
                     updateUI(null)
                 }
             }

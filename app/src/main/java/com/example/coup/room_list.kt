@@ -64,6 +64,9 @@ class room_list : Fragment() {
 
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
+
+
+
         db.collection("game_rooms")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
@@ -137,14 +140,16 @@ class room_list : Fragment() {
             // contents of the view with that element
             val document = dataSet.documents[position]
             val title = document.get("title").toString()
-            val p1Id = document.get("p1").toString()
+            var p1Id = document.get("p1").toString()
 
             val nowPlayers = document.get("now_players").toString().toInt()
             val maxPlayers = document.get("max_players").toString().toInt()
             val password = document.get("password").toString()
 
             viewHolder.title.text = title
-            viewHolder.nickname.text = "@" + p1Id
+            getUserNickname(p1Id) { nickname ->
+                viewHolder.nickname.text = "@" + nickname
+            }
             viewHolder.person.text = "$nowPlayers / $maxPlayers"
 
             if (password.isNotEmpty()) {
@@ -156,6 +161,26 @@ class room_list : Fragment() {
 
         // Return the size of your dataset (invoked by the layout manager)
         override fun getItemCount() = dataSet.size()
+
+        private fun getUserNickname(userId: String, callback: (String) -> Unit) {
+            /*val usersCollection = db.collection("user")
+            val query = usersCollection.whereEqualTo("userId", userId)
+
+            query.get().addOnSuccessListener { querySnapshot ->
+                if (!querySnapshot.isEmpty) {
+                    val userDocument = querySnapshot.documents[0]
+                    val nickname = userDocument.getString("nickname")
+                    if (nickname != null) {
+                        callback(nickname)
+                    }
+                }
+            }*/
+            db.collection("user").document(userId).get().addOnSuccessListener { document->
+                val nickname = document["nickname"].toString()
+                callback(nickname)
+            }
+        }
+
 
         private fun showPasswordDialog(document: DocumentSnapshot) {
             // 비밀번호 확인 다이얼로그 표시

@@ -57,7 +57,7 @@ class LoginResetPassword : Activity() {
                 }
         }
         else{
-            Toast.makeText(this,"이메일을 입력하세요",Toast.LENGTH_SHORT).show()
+            Toast.makeText(this,"올바른 이메일을 입력하세요",Toast.LENGTH_SHORT).show()
             return
         }
         val dialog = DialogResetPasswordActivity(this)

@@ -7,6 +7,7 @@ import com.google.android.material.navigation.NavigationBarView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import android.view.MenuItem
+import androidx.appcompat.app.AlertDialog
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
@@ -40,5 +41,19 @@ class HomeActivity : AppCompatActivity() {
         val manager: FragmentManager = supportFragmentManager
         val fragTransaction = manager.beginTransaction()
         fragTransaction.replace(R.id.home_frame, fragment).commit()
+    }
+
+    override fun onBackPressed() {
+        val builder = AlertDialog.Builder(this)
+            .setTitle("게임 종료")
+            .setMessage("게임을 종료하시겠습니까?")
+            .setPositiveButton("예") { dialog, which->
+                dialog.dismiss()
+                finish()
+            }
+            .setNegativeButton("아니요") { dialog, which->
+                dialog.dismiss()
+            }.show()
+        //super.onBackPressed()
     }
 }
