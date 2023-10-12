@@ -36,9 +36,13 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var db: FirebaseFirestore
 
     private lateinit var gameId: String
+    private var number: Int = 0
     private var max_number: Int = 0
-    private val players = ArrayList<ArrayList<Int>>()
-    private val cardDeck = ArrayList<Int>()
+    private var pCard1: Int = 0
+    private var pCard2: Int = 0
+    private lateinit var cardDeck: String //추후 lateinit var로 변경 필수
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -156,23 +160,17 @@ class GameRoomActivity : AppCompatActivity() {
 
     fun cardReceive(){
         gameId = intent.getStringExtra("gameId").toString()
+        number = intent.getStringExtra("number")!!.toInt()
 
         //파이어베이스에서 players & cardDeck 받아오기!
+        db.collection("game_playing").document(gameId).get().addOnSuccessListener { document ->
+            pCard1 = document["p${number}card${1}"].toString().toInt()
+            pCard2 = document["p${number}card${2}"].toString().toInt()
+            cardDeck = document["carddeck"].toString()
+        }
+        Log.d("GameRoom", "p${number} card1: $pCard1")
+        Log.d("GameRoom", "p${number} card2: $pCard2")
 
 
-        if (players != null) {
-            // 데이터 사용
-            for (row in players) {
-                for (item in row) {
-                    Log.d("GameRoomplayers", item.toString())
-                }
-            }
-        }
-        if (cardDeck != null) {
-            // 데이터 사용
-            for (item in cardDeck) {
-                Log.d("GameRoomcardDeck", item.toString())
-            }
-        }
     }
 }

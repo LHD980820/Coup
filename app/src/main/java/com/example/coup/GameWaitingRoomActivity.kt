@@ -242,31 +242,18 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                         document.reference.update("state", 0)
                         val intent = Intent(this, GameRoomActivity::class.java)
 
-                        //게임 시작하면서 카드 랜덤 생성해서 인텐트로 넘겨주는 코드
+                        //게임 시작하면서 카드 랜덤 생성
                         //val cardDrawableNames = resources.getIntArray(R.array.card_drawables)
                         val cardDeck = ArrayList<Int>()
-                        cardDeck.add(R.drawable.card_ambassador);cardDeck.add(R.drawable.card_ambassador);cardDeck.add(R.drawable.card_ambassador)
-                        cardDeck.add(R.drawable.card_contessa);cardDeck.add(R.drawable.card_contessa);cardDeck.add(R.drawable.card_contessa)
-                        cardDeck.add(R.drawable.card_assassin);cardDeck.add(R.drawable.card_assassin);cardDeck.add(R.drawable.card_assassin)
-                        cardDeck.add(R.drawable.card_duke);cardDeck.add(R.drawable.card_duke);cardDeck.add(R.drawable.card_duke)
-                        cardDeck.add(R.drawable.card_captine);cardDeck.add(R.drawable.card_captine);cardDeck.add(R.drawable.card_captine)
+                        for(cardCnt in 1 until 4){
+                            for(cardType in 1 until 6) {
+                                cardDeck.add(cardType)
+                            }
+                        }
 
-                        Log.d("GameWaitingRoom","card_ambassador: ${R.drawable.card_ambassador}")
-                        Log.d("GameWaitingRoom","card_assassin: ${R.drawable.card_assassin}")
-                        Log.d("GameWaitingRoom","card_duke: ${R.drawable.card_duke}")
-                        Log.d("GameWaitingRoom","card_captine: ${R.drawable.card_captine}")
-                        Log.d("GameWaitingRoom","card_contessa: ${R.drawable.card_contessa}")
-                        Log.d("GameWaitingRoom", "card initialized: ${cardDeck.size}")
-
-                        val numberOfPlayers = max_number // 추후 게임 총 플레이어 수 넣어서 초기화...
+                        val numberOfPlayers = max_number
                         val cardsPerPlayer = 2
                         val players = ArrayList<ArrayList<Int>>(numberOfPlayers)
-
-                        //카드 아이디 생성
-                        /*for (drawableName in cardDrawableNames) {
-                            cardDeck.add(drawableName)
-                            Log.d("GameWaitingRoom", "card initialize: $drawableName")
-                        }*/
 
                         // 사용자 별로 카드 분배
                         for (playerIndex in 0 until numberOfPlayers) {
@@ -279,13 +266,13 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                                 Log.d("GameWaitingRoom", "card random select: $card")
                                 Log.d("GameWaitingRoom", "card deck left: ${cardDeck.size}")
                             }
-                        }   //players 에는 랜덤 분배된 카드가 2개씩 저장 / cardDeck 에는 남은 카드들의 ID 저장 되어 있음
+                        }
+                        //players랑 cardDeck 둘다 ArrayList로 써서 row&col Index 0부터 시작
+                        //players 에는 랜덤 분배된 카드가 2개씩 저장 / cardDeck 에는 남은 카드들의 ID 저장 되어 있음
                         Log.d("GameWaitingRoom", "random select complete. card deck left: ${cardDeck.size}")
 
-                        //파이어베이스로 players & cardDeck 보내기!
-
-                        //로그 확인용
-                        /*if (players != null) {
+                        //로그 확인용 - 지워도 됨
+                        if (players != null) {
                             // 데이터 사용
                             for (row in players) {
                                 for (item in row) {
@@ -299,7 +286,19 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                                 Log.d("GameWaitingRoomcardDeck", cardDeck[iddd].toString())
                             }
                         }
-                        Log.d("GameWaitingRoom", "putExtra complete. card deck left: ${cardDeck.size}")*/
+                        Log.d("GameWaitingRoom", "putExtra complete. card deck left: ${cardDeck.size}")
+
+                        //파이어베이스로 players & cardDeck 보내기!
+                        for (playerIndex in 0 until numberOfPlayers) {
+                            for (cardIndex in 0 until cardsPerPlayer) {
+                                db.collection("game_playing").document(gameId).update("p${playerIndex + 1}card${cardIndex + 1}", players[playerIndex][cardIndex])
+                            }
+                        }
+                        var cardDeckString: String = ""
+                        for (cardDeckIndex in 0 until (cardDeck.size)) {
+                            cardDeckString += cardDeck[cardDeckIndex].toString()
+                        }
+                        db.collection("game_playing").document(gameId).update("carddeck", cardDeckString)
 
                         intent.putExtra("gameId", gameId)
                         intent.putExtra("number", number)
