@@ -12,6 +12,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Coup"
         tools:targetApi="31">
+        <service android:name=".ForcedTerminationService"
+            android:stopWithTask="false"/>
         <activity
             android:name=".GameRoomActivity"
             android:exported="false" />

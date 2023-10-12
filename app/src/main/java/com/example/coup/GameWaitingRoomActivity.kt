@@ -378,6 +378,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 if(documentSnapShot.exists()) {
                     documentSnapShot.reference.update("p${number}", null)
                     documentSnapShot.reference.update("now_players", documentSnapShot["now_players"].toString().toInt() - 1)
+                    documentSnapShot.reference.update("p${number}ready", 0)
                 }
             }
         }

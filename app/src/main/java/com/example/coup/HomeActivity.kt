@@ -1,5 +1,6 @@
 package com.example.coup
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.navigation.NavigationBarView
@@ -19,7 +20,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
-
+        startService(Intent(application, ForcedTerminationService().javaClass))
 
         bottomNavigationView = findViewById(R.id.bottom_navigation)
 
