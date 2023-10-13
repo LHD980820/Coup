@@ -39,6 +39,7 @@ class ForcedTerminationService : Service() {
                 }
             }
         }
+        db.collection("user").document(auth.currentUser!!.email.toString()).update("state", 0)
         super.onTaskRemoved(rootIntent)
     }
 }

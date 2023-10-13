@@ -206,6 +206,7 @@ class info : Fragment() {
             builder_logout.setMessage("로그아웃 하시겠습니까?") // 다이얼로그 내용 설정
 
             builder_logout.setPositiveButton("예") { dialog, which ->
+                db.collection("user").document(auth.currentUser!!.email.toString()).update("state", 0)
                 // 확인 버튼을 클릭했을 때 수행할 작업을 여기에 추가
                 auth.signOut()
                 val intent = Intent(requireContext(), LoginActivity::class.java)

@@ -242,7 +242,8 @@ class LoginActivity : Activity() {
                     val user_data = hashMapOf(
                         "nickname" to email2name,
                         "rating" to 1000,
-                        "plays" to 0
+                        "plays" to 0,
+                        "state" to 1
                     )
                     val user_doc = db.collection("user").document(user!!.email!!.toString())
                     user_doc.get().addOnCompleteListener { task ->
