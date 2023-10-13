@@ -9,12 +9,12 @@
     android:paddingBottom="16dp">
 
     <TextView
-        android:id="@+id/kick_out"
+        android:id="@+id/change_nickname"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:fontFamily="@font/mulish_bold"
-        android:text="@string/change_password"
+        android:text="Change Nickname"
         android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold"
@@ -37,93 +37,39 @@
         android:paddingBottom="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/kick_out">
+        app:layout_constraintTop_toBottomOf="@+id/change_nickname">
 
         <TextView
-            android:id="@+id/text_current_change_password"
+            android:id="@+id/text_change_nickname"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:fontFamily="@font/mulish_bold"
-            android:text="@string/current"
+            android:text="Enter Nickname To Change"
             android:textColor="@color/black"
             android:textSize="20sp"
-            app:layout_constraintStart_toStartOf="@+id/edit_current_change_password"
+            app:layout_constraintStart_toStartOf="@+id/edit_change_nickname"
             app:layout_constraintTop_toTopOf="parent" />
 
         <EditText
-            android:id="@+id/edit_current_change_password"
+            android:id="@+id/edit_change_nickname"
             android:layout_width="300dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:background="@drawable/room_info_box"
             android:ems="10"
-            android:inputType="textPassword"
-            android:paddingStart="4dp"
+            android:paddingStart="16dp"
             android:paddingTop="16dp"
-            android:paddingEnd="4dp"
+            android:paddingEnd="16dp"
             android:paddingBottom="16dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/text_current_change_password" />
-
-        <TextView
-            android:id="@+id/text_password_change_password"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="@font/mulish_bold"
-            android:text="@string/change_to"
-            android:textColor="@color/black"
-            android:textSize="20sp"
-            app:layout_constraintStart_toStartOf="@+id/edit_current_change_password"
-            app:layout_constraintTop_toBottomOf="@+id/edit_current_change_password" />
-
-        <EditText
-            android:id="@+id/edit_password_change_password"
-            android:layout_width="300dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/room_info_box"
-            android:ems="10"
-            android:inputType="textPassword"
-            android:paddingStart="4dp"
-            android:paddingTop="16dp"
-            android:paddingEnd="4dp"
-            android:paddingBottom="16dp"
-            app:layout_constraintStart_toStartOf="@+id/text_password_change_password"
-            app:layout_constraintTop_toBottomOf="@+id/text_password_change_password" />
-
-        <TextView
-            android:id="@+id/text_check_change_password"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="@font/mulish_bold"
-            android:text="@string/password_check"
-            android:textColor="@color/black"
-            android:textSize="20sp"
-            app:layout_constraintStart_toStartOf="@+id/edit_password_change_password"
-            app:layout_constraintTop_toBottomOf="@+id/edit_password_change_password" />
-
-        <EditText
-            android:id="@+id/edit_check_change_password"
-            android:layout_width="300dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/room_info_box"
-            android:ems="10"
-            android:inputType="textPassword"
-            android:paddingStart="4dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
-            app:layout_constraintStart_toStartOf="@+id/text_check_change_password"
-            app:layout_constraintTop_toBottomOf="@+id/text_check_change_password" />
+            app:layout_constraintTop_toBottomOf="@+id/text_change_nickname" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <Button
-        android:id="@+id/button_okay_change_password"
+        android:id="@+id/button_okay_change_nickname"
         android:layout_width="50dp"
         android:layout_height="50dp"
         android:layout_marginStart="80dp"
@@ -133,7 +79,7 @@
         app:layout_constraintTop_toBottomOf="@+id/constraintLayout" />
 
     <Button
-        android:id="@+id/button_cancel_change_password"
+        android:id="@+id/button_cancel_change_nickname"
         android:layout_width="50dp"
         android:layout_height="50dp"
         android:layout_marginTop="16dp"

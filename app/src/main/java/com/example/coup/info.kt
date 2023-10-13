@@ -9,8 +9,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -19,6 +21,7 @@ import com.bumptech.glide.Glide
 import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
@@ -41,12 +44,13 @@ class info : Fragment() {
     private var param2: String? = null
 
     private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseFirestore
     private lateinit var mNickname: TextView
     private lateinit var mRating: TextView
     private lateinit var mPlays: TextView
     private lateinit var mUserImage : CircleImageView
     private lateinit var mProgressBar: ProgressBar
-    private lateinit var mChangePasswordBtn: Button
+    private lateinit var mChangeNicknameBtn: Button
     private lateinit var mLogoutButton: Button
 
     private lateinit var dialog_image: CircleImageView
@@ -88,7 +92,7 @@ class info : Fragment() {
         storage = Firebase.storage
         // Inflate the layout for this fragment
         val user = auth.currentUser
-        val db = FirestoreManager.getFirestore()
+        db = FirestoreManager.getFirestore()
 
         val view = inflater.inflate(R.layout.fragment_info, container, false)
         mNickname = view.findViewById(R.id.nickname_info)
@@ -96,7 +100,7 @@ class info : Fragment() {
         mUserImage = view.findViewById(R.id.image_info)
         mPlays = view.findViewById(R.id.plays_info)
         mProgressBar = view.findViewById(R.id.progressBar_info)
-        mChangePasswordBtn = view.findViewById(R.id.button_change_password_info)
+        mChangeNicknameBtn = view.findViewById(R.id.button_change_nickname_info)
         mLogoutButton = view.findViewById(R.id.button_logout_info)
 
         mProgressBar.visibility = View.INVISIBLE
@@ -170,9 +174,30 @@ class info : Fragment() {
             builder.show()
         }
 
-        mChangePasswordBtn.setOnClickListener{
-            val Dialog = InfoChangePWDialog(requireContext())
-            Dialog.show()
+        mChangeNicknameBtn.setOnClickListener{
+            val builder_check_nickname = AlertDialog.Builder(requireContext()).create()
+            val dialog_view_check_nickname = inflater.inflate(R.layout.dialog_change_nickname, null)
+            builder_check_nickname.setView(dialog_view_check_nickname)
+
+            val dialog_nickname = dialog_view_check_nickname.findViewById<EditText>(R.id.edit_change_nickname)
+            db.collection("user").document(user.email.toString()).get().addOnSuccessListener { document->
+                dialog_nickname.setText(document["nickname"].toString())
+            }
+
+            val okay_button_change_nickname = dialog_view_check_nickname.findViewById<Button>(R.id.button_okay_change_nickname)
+            val cancel_button_change_nickname = dialog_view_check_nickname.findViewById<Button>(R.id.button_cancel_change_nickname)
+            okay_button_change_nickname.setOnClickListener {
+                if(mNickname.text.isNullOrEmpty()) {
+                    Toast.makeText(requireContext(), "변경할 닉네임을 입력해주세요", Toast.LENGTH_SHORT).show()
+                }
+                db.collection("user").document(user.email.toString()).update("nickname", dialog_nickname.text.toString())
+                mNickname.text = dialog_nickname.text
+                builder_check_nickname.dismiss()
+            }
+            cancel_button_change_nickname.setOnClickListener {
+                builder_check_nickname.dismiss()
+            }
+            builder_check_nickname.show()
         }
 
         mLogoutButton.setOnClickListener {
