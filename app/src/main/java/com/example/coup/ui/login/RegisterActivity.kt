@@ -119,7 +119,8 @@ class RegisterActivity : Activity(){
                     val user_data = hashMapOf(
                         "nickname" to email2name,
                         "rating" to 1000,
-                        "plays" to 0
+                        "plays" to 0,
+                        "state" to 0
                     )
                     db.collection("user")
                         .document(user!!.email!!.toString())
