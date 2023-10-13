@@ -3,6 +3,8 @@ package com.example.coup.ui.login
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
@@ -60,6 +62,15 @@ class LoginResetPassword : Activity() {
             Toast.makeText(this,"올바른 이메일을 입력하세요",Toast.LENGTH_SHORT).show()
             return
         }
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            // 일정 시간이 지나면 LoginActivity로 이동
+            val intent= Intent( this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+
+        }, 1500)
+
         val dialog = DialogResetPasswordActivity(this)
         dialog.show()
     }
