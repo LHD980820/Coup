@@ -2,6 +2,8 @@ package com.example.coup
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.navigation.NavigationBarView
@@ -14,7 +16,13 @@ import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlin.system.exitProcess
 
 
@@ -29,12 +37,55 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
-        startService(Intent(application, ForcedTerminationService().javaClass))
 
         auth = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
 
-        checkConcurrentConnection()
+        db.collection("user").document(auth.currentUser?.email.toString()).addSnapshotListener {snapshot, e->
+            Log.d(TAG, "state 바뀜 : "+snapshot?.get("state").toString())
+        }
+
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val document = try {
+                db.collection("user").document(auth.currentUser?.email.toString())
+                    .get(Source.SERVER)
+                    .await()
+            } catch (e: Exception) {
+                // 예외 처리
+                return@launch
+            }
+
+            val isUserOnline = document.getBoolean("state") ?: false
+            Log.d(TAG, "isUserOnline: $isUserOnline")
+
+            if (isUserOnline) {
+                Log.d(TAG, "여기 들어감")
+                runOnUiThread {
+                    Toast.makeText(baseContext, "현재 접속 중인 계정으로 로그아웃됩니다", Toast.LENGTH_SHORT).show()
+                }
+                auth.signOut()
+                startActivity(Intent(baseContext, LoginActivity::class.java))
+                finish()
+            } else {
+                db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+            }
+        }
+
+
+        //대기방 들어가 있는지 확인
+        db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document->
+            val waitingroomArray = document.get("waitingroom") as Map<*, *>
+            val waitingroom0 = waitingroomArray["waitingroom.0"].toString()
+            val waitingroom1 = waitingroomArray["waitingroom.1"].toString()
+            Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
+            if(!waitingroom0.isNullOrEmpty()) {
+                val intent = Intent(this, GameWaitingRoomActivity::class.java)
+                intent.putExtra("roomId", waitingroom0)
+                intent.putExtra("number", waitingroom1)
+                startActivity(intent)
+            }
+        }
 
         bottomNavigationView = findViewById(R.id.bottom_navigation)
         supportFragmentManager.beginTransaction().add(R.id.home_frame, room_list()).commit()
@@ -50,17 +101,18 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun checkConcurrentConnection() {
-        db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document->
+        db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document ->
             Log.d(TAG, "state : ${document["state"]}")
-            if(document["state"].toString().toInt() == 1) {
+
+            val isUserOnline = document.getBoolean("state") ?: false
+            Log.d(TAG, "${isUserOnline}")
+
+            if (isUserOnline) {
                 Log.d(TAG, "여기 들어감")
-                Toast.makeText(this, "현재 접속 중인 계정으로 로그아웃됩니다",Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "현재 접속 중인 계정으로 로그아웃됩니다", Toast.LENGTH_SHORT).show()
                 auth.signOut()
                 startActivity(Intent(this, LoginActivity::class.java))
                 finish()
-            }
-            else {
-                document.reference.update("state", 1)
             }
         }
     }
@@ -71,13 +123,31 @@ class HomeActivity : AppCompatActivity() {
         fragTransaction.replace(R.id.home_frame, fragment).commit()
     }
 
+    override fun onPause() {
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", false)
+        super.onPause()
+    }
+    override fun onStop() {
+        super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
+    override fun onRestart() {
+        Log.d("TAG", "onRestart실행됨")
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+        super.onRestart()
+    }
+
     override fun onBackPressed() {
         val builder = AlertDialog.Builder(this)
             .setTitle("게임 종료")
             .setMessage("게임을 종료하시겠습니까?")
             .setPositiveButton("예") { dialog, which->
                 dialog.dismiss()
-                db.collection("user").document(auth.currentUser!!.email.toString()).update("state", 0)
+                db.collection("user").document(auth.currentUser!!.email.toString()).update("state", false)
                 finish()
             }
             .setNegativeButton("아니요") { dialog, which->

@@ -58,12 +58,18 @@ class LoginActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
-
         // [START initialize_auth]
         FirebaseManager.initialize()
         FirestoreManager.initialize()
         // [END initialize_auth]
         auth = FirebaseManager.getFirebaseAuth()
+
+        if(auth.currentUser != null) {
+            Log.d(TAG, "자동로그인")
+            Toast.makeText(baseContext, "${auth.currentUser!!.email} 님 환영합니다!", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+        }
         // [START config_signin]
         // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -73,6 +79,10 @@ class LoginActivity : Activity() {
 
         googleSignInClient = GoogleSignIn.getClient(this, gso)
         // [END config_signin]
+
+        FirestoreManager.getFirestore().collection("user").document(auth.currentUser?.email.toString()).addSnapshotListener {snapshot, e->
+            Log.d("HomeActivity", "Login에서 state 바뀜 : "+snapshot?.get("state").toString())
+        }
 
         // Set up the login form.
         mEmailView = findViewById(R.id.editview_email)
@@ -198,7 +208,6 @@ class LoginActivity : Activity() {
 
                     Toast.makeText(baseContext, "$email 님 환영합니다!", Toast.LENGTH_SHORT).show()
                     val intent = Intent(applicationContext, HomeActivity::class.java)
-                    intent.putExtra("userinfo", user)
                     startActivity(intent)
                     finish()
                 } else {
@@ -243,7 +252,7 @@ class LoginActivity : Activity() {
                         "nickname" to email2name,
                         "rating" to 1000,
                         "plays" to 0,
-                        "state" to 1
+                        "state" to false
                     )
                     val user_doc = db.collection("user").document(user!!.email!!.toString())
                     user_doc.get().addOnCompleteListener { task ->
@@ -257,7 +266,6 @@ class LoginActivity : Activity() {
 
                     Toast.makeText(baseContext, "${user!!.email}님 환영합니다!", Toast.LENGTH_SHORT).show()
                     val intent = Intent(applicationContext, HomeActivity::class.java)
-                    intent.putExtra("userinfo", user)
                     startActivity(intent)
                     finish()
                 } else {

@@ -108,12 +108,22 @@ class room_list : Fragment() {
                     val position = adapterPosition
                     if (position != RecyclerView.NO_POSITION) {
                         val document = dataSet.documents[position]
-                        val password = document.get("password").toString()
+                        Log.d(TAG, "눌렀음")
+                        if(document.exists()) {
+                            Log.d(TAG, "문서 있음 : " + document)
+                            val password = document.get("password").toString()
 
-                        if (password.isNotEmpty()) {
-                            showPasswordDialog(document)
-                        } else {
-                            RoomIn(document)
+                            if (password.isNotEmpty()) {
+                                showPasswordDialog(document)
+                            } else {
+                                RoomIn(document)
+                            }
+                        }
+                        else {
+                            Log.d(TAG, "문서 없음")
+                            activity?.runOnUiThread {
+                                Toast.makeText(requireContext(), "방을 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 }
@@ -208,6 +218,11 @@ class room_list : Fragment() {
         private fun RoomIn(Docsnapshot: DocumentSnapshot) {
             db.runTransaction { transaction ->
                 val snapshot = transaction.get(Docsnapshot.reference)
+                if(!snapshot.exists()) {
+                    activity?.runOnUiThread {
+                        Toast.makeText(requireContext(), "방을 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 val now_player = snapshot.get("now_players").toString().toInt()
                 if(now_player >= snapshot.get("max_players").toString().toInt()) {
                     Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
@@ -216,7 +231,7 @@ class room_list : Fragment() {
                     }
                     Log.d(TAG, "토스트 출력 후")
                 }
-                else if(snapshot.get("state").toString().toInt() != 1) {
+                else if(snapshot.get("state") == false) {
                     activity?.runOnUiThread {
                         Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
                     }

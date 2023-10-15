@@ -40,8 +40,8 @@
     <string name="change_to">Change to</string>
     <string name="password_check">Password Check</string>
     <string name="server_client_id">300921857777-qpf43mp6tpjs93d3jo96juckpe00cnbf.apps.googleusercontent.com</string>
-    <string name="name_text">NAME_TEXT</string>
-    <string name="score_text">SCORE_TEXT</string>
+    <string name="name_text">Waiting For</string>
+    <string name="score_text">New Player...</string>
     <string name="foreign_aid">Foreign Aid</string>
     <string name="income">Income</string>
     <string name="coup">Coup</string>

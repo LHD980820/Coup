@@ -15,14 +15,19 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import com.bumptech.glide.Glide
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
+import kotlinx.coroutines.tasks.await
 
 class GameWaitingRoomActivity : AppCompatActivity() {
     //UI Preferences
@@ -46,6 +51,8 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     private lateinit var db: FirebaseFirestore
     private lateinit var storage: FirebaseStorage
     private lateinit var database: FirebaseDatabase
+    private lateinit var game_room: DocumentReference
+
 
     private lateinit var gameId: String
     private var max_number: Int = 0
@@ -100,10 +107,17 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
         gameId = intent.getStringExtra("roomId").toString()
         number = intent.getStringExtra("number")!!.toInt()
-        if(number != 1) {
-            mGameStartButton.text = "ready"
+
+        game_room = db.collection("game_rooms").document(gameId)
+        game_room.get().addOnFailureListener{
+            Toast.makeText(this, "방을 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
         }
-        Log.d(TAG, gameId)
+        val waiting_hash = hashMapOf(
+            "waitingroom.0" to gameId,
+            "waitingroom.1" to number.toString()
+        )
+        db.collection("user").document(user.currentUser!!.email.toString()).update("waitingroom", waiting_hash)
+        Log.d(TAG, "게임 입장 : " + gameId)
 
         mPlayerThumbsUpImage[1].visibility = View.INVISIBLE
         mPlayerThumbsUpImage[2].visibility = View.INVISIBLE
@@ -116,6 +130,11 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mNoPersonImage5.visibility = View.INVISIBLE
         mNoPersonImage6.visibility = View.INVISIBLE
 
+        if(number != 1) {
+            mGameStartButton.text = "ready"
+        }
+
+        //방 UI생성
         val game_room = db.collection("game_rooms").document(gameId!!)
         game_room.get().addOnSuccessListener { document->
             if(document["max_players"].toString().toInt() <= 5) {
@@ -135,6 +154,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 mNoPersonImage3.visibility = View.VISIBLE
             }
         }
+        //스냅샷 설정
         snapshotListener = db.collection("game_rooms").document(gameId).addSnapshotListener { snapshot, e->
             if (e != null) {
                 // 오류 처리
@@ -146,6 +166,8 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 // 문서가 삭제됐을 때 실행할 코드
                 Log.d("FirestoreListener", "방 폭파")
                 Toast.makeText(this, "방이 폭파되었습니다", Toast.LENGTH_SHORT).show()
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
                 finish()
                 // 여기에서 삭제된 문서에 대한 추가 작업을 수행할 수 있습니다.
                 // 예를 들어, UI 업데이트 또는 다른 동작을 수행할 수 있습니다.
@@ -196,6 +218,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
             }
         }
 
+        //버튼 설정
         mOutButton.setOnClickListener {
             Log.d(TAG, "number : $number")
             if(number == 1) {
@@ -217,7 +240,13 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 builder.show()
             }
             else {
-                //
+                game_room.get().addOnSuccessListener { document->
+                    document.reference.update("now_players", document["now_players"].toString().toInt() - 1)
+                }
+                game_room.update("p$number", null)
+                game_room.update("p${number}ready", false)
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
                 finish()
             }
         }
@@ -225,21 +254,21 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mGameStartButton.setOnClickListener {
             db.collection("game_rooms").document(gameId).get().addOnSuccessListener { document->
                 if(number != 1) {
-                    if(document["p${number}ready"].toString().toInt() == 0) {
-                        document.reference.update("p${number}ready", 1)
+                    if(document["p${number}ready"] == false) {
+                        document.reference.update("p${number}ready", true)
                     }
                     else {
-                        document.reference.update("p${number}ready", 0)
+                        document.reference.update("p${number}ready", false)
                     }
                 }
                 else {
                     var readys = 0
                     for(i in 2 until max_number + 1) {
-                        if(document["p${i}ready"].toString().toInt() == 1) readys++
+                        if(document["p${i}ready"] == true) readys++
                     }
                     if(readys == max_number - 1) {
                         Toast.makeText(this, "게임을 시작합니다", Toast.LENGTH_SHORT).show()
-                        document.reference.update("state", 0)
+                        document.reference.update("state", false)
                         val intent = Intent(this, GameRoomActivity::class.java)
 
                         //게임 시작하면서 카드 랜덤 생성
@@ -314,10 +343,124 @@ class GameWaitingRoomActivity : AppCompatActivity() {
             }
             // TODO: Game Start
         }
+
+        if(number == 1) {
+            mPlayerImage[1].setOnClickListener {
+                val builder = AlertDialog.Builder(this).create()
+                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                builder.setView(dialogView)
+                ok.setOnClickListener {
+                    game_room.update("p2", null)
+                    game_room.update("p2ready", false)
+                    game_room.get().addOnSuccessListener { document->
+                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                    }
+                    builder.dismiss()
+                }
+                cancel.setOnClickListener {
+                    builder.dismiss()
+                }
+                builder.show()
+            }
+
+            mPlayerImage[2].setOnClickListener {
+                val builder = AlertDialog.Builder(this).create()
+                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                builder.setView(dialogView)
+                ok.setOnClickListener {
+                    game_room.update("p3", null)
+                    game_room.update("p3ready", false)
+                    game_room.get().addOnSuccessListener { document->
+                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                    }
+                    builder.dismiss()
+                }
+                cancel.setOnClickListener {
+                    builder.dismiss()
+                }
+                builder.show()
+            }
+
+            mPlayerImage[3].setOnClickListener {
+                val builder = AlertDialog.Builder(this).create()
+                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                builder.setView(dialogView)
+                ok.setOnClickListener {
+                    game_room.update("p4", null)
+                    game_room.update("p4ready", false)
+                    game_room.get().addOnSuccessListener { document->
+                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                    }
+                    builder.dismiss()
+                }
+                cancel.setOnClickListener {
+                    builder.dismiss()
+                }
+                builder.show()
+            }
+
+            mPlayerImage[4].setOnClickListener {
+                val builder = AlertDialog.Builder(this).create()
+                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                builder.setView(dialogView)
+                ok.setOnClickListener {
+                    game_room.update("p5", null)
+                    game_room.update("p5ready", false)
+                    game_room.get().addOnSuccessListener { document->
+                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                    }
+                    builder.dismiss()
+                }
+                cancel.setOnClickListener {
+                    builder.dismiss()
+                }
+                builder.show()
+            }
+
+            mPlayerImage[5].setOnClickListener {
+                val builder = AlertDialog.Builder(this).create()
+                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                builder.setView(dialogView)
+                ok.setOnClickListener {
+                    game_room.update("p6", null)
+                    game_room.update("p6ready", false)
+                    game_room.get().addOnSuccessListener { document->
+                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                    }
+                    builder.dismiss()
+                }
+                cancel.setOnClickListener {
+                    builder.dismiss()
+                }
+                builder.show()
+            }
+        }
     }
 
     private fun RoomInfo(snapshotData: Map<String, Any>) {
-        if(snapshotData["state"].toString().toInt() == 0) {
+        //강퇴 확인
+        if(number != 1) {
+            game_room.get().addOnSuccessListener { document->
+                if(document["p$number"].toString().isNullOrEmpty()) {
+                    Toast.makeText(this, "강퇴되었습니다", Toast.LENGTH_SHORT).show()
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
+                    finish()
+                }
+            }
+        }
+        //게임 시작
+        if(snapshotData["state"] == false) {
             Toast.makeText(this, "게임을 시작합니다", Toast.LENGTH_SHORT).show()
 
             val intent = Intent(this, GameRoomActivity::class.java)
@@ -329,6 +472,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 finish()
             }, 3000)
         }
+        //방 정보 수정
         for (i in 1 until max_number + 1) {
             val playerData = snapshotData["p$i"]
             if (playerData != null) {
@@ -347,17 +491,17 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     }
                     .addOnFailureListener {
                         Log.d(TAG, "읽기 실패")
-                        mPlayerNickname[i - 1].text = "NAME_TEXT"
-                        mPlayerRating[i - 1].text = "SCORE_TEXT"
+                        mPlayerNickname[i - 1].text = "Waiting For"
+                        mPlayerRating[i - 1].text = "New Player..."
                         mPlayerImage[i - 1].setImageResource(R.drawable.icon)
                     }
             } else {
-                mPlayerNickname[i - 1].text = "NAME_TEXT"
-                mPlayerRating[i - 1].text = "SCORE_TEXT"
+                mPlayerNickname[i - 1].text = "Waiting For"
+                mPlayerRating[i - 1].text = "New Player..."
                 mPlayerImage[i - 1].setImageResource(R.drawable.icon)
             }
             if(i != 1) {
-                if(snapshotData["p${i}ready"].toString().toInt() == 1) {
+                if(snapshotData["p${i}ready"] == true) {
                     mPlayerThumbsUpImage[i - 1].visibility = View.VISIBLE
                 }
                 else {
@@ -371,17 +515,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         if(number == 1) {
             db.collection("game_rooms").document(gameId).delete()
         }
-        else {
-            db.collection("game_rooms").document(gameId).get().addOnSuccessListener { documentSnapShot ->
-                Log.d(TAG, "onDestroy읽기 성공")
-                if(documentSnapShot.exists()) {
-                    documentSnapShot.reference.update("p${number}", null)
-                    documentSnapShot.reference.update("now_players", documentSnapShot["now_players"].toString().toInt() - 1)
-                    documentSnapShot.reference.update("p${number}ready", 0)
-                }
-            }
-        }
-        snapshotListener.remove()
         super.onDestroy()
     }
 
@@ -391,15 +524,17 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
 
     override fun onPause() {
+        db.collection("user").document(user.currentUser?.email.toString()).update("state", false)
+        db.collection("game_rooms").document(gameId).update("p${number}ready", false)
         super.onPause()
         //finish()
-
     }
     override fun onStop() {
         super.onStop()
     }
 
     override fun onResume() {
+        db.collection("user").document(user.currentUser?.email.toString()).update("state", true)
         super.onResume()
     }
 
@@ -424,6 +559,8 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 .setTitle("방 나가기")
                 .setMessage("방에서 나가시겠습니까?")
                 .setPositiveButton("예") { dialog, which->
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
                     dialog.dismiss()
                     finish()
                 }

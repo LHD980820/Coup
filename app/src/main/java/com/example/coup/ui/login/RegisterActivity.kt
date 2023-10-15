@@ -73,14 +73,17 @@ class RegisterActivity : Activity(){
             if(id.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "이메일을 입력하세요", Toast.LENGTH_SHORT).show()
             }
-            if(pw.isNullOrEmpty()) {
+            else if(pw.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "비밀번호를 입력하세요", Toast.LENGTH_SHORT).show()
             }
-            if(pwc.isNullOrEmpty()) {
+            else if(pwc.isNullOrEmpty()) {
                 Toast.makeText(baseContext, "밑에 칸에 비밀번호를 한번 더 입력하세요", Toast.LENGTH_SHORT).show()
             }
-            if(pw != pwc) {
+            else if(pw != pwc) {
                 Toast.makeText(baseContext, "비밀번호가 맞지 않습니다 ($pw + $pwc)", Toast.LENGTH_SHORT).show()
+            }
+            else if(pw.length < 6) {
+                Toast.makeText(this, "비밀번호는 6자 이상이어야 합니다", Toast.LENGTH_SHORT).show()
             }
             else {
                 createAccount(id, pw)

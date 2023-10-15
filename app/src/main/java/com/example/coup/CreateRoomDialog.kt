@@ -52,7 +52,7 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                     "title" to mTitleView.text.toString(),
                     "password" to mPasswordView.text.toString(),
                     "max_players" to number,
-                    "state" to 1,
+                    "state" to true,
                     "now_players" to 1,
                     "p1" to null,
                     "p2" to null,
@@ -60,11 +60,11 @@ class CreateRoomDialog(context: Context): Dialog(context) {
                     "p4" to null,
                     "p5" to null,
                     "p6" to null,
-                    "p2ready" to 0,
-                    "p3ready" to 0,
-                    "p4ready" to 0,
-                    "p5ready" to 0,
-                    "p6ready" to 0,
+                    "p2ready" to false,
+                    "p3ready" to false,
+                    "p4ready" to false,
+                    "p5ready" to false,
+                    "p6ready" to false,
                     "timestamp" to com.google.firebase.Timestamp.now()
                 )
                 db.collection("game_rooms")

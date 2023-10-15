@@ -129,8 +129,8 @@ class ranking : Fragment() {
                 }
 
                 // Apply (Blinking) Animation
-                val blinkingAnimation = AnimationUtils.loadAnimation(viewHolder.itemView.context, R.anim.blink_animation)
-                viewHolder.itemView.startAnimation(blinkingAnimation)
+                //val blinkingAnimation = AnimationUtils.loadAnimation(viewHolder.itemView.context, R.anim.blink_animation)
+                //viewHolder.itemView.startAnimation(blinkingAnimation)
             }
         }
 
