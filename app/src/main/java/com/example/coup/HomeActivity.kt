@@ -69,23 +69,34 @@ class HomeActivity : AppCompatActivity() {
                 finish()
             } else {
                 db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+                db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document->
+                    val waitingroomMap = document.get("waitingroom") as Map<*, *>
+                    val waitingroom0 = waitingroomMap["waitingroom.0"]
+                    val waitingroom1 = waitingroomMap["waitingroom.1"].toString()
+                    Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
+                    if(waitingroom0 != null) {
+                        if(db.collection("game_rooms").document(waitingroom0.toString()).get().isSuccessful) {
+                            Log.d(TAG, "waitingroom0 : not nullorempty")
+                            val intent = Intent(baseContext, GameWaitingRoomActivity::class.java)
+                            intent.putExtra("roomId", waitingroom0.toString())
+                            intent.putExtra("number", waitingroom1)
+                            startActivity(intent)
+                        }
+                        else {
+                            val waitingroom = hashMapOf(
+                                "waitingroom.0" to null,
+                                "waitingroom.1" to "0"
+                            )
+                            db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                        }
+                    }
+                }
             }
         }
 
 
         //대기방 들어가 있는지 확인
-        db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document->
-            val waitingroomArray = document.get("waitingroom") as Map<*, *>
-            val waitingroom0 = waitingroomArray["waitingroom.0"].toString()
-            val waitingroom1 = waitingroomArray["waitingroom.1"].toString()
-            Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
-            if(!waitingroom0.isNullOrEmpty()) {
-                val intent = Intent(this, GameWaitingRoomActivity::class.java)
-                intent.putExtra("roomId", waitingroom0)
-                intent.putExtra("number", waitingroom1)
-                startActivity(intent)
-            }
-        }
+
 
         bottomNavigationView = findViewById(R.id.bottom_navigation)
         supportFragmentManager.beginTransaction().add(R.id.home_frame, room_list()).commit()

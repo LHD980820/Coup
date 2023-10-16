@@ -166,8 +166,11 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 // 문서가 삭제됐을 때 실행할 코드
                 Log.d("FirestoreListener", "방 폭파")
                 Toast.makeText(this, "방이 폭파되었습니다", Toast.LENGTH_SHORT).show()
-                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
-                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
+                val waitingroom = hashMapOf(
+                    "waitingroom.0" to null,
+                    "waitingroom.1" to "0"
+                )
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom", waitingroom)
                 finish()
                 // 여기에서 삭제된 문서에 대한 추가 작업을 수행할 수 있습니다.
                 // 예를 들어, UI 업데이트 또는 다른 동작을 수행할 수 있습니다.
@@ -193,9 +196,11 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                                     mPlayerNickname[i - 1].text = Document.get("nickname").toString()
                                     mPlayerRating[i - 1].text = Document.get("rating").toString()
                                     storage.reference.child("profile_images/${Document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                                        Glide.with(this)
-                                            .load(imageUrl)
-                                            .into(mPlayerImage[i - 1])
+                                        if(!isDestroyed) {
+                                            Glide.with(this)
+                                                .load(imageUrl)
+                                                .into(mPlayerImage[i - 1])
+                                        }
                                     }
                                 }
                             }
@@ -241,12 +246,15 @@ class GameWaitingRoomActivity : AppCompatActivity() {
             }
             else {
                 game_room.get().addOnSuccessListener { document->
-                    document.reference.update("now_players", document["now_players"].toString().toInt() - 1)
+                    document.reference.update("now_players", (document["now_players"].toString().toInt() - 1))
                 }
                 game_room.update("p$number", null)
                 game_room.update("p${number}ready", false)
-                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
-                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
+                val waitingroom = hashMapOf(
+                    "waitingroom.0" to null,
+                    "waitingroom.1" to "0"
+                )
+                db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom", waitingroom)
                 finish()
             }
         }
@@ -451,10 +459,13 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         //강퇴 확인
         if(number != 1) {
             game_room.get().addOnSuccessListener { document->
-                if(document["p$number"].toString().isNullOrEmpty()) {
+                if(document["p$number"] == null) {
                     Toast.makeText(this, "강퇴되었습니다", Toast.LENGTH_SHORT).show()
-                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
-                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
+                    val waitingroom = hashMapOf(
+                        "waitingroom.0" to null,
+                        "waitingroom.1" to "0"
+                    )
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom", waitingroom)
                     finish()
                 }
             }
@@ -525,7 +536,9 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
     override fun onPause() {
         db.collection("user").document(user.currentUser?.email.toString()).update("state", false)
-        db.collection("game_rooms").document(gameId).update("p${number}ready", false)
+        if(number != 1) {
+            db.collection("game_rooms").document(gameId).update("p${number}ready", false)
+        }
         super.onPause()
         //finish()
     }
@@ -559,8 +572,11 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 .setTitle("방 나가기")
                 .setMessage("방에서 나가시겠습니까?")
                 .setPositiveButton("예") { dialog, which->
-                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.0", null)
-                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom.1", 0)
+                    val waitingroom = hashMapOf(
+                    "waitingroom.0" to null,
+                    "waitingroom.1" to "0"
+                    )
+                    db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom", waitingroom)
                     dialog.dismiss()
                     finish()
                 }
