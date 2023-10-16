@@ -363,7 +363,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     game_room.update("p2", null)
                     game_room.update("p2ready", false)
                     game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                        game_room.update("now_players", document["now_players"].toString().toInt() - 1)
                     }
                     builder.dismiss()
                 }
@@ -577,6 +577,11 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     "waitingroom.1" to "0"
                     )
                     db.collection("user").document(user.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                    db.collection("game_rooms").document(gameId).update("p$number", null)
+                    db.collection("game_rooms").document(gameId).update("p${number}ready", null)
+                    db.collection("game_rooms").document(gameId).get().addOnSuccessListener { document->
+                        document.reference.update("now_players", document["now_players"].toString().toInt() - 1)
+                    }
                     dialog.dismiss()
                     finish()
                 }
