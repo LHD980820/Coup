@@ -123,7 +123,15 @@ class RegisterActivity : Activity(){
                         "nickname" to email2name,
                         "rating" to 1000,
                         "plays" to 0,
-                        "state" to 0
+                        "state" to false,
+                        "waitingroom" to hashMapOf(
+                            "waitingroom.0" to null,
+                            "waitingroom.1" to "0"
+                        ),
+                        "palyingroom" to hashMapOf(
+                            "playingroom.0" to null,
+                            "playingroom.1" to "0"
+                        )
                     )
                     db.collection("user")
                         .document(user!!.email!!.toString())

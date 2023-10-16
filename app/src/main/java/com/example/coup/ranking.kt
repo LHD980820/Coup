@@ -132,6 +132,9 @@ class ranking : Fragment() {
                 //val blinkingAnimation = AnimationUtils.loadAnimation(viewHolder.itemView.context, R.anim.blink_animation)
                 //viewHolder.itemView.startAnimation(blinkingAnimation)
             }
+            else {
+                viewHolder.itemView.setBackgroundColor(Color.TRANSPARENT)
+            }
         }
 
         // Return the size of your dataset (invoked by the layout manager)

@@ -64,12 +64,13 @@ class LoginActivity : Activity() {
         // [END initialize_auth]
         auth = FirebaseManager.getFirebaseAuth()
 
-        if(auth.currentUser != null) {
-            Log.d(TAG, "자동로그인")
-            Toast.makeText(baseContext, "${auth.currentUser!!.email} 님 환영합니다!", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, HomeActivity::class.java))
-            finish()
-        }
+//        if(auth.currentUser != null) {
+//            Log.d(TAG, "자동로그인")
+//            Toast.makeText(baseContext, "${auth.currentUser!!.email} 님 환영합니다!", Toast.LENGTH_SHORT).show()
+//            startActivity(Intent(this, HomeActivity::class.java))
+//            finish()
+//        }
+
         // [START config_signin]
         // Configure Google Sign In
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -181,6 +182,7 @@ class LoginActivity : Activity() {
                 Log.w(TAG, "Google sign in failed", e)
             }
         }
+        ProgressOffButtonOn()
     }
 
 
@@ -252,7 +254,15 @@ class LoginActivity : Activity() {
                         "nickname" to email2name,
                         "rating" to 1000,
                         "plays" to 0,
-                        "state" to false
+                        "state" to false,
+                        "waitingroom" to hashMapOf(
+                            "waitingroom.0" to null,
+                            "waitingroom.1" to "0"
+                        ),
+                        "palyingroom" to hashMapOf(
+                            "playingroom.0" to null,
+                            "playingroom.1" to "0"
+                        )
                     )
                     val user_doc = db.collection("user").document(user!!.email!!.toString())
                     user_doc.get().addOnCompleteListener { task ->
