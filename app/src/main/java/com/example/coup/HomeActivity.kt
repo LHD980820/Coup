@@ -111,23 +111,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkConcurrentConnection() {
-        db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document ->
-            Log.d(TAG, "state : ${document["state"]}")
-
-            val isUserOnline = document.getBoolean("state") ?: false
-            Log.d(TAG, "${isUserOnline}")
-
-            if (isUserOnline) {
-                Log.d(TAG, "여기 들어감")
-                Toast.makeText(this, "현재 접속 중인 계정으로 로그아웃됩니다", Toast.LENGTH_SHORT).show()
-                auth.signOut()
-                startActivity(Intent(this, LoginActivity::class.java))
-                finish()
-            }
-        }
-    }
-
     private fun setFragment(fragment: Fragment) {
         val manager: FragmentManager = supportFragmentManager
         val fragTransaction = manager.beginTransaction()
