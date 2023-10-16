@@ -64,12 +64,12 @@ class LoginActivity : Activity() {
         // [END initialize_auth]
         auth = FirebaseManager.getFirebaseAuth()
 
-//        if(auth.currentUser != null) {
-//            Log.d(TAG, "자동로그인")
-//            Toast.makeText(baseContext, "${auth.currentUser!!.email} 님 환영합니다!", Toast.LENGTH_SHORT).show()
-//            startActivity(Intent(this, HomeActivity::class.java))
-//            finish()
-//        }
+        if(auth.currentUser != null) {
+            Log.d(TAG, "자동로그인")
+            Toast.makeText(baseContext, "${auth.currentUser!!.email} 님 환영합니다!", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+        }
 
         // [START config_signin]
         // Configure Google Sign In

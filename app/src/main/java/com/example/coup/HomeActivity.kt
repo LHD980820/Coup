@@ -75,20 +75,24 @@ class HomeActivity : AppCompatActivity() {
                     val waitingroom1 = waitingroomMap["waitingroom.1"].toString()
                     Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
                     if(waitingroom0 != null) {
-                        if(db.collection("game_rooms").document(waitingroom0.toString()).get().isSuccessful) {
-                            Log.d(TAG, "waitingroom0 : not nullorempty")
-                            val intent = Intent(baseContext, GameWaitingRoomActivity::class.java)
-                            intent.putExtra("roomId", waitingroom0.toString())
-                            intent.putExtra("number", waitingroom1)
-                            startActivity(intent)
+                        db.collection("game_rooms").document(waitingroom0.toString()).get().addOnSuccessListener{document->
+                            if(document.exists()) {
+                                Log.d(TAG, "waitingroom0 : not nullorempty")
+                                val intent = Intent(baseContext, GameWaitingRoomActivity::class.java)
+                                intent.putExtra("roomId", waitingroom0.toString())
+                                intent.putExtra("number", waitingroom1)
+                                startActivity(intent)
+                            }
+                            else {
+                                val waitingroom = hashMapOf(
+                                    "waitingroom.0" to null,
+                                    "waitingroom.1" to "0"
+                                )
+                                db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                            }
                         }
-                        else {
-                            val waitingroom = hashMapOf(
-                                "waitingroom.0" to null,
-                                "waitingroom.1" to "0"
-                            )
-                            db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
-                        }
+                        //Log.d(TAG, "입장 : " + db.collection("game_rooms").document(waitingroom0.toString()).get().isSuccessful)
+
                     }
                 }
             }
