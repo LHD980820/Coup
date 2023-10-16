@@ -259,7 +259,7 @@ class LoginActivity : Activity() {
                             "waitingroom.0" to null,
                             "waitingroom.1" to "0"
                         ),
-                        "palyingroom" to hashMapOf(
+                        "playingroom" to hashMapOf(
                             "playingroom.0" to null,
                             "playingroom.1" to "0"
                         )
