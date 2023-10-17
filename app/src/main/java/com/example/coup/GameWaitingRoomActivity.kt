@@ -28,6 +28,8 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.tasks.await
+import kotlin.math.max
+import kotlin.random.Random
 
 class GameWaitingRoomActivity : AppCompatActivity() {
     //UI Preferences
@@ -290,15 +292,14 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
                         val numberOfPlayers = max_number
                         val cardsPerPlayer = 2
-                        val players = ArrayList<ArrayList<Int>>(numberOfPlayers)
 
                         // 사용자 별로 카드 분배
+                        var userCard = hashMapOf<String, Int>()
                         for (playerIndex in 0 until numberOfPlayers) {
-                            players.add(ArrayList<Int>())
                             for (cardIndex in 0 until cardsPerPlayer) {
                                 val randomCardIndex = (0 until cardDeck.size).random()
                                 val card = cardDeck[randomCardIndex]
-                                players[playerIndex].add(card)
+                                userCard.put("p${playerIndex+1}card${cardIndex+1}", card)
                                 cardDeck.removeAt(randomCardIndex)
                                 Log.d("GameWaitingRoom", "card random select: $card")
                                 Log.d("GameWaitingRoom", "card deck left: ${cardDeck.size}")
@@ -308,41 +309,44 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                         //players 에는 랜덤 분배된 카드가 2개씩 저장 / cardDeck 에는 남은 카드들의 ID 저장 되어 있음
                         Log.d("GameWaitingRoom", "random select complete. card deck left: ${cardDeck.size}")
 
-                        //로그 확인용 - 지워도 됨
-                        if (players != null) {
-                            // 데이터 사용
-                            for (row in players) {
-                                for (item in row) {
-                                    Log.d("GameWaitingRoomplayers", item.toString())
-                                }
-                            }
-                        }
-                        if (cardDeck != null) {
-                            // 데이터 사용
-                            for (iddd in 0 until(cardDeck.size)) {
-                                Log.d("GameWaitingRoomcardDeck", cardDeck[iddd].toString())
-                            }
-                        }
-                        Log.d("GameWaitingRoom", "putExtra complete. card deck left: ${cardDeck.size}")
-
-                        //파이어베이스로 players & cardDeck 보내기!
-                        for (playerIndex in 0 until numberOfPlayers) {
-                            for (cardIndex in 0 until cardsPerPlayer) {
-                                db.collection("game_playing").document(gameId).update("p${playerIndex + 1}card${cardIndex + 1}", players[playerIndex][cardIndex])
-                            }
-                        }
                         var cardDeckString: String = ""
                         for (cardDeckIndex in 0 until (cardDeck.size)) {
                             cardDeckString += cardDeck[cardDeckIndex].toString()
                         }
-                        db.collection("game_playing").document(gameId).update("carddeck", cardDeckString)
+
+                        var hashmap = hashMapOf(
+                            "players" to max_number,
+                            "action_code" to null,
+                            "card_left" to cardDeckString,
+                            "turn" to Random.nextInt(1, max_number + 1)
+                        )
+
+                        var userEmail = hashMapOf<String, String>()
+                        var userCoin = hashMapOf<String, Int>()
+
+                        for(i in 1 until max_number + 1) {
+                            val pValue = document["p$i"]
+                            if(pValue != null) {
+                                userEmail.put("p$i", pValue.toString())
+                            }
+                            userCoin.put("p$i", 2)
+                        }
+                        val doc = db.collection("game_playing").document(gameId)
+                        db.runBatch { batch->
+                            batch.set(doc, hashmap)
+                            batch.update(doc, userEmail as Map<String, String>)
+                            batch.update(doc, userCoin as Map<String, Int>)
+                            batch.update(doc, userCard as Map<String, Int>)
+                        }.addOnSuccessListener {
+                            Log.d(TAG, "게임 방 생성 성공")
+                        }
 
                         intent.putExtra("gameId", gameId)
                         intent.putExtra("number", number)
                         startActivity(intent)
                         Handler(Looper.getMainLooper()).postDelayed({
                             finish()
-                        }, 3000)
+                        }, 1000)
                     }
                     else {
                         Toast.makeText(this, "모든 인원이 다 준비해야 시작 가능합니다", Toast.LENGTH_SHORT).show()
@@ -523,9 +527,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        if(number == 1) {
-            db.collection("game_rooms").document(gameId).delete()
-        }
         super.onDestroy()
     }
 

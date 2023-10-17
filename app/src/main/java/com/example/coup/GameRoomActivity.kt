@@ -56,7 +56,6 @@ class GameRoomActivity : AppCompatActivity() {
             bottomSheet.show(supportFragmentManager, bottomSheet.tag)
         }
 
-        cardReceive()
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
@@ -158,19 +157,4 @@ class GameRoomActivity : AppCompatActivity() {
         db = FirestoreManager.getFirestore()
     }
 
-    fun cardReceive(){
-        gameId = intent.getStringExtra("gameId").toString()
-        number = intent.getStringExtra("number")!!.toInt()
-
-        //파이어베이스에서 players & cardDeck 받아오기!
-        db.collection("game_playing").document(gameId).get().addOnSuccessListener { document ->
-            pCard1 = document["p${number}card${1}"].toString().toInt()
-            pCard2 = document["p${number}card${2}"].toString().toInt()
-            cardDeck = document["carddeck"].toString()
-        }
-        Log.d("GameRoom", "p${number} card1: $pCard1")
-        Log.d("GameRoom", "p${number} card2: $pCard2")
-
-
-    }
 }

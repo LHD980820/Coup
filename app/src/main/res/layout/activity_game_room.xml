@@ -72,6 +72,7 @@
             android:id="@+id/action_game_room"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:background="@drawable/action_box"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -120,12 +121,13 @@
         android:id="@+id/scrollView_game_room"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
         app:layout_constraintBottom_toTopOf="@+id/action_button"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/constraint_second_game_room"
-        app:layout_constraintVertical_bias="0.0">
+        app:layout_constraintTop_toBottomOf="@+id/constraint_second_game_room">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/constraint_players_game_room"
@@ -1055,9 +1057,14 @@
         android:id="@+id/action_button"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
         android:layout_marginBottom="4dp"
-        android:background="@color/game_start_bgcolor"
+        android:background="@drawable/action_button_box"
+        android:fontFamily="@font/stylish"
         android:text="Action"
+        android:textColor="@color/white"
+        android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
