@@ -2,12 +2,13 @@ package com.example.coup
 
 import android.annotation.SuppressLint
 import android.os.Bundle
-import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -52,8 +53,13 @@ class GameRoomActivity : AppCompatActivity() {
 
         //action Button 클릭 시 bottom sheet dialog 띄우기
         findViewById<Button>(R.id.action_button).setOnClickListener {
-            val bottomSheet = BottomSheetDialog()
-            bottomSheet.show(supportFragmentManager, bottomSheet.tag)
+            val bottomSheet = BottomSheetDialog(this)
+            val view = layoutInflater.inflate(R.layout.activity_game_room_bottomsheet, null)
+            val line1 = view.findViewById<ConstraintLayout>(R.id.game_action_btn_layout1)
+            line1.visibility = View.GONE
+            bottomSheet.setContentView(view)
+            bottomSheet.show()
+
         }
 
     }

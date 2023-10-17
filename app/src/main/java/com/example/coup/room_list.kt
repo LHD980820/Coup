@@ -239,8 +239,9 @@ class room_list : Fragment() {
                 else {
                     transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
                     var my_number: Int = 1
-                    for(i in 1 until Docsnapshot.get("max_players").toString().toInt() + 1) {
-                        if(Docsnapshot.get("p${i}") == null) {
+                    val max_number = snapshot.get("max_players").toString().toInt()
+                    for(i in 1 until max_number + 1) {
+                        if(snapshot.get("p${i}") == null) {
                             transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
                             my_number = i
                             break
