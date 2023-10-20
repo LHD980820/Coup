@@ -102,14 +102,20 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/card_coin" />
 
+
             <TextView
                 android:id="@+id/action_text_game_room"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:ellipsize="marquee"
                 android:fontFamily="@font/stylish"
+                android:gravity="center"
+                android:marqueeRepeatLimit="marquee_forever"
                 android:text="Explanation"
                 android:textColor="@color/black"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/action_icon_right_game_room"
                 app:layout_constraintStart_toEndOf="@+id/action_icon_left_game_room"
