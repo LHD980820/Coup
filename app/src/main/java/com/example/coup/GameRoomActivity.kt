@@ -252,7 +252,6 @@ class GameRoomActivity : AppCompatActivity() {
                                 if(i == number - 1 || cards["p${i + 1}card${j + 1}"].toString().toInt()/10 != 0) {
                                     card.setImageResource(cardFromNumber(cards["p${i + 1}card${j + 1}"].toString().toInt()))
                                     Log.d(TAG, "카드 정보 다이얼로그 출력")
-
                                     builder.setContentView(dialogView)
                                     builder.show()
                                 }
