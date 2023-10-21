@@ -1,6 +1,7 @@
 package com.example.coup
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -67,6 +68,8 @@ class GameRoomActivity : AppCompatActivity() {
         setContentView(R.layout.activity_game_room)
 
         init()
+        //게임 시작
+        gameStart()
 
         //action Button 클릭 시 bottom sheet dialog 띄우기
         findViewById<Button>(R.id.action_button).setOnClickListener {
@@ -190,7 +193,11 @@ class GameRoomActivity : AppCompatActivity() {
         storage = FirebaseStorage.getInstance()
         db = FirestoreManager.getFirestore()
         documentRef = db.collection("game_playing").document(gameId)
+        //시작 ui 설정
+        uiUpdate()
+    }
 
+    private fun uiUpdate() {
         documentRef.get().addOnSuccessListener { document->
             val coin = document["coin"] as HashMap<*, *>
             val email = document["email"] as HashMap<*, *>
@@ -229,53 +236,27 @@ class GameRoomActivity : AppCompatActivity() {
             for(i in max_number until 6) {
                 mPlayerConstraint[i].visibility = View.GONE
             }
-        }
-        //카드 클릭시 카드 정보 띄우기
-        cardClickListener()
-        //게임 시작
-        gameStart()
-    }
+            //카드 클릭 시 카드 정보 띄우기
+            val dialogView = layoutInflater.inflate(R.layout.dialog_card_info, null)
+            val card = dialogView.findViewById<ImageView>(R.id.card_info)
+            val builder = Dialog(this)
+            for(i in 0 until max_number) {
+                for(j in 0 until 2) {
+                    mPlayerCard[i][j].setOnClickListener{
+                        Log.d(TAG, "카드 클릭 됨")
+                        builder.dismiss()
+                        documentRef.get().addOnCompleteListener { task->
+                            if(task.isSuccessful) {
+                                val document = task.result
+                                val cards = document["card"] as HashMap<*, *>
+                                if(i == number - 1 || cards["p${i + 1}card${j + 1}"].toString().toInt()/10 != 0) {
+                                    card.setImageResource(cardFromNumber(cards["p${i + 1}card${j + 1}"].toString().toInt()))
+                                    Log.d(TAG, "카드 정보 다이얼로그 출력")
 
-    private fun cardClickListener() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_card_info, null)
-        val card = dialogView.findViewById<ImageView>(R.id.card_info)
-        val builder = AlertDialog.Builder(this)
-        builder.setView(dialogView)
-        for(i in 0 until max_number) {
-            mPlayerCard[i][0].setOnClickListener{
-                Log.d(TAG, "카드 클릭 됨")
-                documentRef.get().addOnCompleteListener { task->
-                    if(task.isSuccessful) {
-                        val document = task.result
-                        val cards = document["card"] as HashMap<*, *>
-                        if(i == number - 1) {
-                            card.setImageResource(cardFromNumber(cards["p${number}card1"].toString().toInt()))
-                            Log.d(TAG, "카드 정보 다이얼로그 출력")
-                            builder.show()
-                        }
-                        else if(cards["p${number}card1"].toString().toInt()/10 != 0) {
-                            card.setImageResource(cardFromNumber(cards["p${number}card1"].toString().toInt()))
-                            Log.d(TAG, "카드 정보 다이얼로그 출력")
-                            builder.show()
-                        }
-                    }
-                }
-            }
-            mPlayerCard[i][1].setOnClickListener{
-                Log.d(TAG, "카드 클릭 됨")
-                documentRef.get().addOnCompleteListener { task->
-                    if(task.isSuccessful) {
-                        val document = task.result
-                        val cards = document["card"] as HashMap<*, *>
-                        if(i == number - 1) {
-                            card.setImageResource(cardFromNumber(cards["p${number}card2"].toString().toInt()))
-                            Log.d(TAG, "카드 정보 다이얼로그 출력")
-                            builder.show()
-                        }
-                        else if(cards["p${number}card1"].toString().toInt()/10 != 0) {
-                            card.setImageResource(cardFromNumber(cards["p${number}card2"].toString().toInt()))
-                            Log.d(TAG, "카드 정보 다이얼로그 출력")
-                            builder.show()
+                                    builder.setContentView(dialogView)
+                                    builder.show()
+                                }
+                            }
                         }
                     }
                 }
@@ -335,10 +316,15 @@ class GameRoomActivity : AppCompatActivity() {
     private fun cardFromNumber(number: Int): Int {
         return when(number) {
             1-> R.drawable.card_duke
+            10-> R.drawable.card_duke
             2-> R.drawable.card_contessa
+            20-> R.drawable.card_contessa
             3-> R.drawable.card_captine
+            30-> R.drawable.card_captine
             4-> R.drawable.card_assassin
+            40-> R.drawable.card_assassin
             5-> R.drawable.card_ambassador
+            50-> R.drawable.card_ambassador
             else-> R.drawable.card_back
         }
     }
