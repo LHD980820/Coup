@@ -51,4 +51,10 @@
     <string name="exchange">Exchange</string>
     <string name="agree">Agree</string>
     <string name="disagree">Disagree</string>
+    <string name="challenge">challenge</string>
+    <string name="admit">admit</string>
+    <string name="block_by_captain">block by captain</string>
+    <string name="block_by_ambassador">block by ambassador</string>
+    <string name="block_by_duke">block by duke</string>
+    <string name="block_by_contessa">block by contessa</string>
 </resources>
