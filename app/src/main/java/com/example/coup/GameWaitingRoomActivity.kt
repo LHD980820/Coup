@@ -493,7 +493,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     val cardsPerPlayer = 2
 
                     // 사용자 별로 카드 분배
-                    var userCard = hashMapOf<String, Int>()
+                    var userCard = hashMapOf<String, Any>()
                     for (playerIndex in 0 until numberOfPlayers) {
                         for (cardIndex in 0 until cardsPerPlayer) {
                             val randomCardIndex = (0 until cardDeck.size).random()
@@ -512,42 +512,41 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     for (cardDeckIndex in 0 until (cardDeck.size)) {
                         cardDeckString += cardDeck[cardDeckIndex].toString()
                     }
-
-                    var hashmap = hashMapOf(
-                        "players" to max_number,
-                        "action_code" to null,
-                        "card_left" to cardDeckString,
-                        "turn" to Random.nextInt(1, max_number + 1),
-                        "challenge" to 0
-                    )
-
-                    val userEmail_all = hashMapOf<String, Any>()
-                    val userCoin_all = hashMapOf<String, Any>()
-                    val userCard_all = hashMapOf<String, Any>()
-                    val userAccept_all = hashMapOf<String, Any>()
-                    val userEmail = hashMapOf<String, String>()
+                    userCard.put("card_left", cardDeckString)
                     val userCoin = hashMapOf<String, Int>()
-                    val userAccept = hashMapOf<String, Boolean>()
+                    val userAccept = hashMapOf<String, Any?>()
+
+                    val hashmap: HashMap<String, Any> = hashMapOf(
+                        "players" to max_number,
+                        "turn" to 0,
+                    )
 
                     for(i in 1 until max_number + 1) {
                         val pValue = document["p$i"]
                         if(pValue != null) {
-                            userEmail["p$i"] = pValue.toString()
+                            hashmap["p$i"] = pValue.toString()
                             userCoin["p$i"] = 2
-                            userAccept["p$i"] = false
+                            userAccept["p$i"] = null
                         }
                     }
-                    userEmail_all["email"] = userEmail
-                    userCoin_all["coin"] = userCoin
-                    userCard_all["card"] = userCard
-                    userAccept_all["accept"] = userAccept
-                    val doc = db.collection("game_playing").document(gameId)
+
+
+                    val doc_info = db.collection("game_playing").document(gameId+"_INFO")
+                    val doc_card = db.collection("game_playing").document(gameId+"_CARD")
+                    val doc_coin = db.collection("game_playing").document(gameId+"_COIN")
+                    val doc_accept = db.collection("game_playing").document(gameId+"_ACCEPT")
+                    val doc_action = db.collection("game_playing").document(gameId+"_ACTION")
                     db.runBatch { batch->
-                        batch.set(doc, hashmap)
-                        batch.update(doc, userEmail_all)
-                        batch.update(doc, userCoin_all)
-                        batch.update(doc, userCard_all)
-                        batch.update(doc, userAccept_all)
+                        batch.set(doc_info, hashmap)
+                        batch.set(doc_card, userCard)
+                        batch.set(doc_coin, userCoin)
+                        batch.set(doc_accept, userAccept)
+                        batch.set(doc_action, hashMapOf(
+                            "from" to 0,
+                            "to" to 0,
+                            "action" to 0,
+                            "challenge" to 0
+                        ))
                     }.addOnSuccessListener {
                         Log.d(TAG, "게임 방 생성 성공")
                     }

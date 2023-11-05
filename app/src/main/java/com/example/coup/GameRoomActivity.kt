@@ -2,26 +2,33 @@ package com.example.coup
 
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.KeyEvent.DispatcherState
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.saveable.mapSaver
 import androidx.compose.ui.graphics.Color
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
+import com.example.coup.ui.login.LoginActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.CoroutineScope
@@ -30,15 +37,17 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.zip.Inflater
+import kotlin.random.Random
 
 class GameRoomActivity : AppCompatActivity() {
 
+    private lateinit var mTimeLeft: TextView
     private lateinit var mLeftCardText: TextView
     private lateinit var mActionConstraint: ConstraintLayout
     private lateinit var mActionIcon: Array<ImageView>
     private lateinit var mActionText: TextView
-    private lateinit var mPlayerConstraint: Array<ConstraintLayout>
 
+    private lateinit var mPlayerConstraint: Array<ConstraintLayout>
     private lateinit var mPlayerText: Array<TextView>
     private lateinit var mPlayerCoin: Array<TextView>
     private lateinit var mPlayerCard: Array<Array<ImageView>>
@@ -52,44 +61,77 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var storage: FirebaseStorage
     private lateinit var db: FirebaseFirestore
-    private lateinit var documentRef: DocumentReference
+    private lateinit var documentInfo: DocumentReference
+    private lateinit var documentCard: DocumentReference
+    private lateinit var documentCoin: DocumentReference
+    private lateinit var documentAccept: DocumentReference
+    private lateinit var documentAction: DocumentReference
 
     private lateinit var gameId: String
     private var number: Int = 0
     private var max_number: Int = 0
-    private var pCard1: Int = 0
-    private var pCard2: Int = 0
-    private lateinit var cardDeck: String //추후 lateinit var로 변경 필수
+    //카드 정보 로컬에 저장
+    private var pCard = Array(6) {IntArray(2) {0} }
+    private var pCardLeft = "0"
+    private var nowActionCode: String = "0"
+    private var nowTurn: Int = 0
+    private lateinit var snapshotListenerCoin: ListenerRegistration
+    private lateinit var snapshotListenerAccept: ListenerRegistration
+    private lateinit var snapshotListenerAction: ListenerRegistration
 
+    private lateinit var bottomSheet: BottomSheetDialog
+    private lateinit var bottomSheetView: View
+    private lateinit var bottomSheetDefault: ConstraintLayout
+    private lateinit var bottomSheetAbility: ConstraintLayout
+    private lateinit var bottomSheetBlockByDuke: ConstraintLayout
+    private lateinit var bottomSheetBlockByCaptainOrAmbassador: ConstraintLayout
+    private lateinit var bottomSheetBlockByContessa: ConstraintLayout
+    private lateinit var bottomSheetChallenge: ConstraintLayout
 
+    private lateinit var buttonIncome: Button
+    private lateinit var buttonForeignAid: Button
+    private lateinit var buttonCoup: Button
+    private lateinit var buttonTax: Button
+    private lateinit var buttonAssassinate: Button
+    private lateinit var buttonSteal: Button
+    private lateinit var buttonExchange: Button
+    private lateinit var buttonChallenge: Button
+    private lateinit var buttonAdmit: Button
+    private lateinit var buttonBlockByCaptain: Button
+    private lateinit var buttonBlockByAmbassador: Button
+    private lateinit var buttonBlockByDuke: Button
+    private lateinit var buttonBlockByContessa: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_room)
 
-        init()
         //게임 시작
+        init()
+        actionButtonSetting(0)
+        //settingClickListener()
         gameStart()
-
-        //action Button 클릭 시 bottom sheet dialog 띄우기
-        findViewById<Button>(R.id.action_button).setOnClickListener {
-            val bottomSheet = BottomSheetDialog(this)
-            val view = layoutInflater.inflate(R.layout.activity_game_room_bottomsheet, null)
-            val line1 = view.findViewById<ConstraintLayout>(R.id.game_action_btn_layout1)
-            line1.visibility = View.GONE
-            bottomSheet.setContentView(view)
-            bottomSheet.show()
+    }
+    private fun settingSnapshots() {
+        snapshotListenerAction = documentAction.addSnapshotListener { snapshot, e ->
 
         }
+        snapshotListenerCoin = documentCoin.addSnapshotListener{ snapshot, e->
 
+        }
+        snapshotListenerAccept = documentAccept.addSnapshotListener { snapshot, e->
+
+        }
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
-    fun init() {
+    private fun init() {
         gameId = intent.getStringExtra("gameId").toString()
         Log.d(TAG, "number : " + intent.getStringExtra("number").toString())
         number = intent.getStringExtra("number")?.toString()?.toInt()!!
         mLeftCardText = findViewById(R.id.card_left_game_room)
+        mTimeLeft = findViewById(R.id.time_game_room)
+        mTimeLeft.visibility = View.INVISIBLE
 
         mPlayerConstraint = Array(6) { ConstraintLayout(this) }
         mPlayerConstraint[0] = findViewById(R.id.p1_constraint)
@@ -189,74 +231,122 @@ class GameRoomActivity : AppCompatActivity() {
         mActionIcon[1] = findViewById(R.id.action_icon_right_game_room)
         mActionText = findViewById(R.id.action_text_game_room)
 
+
+        bottomSheet = BottomSheetDialog(this)
+        bottomSheetView = layoutInflater.inflate(R.layout.activity_game_room_bottomsheet, null)
+        bottomSheet.setContentView(bottomSheetView)
+        bottomSheetDefault = bottomSheetView.findViewById(R.id.game_action_btn_layout1)
+        bottomSheetAbility = bottomSheetView.findViewById(R.id.game_action_btn_layout2)
+        bottomSheetChallenge = bottomSheetView.findViewById(R.id.game_action_btn_layout3)
+        bottomSheetBlockByDuke = bottomSheetView.findViewById(R.id.game_action_btn_layout5)
+        bottomSheetBlockByCaptainOrAmbassador = bottomSheetView.findViewById(R.id.game_action_btn_layout4)
+        bottomSheetBlockByContessa = bottomSheetView.findViewById(R.id.game_action_btn_layout6)
+        buttonIncome = bottomSheetView.findViewById(R.id.action_income_btn)
+        buttonForeignAid = bottomSheetView.findViewById(R.id.action_foreign_aid_btn)
+        buttonCoup = bottomSheetView.findViewById(R.id.action_coup_btn)
+        buttonTax = bottomSheetView.findViewById(R.id.action_tax_btn)
+        buttonAssassinate = bottomSheetView.findViewById(R.id.action_assassinate_btn)
+        buttonSteal = bottomSheetView.findViewById(R.id.action_steal_btn)
+        buttonExchange = bottomSheetView.findViewById(R.id.action_exchange_btn)
+        buttonChallenge = bottomSheetView.findViewById(R.id.action_challenge_btn)
+        buttonAdmit = bottomSheetView.findViewById(R.id.action_admit_btn)
+        buttonBlockByCaptain = bottomSheetView.findViewById(R.id.action_blockbycaptain_btn)
+        buttonBlockByAmbassador = bottomSheetView.findViewById(R.id.action_blockbyambassador_btn)
+        buttonBlockByDuke = bottomSheetView.findViewById(R.id.action_blockbyduke_btn)
+        buttonBlockByContessa = bottomSheetView.findViewById(R.id.action_blockbycontessa_btn)
+
         auth = FirebaseManager.getFirebaseAuth()
         storage = FirebaseStorage.getInstance()
         db = FirestoreManager.getFirestore()
-        documentRef = db.collection("game_playing").document(gameId)
+        documentInfo = db.collection("game_playing").document(gameId+"_INFO")
+        documentCard = db.collection("game_playing").document(gameId+"_CARD")
+        documentCoin = db.collection("game_playing").document(gameId+"_COIN")
+        documentAccept = db.collection("game_playing").document(gameId+"_ACCEPT")
+        documentAction = db.collection("game_playing").document(gameId+"_ACTION")
         //시작 ui 설정
-        uiUpdate()
+        uiUpdateFirst()
     }
 
-    private fun uiUpdate() {
-        documentRef.get().addOnSuccessListener { document->
-            val coin = document["coin"] as HashMap<*, *>
-            val email = document["email"] as HashMap<*, *>
-            mLeftCardText.text = ": " + document["card_left"].toString().length.toString() + " Left"
-            //인원 수에 맞게 프로필 생성
-            max_number = document["players"].toString().toInt()
-            for(i in 0 until max_number) {
-                //자기 번호일 때 "YOU"로 바꾸고, 카드 보이게 하기
-                if(i == number - 1) {
-                    mPlayerText[i].text = "YOU"
-                    val textColor = ContextCompat.getColor(this, R.color.red)
-                    mPlayerText[i].setTextColor(textColor)
-                    val cardHash = document["card"] as HashMap<*, *>
-                    mPlayerCard[i][0].setImageResource(cardFromNumber(cardHash["p${number}card1"].toString().toInt()))
-                    mPlayerCard[i][1].setImageResource(cardFromNumber(cardHash["p${number}card2"].toString().toInt()))
-                }
-                mPlayerAllDie[i].visibility = View.INVISIBLE
-                mPlayerThumbsUp[i].visibility = View.INVISIBLE
-                mPlayerThreeDot[i].visibility = View.INVISIBLE
-                mPlayerCoin[i].text = ": " + coin["p${i + 1}"]
-                mPlayerCardDie[i][0].visibility = View.INVISIBLE
-                mPlayerCardDie[i][1].visibility = View.INVISIBLE
-                db.collection("user").document(email["p${i + 1}"].toString()).get()
-                    .addOnSuccessListener { user_document ->
-                        storage.reference.child("profile_images/${user_document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                            if (!this.isDestroyed) {
-                                Glide.with(this)
-                                    .load(imageUrl)
-                                    .into(mPlayerProfileImage[i])
-                            }
-                        }
-                        mPlayerNickname[i].text = user_document["nickname"].toString()
-                    }
-            }
-            //없는 사람 프로필 없애기
-            for(i in max_number until 6) {
-                mPlayerConstraint[i].visibility = View.GONE
-            }
-            //카드 클릭 시 카드 정보 띄우기
-            val dialogView = layoutInflater.inflate(R.layout.dialog_card_info, null)
-            val card = dialogView.findViewById<ImageView>(R.id.card_info)
-            val builder = Dialog(this)
-            for(i in 0 until max_number) {
-                for(j in 0 until 2) {
-                    mPlayerCard[i][j].setOnClickListener{
-                        Log.d(TAG, "카드 클릭 됨")
-                        builder.dismiss()
-                        documentRef.get().addOnCompleteListener { task->
-                            if(task.isSuccessful) {
-                                val document = task.result
-                                val cards = document["card"] as HashMap<*, *>
-                                if(i == number - 1 || cards["p${i + 1}card${j + 1}"].toString().toInt()/10 != 0) {
-                                    card.setImageResource(cardFromNumber(cards["p${i + 1}card${j + 1}"].toString().toInt()))
-                                    Log.d(TAG, "카드 정보 다이얼로그 출력")
-                                    builder.setContentView(dialogView)
-                                    builder.show()
+    private fun uiUpdateFirst() {
+        CoroutineScope(Dispatchers.IO).launch {
+            documentInfo.get().addOnCompleteListener { task->
+                if(task.isSuccessful) {
+                    val result = task.result
+                    //인원 수에 맞게 프로필 생성
+                    max_number = result["players"].toString().toInt()
+                    for(i in 0 until max_number) {
+                        mPlayerAllDie[i].visibility = View.INVISIBLE
+                        mPlayerThumbsUp[i].visibility = View.INVISIBLE
+                        mPlayerThreeDot[i].visibility = View.INVISIBLE
+                        mPlayerCardDie[i][0].visibility = View.INVISIBLE
+                        mPlayerCardDie[i][1].visibility = View.INVISIBLE
+                        db.collection("user").document(result["p${i+1}"].toString()).get()
+                            .addOnSuccessListener { user_document ->
+                                storage.reference.child("profile_images/${user_document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
+                                    if (!this@GameRoomActivity.isDestroyed) {
+                                        Glide.with(this@GameRoomActivity)
+                                            .load(imageUrl)
+                                            .into(mPlayerProfileImage[i])
+                                    }
                                 }
+                                mPlayerNickname[i].text = user_document["nickname"].toString()
                             }
+                    }
+                }
+                //없는 사람 프로필 없애기
+                for(i in max_number until 6) {
+                    mPlayerConstraint[i].visibility = View.GONE
+                }
+            }.await()
+            documentCard.get().addOnCompleteListener { task->
+                if(task.isSuccessful) {
+                    val result = task.result
+                    mLeftCardText.text = ": " + result["card_left"].toString().length.toString() + " Left"
+                    pCardLeft = result["card_left"].toString()
+                    for(i in 0 until max_number) {
+                        //자기 번호일 때 "YOU"로 바꾸고, 카드 보이게 하기
+                        if(i == number - 1) {
+                            mPlayerText[i].text = "YOU"
+                            val textColor = ContextCompat.getColor(this@GameRoomActivity, R.color.red)
+                            mPlayerText[i].setTextColor(textColor)
+                            mPlayerCard[i][0].setImageResource(cardFromNumber(result["p${number}card1"].toString().toInt()))
+                            mPlayerCard[i][1].setImageResource(cardFromNumber(result["p${number}card2"].toString().toInt()))
                         }
+                        pCard[i][0] = result["p${number}card1"].toString().toInt()
+                        pCard[i][1] = result["p${number}card2"].toString().toInt()
+                    }
+                settingClickListener()
+                }
+            }.await()
+            documentCoin.get().addOnCompleteListener { task->
+                if(task.isSuccessful) {
+                    val result = task.result
+                    for(i in 0 until max_number) {
+                        mPlayerCoin[i].text = ": " + result["p${i + 1}"]
+                    }
+                }
+            }.await()
+            //카드 클릭 시 카드 정보 띄우기
+        }
+
+    }
+
+    private fun settingClickListener() {
+        Log.d(TAG, "카드 클릭 리스너 설정 max_number = $max_number")
+        val dialogView = layoutInflater.inflate(R.layout.dialog_card_info, null)
+        val card = dialogView.findViewById<ImageView>(R.id.card_info)
+        val builder = Dialog(this)
+        for(i in 0 until max_number) {
+            for(j in 0 until 2) {
+                Log.d(TAG, "카드 클릭 리스너 설정($i + $j)")
+                mPlayerCard[i][j].setOnClickListener{
+                    Log.d(TAG, "카드 클릭 됨")
+                    builder.dismiss()
+                    if(i == number - 1 || pCard[i][j]/10 != 0) {
+                        card.setImageResource(cardFromNumber(pCard[i][j].toString().toInt()))
+                        Log.d(TAG, "카드 정보 다이얼로그 출력")
+                        builder.setContentView(dialogView)
+                        builder.show()
                     }
                 }
             }
@@ -274,42 +364,63 @@ class GameRoomActivity : AppCompatActivity() {
         val timer = dialogView.findViewById<TextView>(R.id.timer_start_cards)
 
         var countDownTimer: CountDownTimer? = null
-
         CoroutineScope(Dispatchers.IO).launch {
-            documentRef.get().addOnCompleteListener { task->
-                if(task.isSuccessful) {
-                    val document = task.result
-                    val cardHash = document["card"] as HashMap<*, *>
-                    cardOne.setImageResource(cardFromNumber(cardHash["p${number}card1"].toString().toInt()))
-                    cardTwo.setImageResource(cardFromNumber(cardHash["p${number}card2"].toString().toInt()))
-
-                    countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
-                        override fun onTick(millisUntilFinished: Long) {
-                            // 매 초마다 실행되는 코드
-                            val secondsLeft = millisUntilFinished / 1000
-                            timer.text = secondsLeft.toString()
-                        }
-
-                        override fun onFinish() {
-                            // 타이머가 종료되면 실행되는 코드
-                            val accept = document["accept"] as HashMap<*, *>
-                            if(accept["p$number"] == false) documentRef.update("accept", hashMapOf("p$number" to true))
-                            builder.dismiss()
-                        }
+            if(number == 1) {
+                db.runBatch { batch->
+                    for(i in 0 until max_number) {
+                        batch.update(documentAccept, "p${i+1}", false)
                     }
-                    countDownTimer?.start()
-                }
-            }.await()
-        }
+                }.await()
+            }
 
+        }
+        documentCard.get().addOnCompleteListener { task->
+            if(task.isSuccessful) {
+                val document = task.result
+                cardOne.setImageResource(cardFromNumber(document["p${number}card1"].toString().toInt()))
+                cardTwo.setImageResource(cardFromNumber(document["p${number}card2"].toString().toInt()))
+
+                countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+                    override fun onTick(millisUntilFinished: Long) {
+                        // 매 초마다 실행되는 코드
+                        val secondsLeft = millisUntilFinished / 1000
+                        timer.text = secondsLeft.toString()
+                    }
+
+                    override fun onFinish() {
+                        // 타이머가 종료되면 실행되는 코드
+                        if(number == 1) {
+                            documentInfo.update("turn", Random.nextInt(1, max_number + 1))
+                        }
+                        builder.dismiss()
+                    }
+                }
+                countDownTimer?.start()
+            }
+        }
         okButton.setOnClickListener {
-            documentRef.update("accept", hashMapOf("p$number" to true))
-            countDownTimer?.cancel()
+            //countDownTimer?.cancel()
             builder.dismiss()
         }
         builder.setCanceledOnTouchOutside(false)
         builder.show()
-        mActionText.text = "모두가 준비 완료될 때까지 잠시 기다려 주세요"
+        mActionText.text = "게임 준비 중"
+    }
+    private fun setAccept(snapshot: DocumentSnapshot) {
+        for(i in 0 until max_number) {
+            if(snapshot["p${i+1}"] == null) {
+                mPlayerThreeDot[i].visibility = View.INVISIBLE
+                mPlayerThumbsUp[i].visibility = View.INVISIBLE
+            }
+            else if(snapshot["p${i+1}"] == true) {
+                mPlayerThreeDot[i].visibility = View.INVISIBLE
+                mPlayerThumbsUp[i].visibility = View.VISIBLE
+            }
+            else {
+                mPlayerThreeDot[i].visibility = View.VISIBLE
+                mPlayerThumbsUp[i].visibility = View.INVISIBLE
+            }
+        }
     }
 
     private fun cardFromNumber(number: Int): Int {
@@ -328,66 +439,102 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
-    private fun newTurn() {
-        CoroutineScope(Dispatchers.IO).launch {
-            documentRef.get().addOnCompleteListener { task->
-                if(task.isSuccessful) {
-                    val document = task.result
-                    val nowTurn = document["turn"].toString().toInt()
-                    if(number == nowTurn) {
-                        mActionText.text = "action버튼을 눌러 행동을 선택해 주세요"
-                        actionButtonSetting(1)
+    private fun gameEnd() {
 
-                        val countDownTimer = object : CountDownTimer(60000, 1000) { // 60초 동안, 1초 간격으로 타이머 설정
-                            override fun onTick(millisUntilFinished: Long) {
-                                // 매 초마다 실행되는 코드
-                                val secondsLeft = millisUntilFinished / 1000
-                                // UI 업데이트 등을 수행할 수 있음
-                            }
-
-                            override fun onFinish() {
-                                // 타이머가 종료되면 실행되는 코드
-                            }
-                        }
-
-                        countDownTimer.start() // 타이머 시작
-                    }
-                }
-            }.await()
-        }
-        //게임 종료(한명을 제외한 다른 플레이어의 카드가 모두 죽었을때)인지 체크하고, 게임 종료 시 게임 결과 창 띄우고 아니면 새루운 턴 진행
     }
 
     private fun actionButtonSetting(number: Int) {
+        //action Button 클릭 시 bottom sheet dialog 띄우기
+        findViewById<Button>(R.id.action_button).setOnClickListener {
+            if(bottomSheetDefault.visibility == View.GONE &&
+                bottomSheetAbility.visibility == View.GONE &&
+                bottomSheetChallenge.visibility == View.GONE &&
+                bottomSheetBlockByDuke.visibility == View.GONE &&
+                bottomSheetBlockByCaptainOrAmbassador.visibility == View.GONE &&
+                bottomSheetBlockByContessa.visibility == View.GONE) {
+                Toast.makeText(this, "할 수 있는 행동이 없습니다", Toast.LENGTH_SHORT).show()
+            }
+            else {
+                bottomSheet.show()
+            }
+        }
         when(number) {
+            0 -> {  //할거 없을 때
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.GONE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.GONE
+            }
+            1 -> {  //기본행동
+                bottomSheetDefault.visibility = View.VISIBLE
+                bottomSheetAbility.visibility = View.VISIBLE
+                bottomSheetChallenge.visibility = View.GONE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.GONE
+            }
+            2 -> {  //도전
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.VISIBLE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.GONE
+            }
+            3 -> {  //공작으로 막기, 허용
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.GONE
+                bottomSheetBlockByDuke.visibility = View.VISIBLE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.GONE
+            }
+            4 -> {  //외교관으로 막기, 사령관으로 막기, 도전
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.VISIBLE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.VISIBLE
+                bottomSheetBlockByContessa.visibility = View.GONE
+            }
+            5 -> {  //귀부인으로 막기, 도전
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.VISIBLE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.VISIBLE
+            }
         }
     }
 
-    private suspend fun oneCoinMain() {
+    private fun oneCoinMain() {
 
     }
 
-    private suspend fun twoCoinMain() {
+    private fun twoCoinMain() {
 
     }
 
-    private suspend fun coupMain() {
+    private fun coupMain() {
 
     }
 
-    private suspend fun dukeMain() {
+    private fun dukeMain() {
 
     }
 
-    private suspend fun contessaMain() {
+    private fun contessaMain() {
 
     }
 
-    private suspend fun captineMain() {
+    private fun captineMain() {
 
     }
 
-    private suspend fun ambassadorMain() {
+    private fun ambassadorMain() {
 
     }
 
