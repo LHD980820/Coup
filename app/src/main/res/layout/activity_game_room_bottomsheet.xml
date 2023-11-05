@@ -178,6 +178,17 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toLeftOf="@id/action_foreignaidadmit_btn"
+            app:layout_constraintHorizontal_weight="1"/>
+        <Button
+            android:id="@+id/action_foreignaidadmit_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/foreign_aid_admit"
+            android:textSize="10sp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintLeft_toRightOf="@id/action_blockbyduke_btn"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintHorizontal_weight="1"/>
 
