@@ -513,6 +513,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                         cardDeckString += cardDeck[cardDeckIndex].toString()
                     }
                     userCard.put("card_left", cardDeckString)
+                    userCard.put("card_open", 0)
                     val userCoin = hashMapOf<String, Int>()
                     val userAccept = hashMapOf<String, Any?>()
 
@@ -545,7 +546,9 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                             "from" to 0,
                             "to" to 0,
                             "action" to 0,
-                            "challenge" to 0
+                            "challenge" to 0,
+                            "challenge_type" to 0,
+                            "challenge2" to 0
                         ))
                     }.addOnSuccessListener {
                         Log.d(TAG, "게임 방 생성 성공")
