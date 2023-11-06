@@ -288,6 +288,8 @@ class GameRoomActivity : AppCompatActivity() {
         val cardTwo = dialogView.findViewById<ImageView>(R.id.card2_start_cards)
         cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
         cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
+        if(pCard[number - 1][0] / 10 != 0) cardOne.setBackgroundResource(R.color.red)
+        if(pCard[number - 1][1] / 10 != 0) cardTwo.setBackgroundResource(R.color.red)
         val timer = dialogView.findViewById<TextView>(R.id.timer_start_cards)
         val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
         var countDownTimer: CountDownTimer? = null
@@ -320,7 +322,7 @@ class GameRoomActivity : AppCompatActivity() {
                 builder.dismiss()
             }
         }
-        countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+        countDownTimer = object : CountDownTimer(8000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
             override fun onTick(millisUntilFinished: Long) {
                 // 매 초마다 실행되는 코드
                 val secondsLeft = millisUntilFinished / 1000
