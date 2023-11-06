@@ -268,7 +268,14 @@ class GameRoomActivity : AppCompatActivity() {
                     }
                 }
                 else {
-                    cardOpen(openCard, nowChallengeCode)
+                    if(nowChallengeCode2 == 0) {
+                        if(nowChallengeCode == 1) {
+                            cardOpen(openCard, 1)
+                        }
+                    }
+                    else {
+                        cardOpen(openCard, 2)
+                    }
                 }
             }
         }
@@ -336,9 +343,9 @@ class GameRoomActivity : AppCompatActivity() {
         countDownTimer.start()
     }
 
-    private fun actionToCard(actionCode: Int, challengeNum: Int): Int {
+    private fun actionToCard(challengeNum: Int): Int {
         if(challengeNum == 1) {
-            return when(actionCode) {
+            return when(nowActionCode) {
                 4->1
                 5->4
                 6->3
@@ -346,7 +353,7 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
         else {
-            return when(challengeNum) {
+            return when(nowChallengeCode) {
                 4->1
                 5->2
                 6->3
@@ -354,57 +361,55 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
     }
-
     private fun cardOpen(openCard: Int, challengeNum: Int) {
-        val openPlayer = openCard/10-1
-        val openCardNum = openCard%10-1
+        val openPlayer = openCard/10
+        val openCardNum = openCard%10
         if(challengeNum == 1) {
-            if(pCard[openPlayer][openCardNum] == actionToCard(nowActionCode, challengeNum)) {
+            if(pCard[openPlayer - 1][openCardNum - 1] == actionToCard(challengeNum)) {
                 mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
-                mPlayerCard[openPlayer][openCardNum].setImageResource(cardFromNumber(pCard[openPlayer][openCardNum]))
-                addRedBorderToImage(mPlayerCard[openPlayer][openCardNum])
+                mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
+                addRedBorderToImage(mPlayerCard[openPlayer - 1][openCardNum - 1])
                 Thread.sleep(1000)
-                if(openPlayer + 1 == number) cardChange(openPlayer+1, openCardNum+1)
-                if(number == nowChallenger) cardElimination()
-                else {
-                    Thread.sleep(5000)
+                if(openPlayer == number) cardChange(openPlayer, openCardNum)
+                if(number == nowChallenger) {
+                    cardElimination()
+                    turnEnd()
                 }
-                turnEnd()
             }
             else {
                 mActionText.text = "도전 성공으로 P${nowTurn}의 카드가 한장 제거됩니다"
                 Thread.sleep(1000)
                 db.runBatch{ batch->
                     batch.update(documentCard, "card_open", 0)
-                    batch.update(documentCard, "p${openPlayer+1}card${openCardNum+1}", pCard[openPlayer][openCardNum]*10)
+                    batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
                 }
                 turnEnd()
             }
         }
         else {
-            if(pCard[openPlayer][openCardNum] == actionToCard(nowActionCode, challengeNum)) {
+            if(pCard[openPlayer - 1][openCardNum - 1] == actionToCard(challengeNum)) {
                 mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
-                mPlayerCard[openPlayer][openCardNum].setImageResource(cardFromNumber(pCard[openPlayer][openCardNum]))
-                addRedBorderToImage(mPlayerCard[openPlayer][openCardNum])
+                mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
+                addRedBorderToImage(mPlayerCard[openPlayer - 1][openCardNum - 1])
                 Thread.sleep(1000)
-                if(openPlayer + 1 == number) cardChange(openPlayer+1, openCardNum+1)
-                if(number == nowChallengeCode2) cardElimination()
-                else {
-                    Thread.sleep(5000)
+                if(openPlayer == nowChallenger) cardChange(openPlayer, openCardNum)
+                if(number == nowChallengeCode2) {
+                    cardElimination()
+                    turnEnd()
                 }
-                turnEnd()
             }
             else {
                 mActionText.text = "도전 성공으로 P${nowChallenger}의 카드가 한장 제거됩니다"
                 Thread.sleep(1000)
                 db.runBatch{ batch->
                     batch.update(documentCard, "card_open", 0)
-                    batch.update(documentCard, "p${openPlayer+1}card${openCardNum+1}", pCard[openPlayer][openCardNum]*10)
+                    batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
                 }
-                actionPerform(nowActionCode)
+                turnEnd()
             }
         }
     }
+
 
     private fun cardChange(player: Int, num: Int) {
         val firstCard = pCardLeft[0].toString().toInt()
