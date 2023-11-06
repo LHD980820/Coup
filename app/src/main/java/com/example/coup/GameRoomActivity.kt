@@ -3,6 +3,10 @@ package com.example.coup
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -31,6 +35,7 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
+import com.google.protobuf.Parser
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.tasks.await
 import java.util.zip.Inflater
+import kotlin.math.max
 import kotlin.random.Random
 import kotlin.random.nextInt
 
@@ -107,6 +113,7 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var buttonExchange: Button
     private lateinit var buttonChallenge: Button
     private lateinit var buttonAdmit: Button
+    private lateinit var buttonForeignAidAdmit: Button
     private lateinit var buttonBlockByCaptain: Button
     private lateinit var buttonBlockByAmbassador: Button
     private lateinit var buttonBlockByDuke: Button
@@ -145,7 +152,7 @@ class GameRoomActivity : AppCompatActivity() {
                 if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
                     mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
                 }
-                mActionText.text = "나의 턴. 행동을 선택해주세요"
+                else mActionText.text = "나의 턴. 행동을 선택해주세요"
                 actionButtonSetting(1)
             }
             else {
@@ -167,48 +174,66 @@ class GameRoomActivity : AppCompatActivity() {
                 if(nowChallengeCode2 == 0) {
                     if(nowChallengeCode == 0) {
                         if(nowActionCode == 1) {
-                            mActionText.text = "P${nowFrom}의 INCOME : coin +1"
-                            documentCoin.update("p${nowFrom}", mPlayerCoin[nowFrom.toString().toInt() - 1].text.toString().toInt() + 1)
+                            actionPerform(1)
                             turnEnd()
                         }
-                        if(nowActionCode == 2) {
-                            if(nowFrom.toString().toInt() == number) {
+                        if(nowActionCode == 2 || (nowActionCode in 4..7)) {
+                            settingThreeDot(nowTurn)
+                            if(nowActionCode == 2) {
                                 mActionText.text = "FOREIGN AID시전, 다른 플레이어 응답 대기 중"
+                                if(nowTurn != number) actionButtonSetting(3)
                             }
-                            else {
-                                mActionText.text = "P${snapshot.get("from")}의 FOREIGN AID 시도"
-                                actionButtonSetting(3)
-                                bottomSheet.show()
+                            if(nowActionCode == 4) {
+                                mActionText.text = "TAX시전, 다른 플레이어 응답 대기 중"
+                                if(nowTurn != number) actionButtonSetting(2)
+                            }
+                            if(nowActionCode == 5) {
+                                mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
+                                if(nowTurn != number) actionButtonSetting(5)
+                            }
+                            if(nowActionCode == 6) {
+                                mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
+                                if(nowTurn != number) actionButtonSetting(4)
+                            }
+                            if(nowActionCode == 7) {
+                                mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
+                                if(nowTurn != number) actionButtonSetting(2)
                             }
                         }
                         if(nowActionCode == 3) {
-                            if(nowTo.toString().toInt() == number) {
-                                mActionText.text = "Coup을 당했습니다"
-                                cardElimination()
-                                turnEnd()
-                            }
-                            else {
-                                mActionText.text = "P${nowFrom}의 COUP to P${nowTo}"
-                            }
+                            actionPerform(3)
                         }
                     }
                     else {
-                        if(nowChallengeCode == 4) {
-                            if(snapshot["challenge"].toString().toInt() == number) {
-                                mActionText.text = "DUKE로 막기 시전, 다른 플레이어 응답 대기 중"
+                        if(nowChallengeCode == 1) {
+                            if(number == nowTurn) {
+                                mActionText.text = "P${nowChallenger}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
+                                selectCard()
                             }
                             else {
-                                mActionText.text = "P${snapshot.get("challenge")}의 막기(공작) 시도"
+                                mActionText.text = "P${nowChallenger}의 도전 신청"
+                            }
+                        }
+                        else if(nowChallengeCode in 4..7) {
+                            if(nowChallengeCode == 4) mActionText.text = "P${nowChallenger}가 DUKE로 막기 시전, 다른 플레이어 응답 대기 중"
+                            if(nowChallengeCode == 5) mActionText.text = "P${nowChallenger}가 CONTESSA로 막기 시전, 다른 플레이어 응답 대기 중"
+                            if(nowChallengeCode == 6) mActionText.text = "P${nowChallenger}가 CAPTAIN로 막기 시전, 다른 플레이어 응답 대기 중"
+                            if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 AMBASSADOR로 막기 시전, 다른 플레이어 응답 대기 중"
+                            settingThreeDot(nowChallenger)
+                            if(number != nowChallenger) {
                                 actionButtonSetting(2)
                             }
                         }
                     }
                 }
                 else {
-                    mActionText.text = "FORIEGN AID(P${nowTurn} -> BLOCK BY DUKE(P${nowChallenger}\n-> CHALLENGE(P${nowChallengeCode2}"
-                    if(nowChallengeCode2 == number) {
-                        challengeFunc()
-                    }
+                    if(number == nowChallenger) {
+                    mActionText.text = "P${nowChallengeCode2}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
+                    selectCard()
+                }
+                else {
+                    mActionText.text = "P${nowChallengeCode2}의 도전 신청"
+                }
                 }
             }
         }
@@ -243,14 +268,76 @@ class GameRoomActivity : AppCompatActivity() {
                     }
                 }
                 else {
-                    cardOpen(openCard)
+                    cardOpen(openCard, nowChallengeCode)
                 }
             }
         }
     }
 
-    private fun actionToCard(actionCode: Int, challengeCode: Int): Int {
-        if(challengeCode == 1) {
+    private fun selectCard() {
+        val builder = AlertDialog.Builder(this).create()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_start_cards_info, null)
+        val cardOne = dialogView.findViewById<ImageView>(R.id.card1_start_cards)
+        val cardTwo = dialogView.findViewById<ImageView>(R.id.card2_start_cards)
+        cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
+        cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
+        val timer = dialogView.findViewById<TextView>(R.id.timer_start_cards)
+        val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
+        var countDownTimer: CountDownTimer? = null
+        builder.setView(dialogView)
+        builder.setCanceledOnTouchOutside(false)
+
+        var selectCard = 0
+        cardOne.setOnClickListener {
+            if(pCard[number-1][0] / 10 != 0) Toast.makeText(this, "제거된 카드는 선택할 수 없습니다.", Toast.LENGTH_SHORT).show()
+            else {
+                selectCard = 1
+                cardOne.alpha = 0.3f
+                cardTwo.alpha = 1f
+            }
+        }
+        cardTwo.setOnClickListener {
+            if(pCard[number-1][1] / 10 != 0) Toast.makeText(this, "제거된 카드는 선택할 수 없습니다", Toast.LENGTH_SHORT).show()
+            else {
+                selectCard = 2
+                cardOne.alpha = 1f
+                cardTwo.alpha = 0.3f
+            }
+        }
+        okButton.text = "Select card to open"
+        okButton.setOnClickListener {
+            if(selectCard == 0) Toast.makeText(this, "카드를 선택해주세요", Toast.LENGTH_SHORT).show()
+            else {
+                countDownTimer?.cancel()
+                documentCard.update("card_open", number*10+selectCard)
+                builder.dismiss()
+            }
+        }
+        countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+            override fun onTick(millisUntilFinished: Long) {
+                // 매 초마다 실행되는 코드
+                val secondsLeft = millisUntilFinished / 1000
+                timer.text = secondsLeft.toString()
+            }
+
+            override fun onFinish() {
+                // 타이머가 종료되면 실행되는 코드
+                if(selectCard == 0) {
+                    if(pCard[number][0] / 10 == 0) documentCard.update("card_open", number*10+1)
+                    else documentCard.update("card_open", number*10+2)
+                }
+                else {
+                    documentCard.update("card_open", number*10+selectCard)
+                }
+                builder.dismiss()
+            }
+        }
+        builder.show()
+        countDownTimer.start()
+    }
+
+    private fun actionToCard(actionCode: Int, challengeNum: Int): Int {
+        if(challengeNum == 1) {
             return when(actionCode) {
                 4->1
                 5->4
@@ -259,7 +346,7 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
         else {
-            return when(challengeCode) {
+            return when(challengeNum) {
                 4->1
                 5->2
                 6->3
@@ -268,85 +355,94 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
-    private fun cardOpen(openCard: Int) {
-        if(pCard[openCard/10-1][openCard%10-1] == actionToCard(nowActionCode, nowChallengeCode)) {
-
-        }
-        else {
-            if(nowChallengeCode == 1) {
-                mActionText.text = "P${nowChallenger} -> P${nowTurn} 도전 성공"
-                Thread.sleep(500)
-                mActionText.text = "P${nowTurn}의 카드가 제거됩니다"
+    private fun cardOpen(openCard: Int, challengeNum: Int) {
+        val openPlayer = openCard/10-1
+        val openCardNum = openCard%10-1
+        if(challengeNum == 1) {
+            if(pCard[openPlayer][openCardNum] == actionToCard(nowActionCode, challengeNum)) {
+                mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
+                mPlayerCard[openPlayer][openCardNum].setImageResource(cardFromNumber(pCard[openPlayer][openCardNum]))
+                addRedBorderToImage(mPlayerCard[openPlayer][openCardNum])
+                Thread.sleep(1000)
+                if(openPlayer + 1 == number) cardChange(openPlayer+1, openCardNum+1)
+                if(number == nowChallenger) cardElimination()
+                else {
+                    Thread.sleep(5000)
+                }
+                turnEnd()
             }
             else {
-                mActionText.text = "P${nowChallengeCode2} -> P${nowChallenger} 도전 성공"
-                Thread.sleep(500)
-                mActionText.text = "P${nowChallenger}의 카드가 제거됩니다"
-            }
-            db.runTransaction{ transaction->
-                if(transaction.get(documentCard).get("card_open") != 0) {
-                    transaction.update(documentCard, "p${openCard/10-1}card${openCard%10-1}", pCard[openCard/10-1][openCard%10-1]*10)
-                    transaction.update(documentCard, "card_open", 0)
+                mActionText.text = "도전 성공으로 P${nowTurn}의 카드가 한장 제거됩니다"
+                Thread.sleep(1000)
+                db.runBatch{ batch->
+                    batch.update(documentCard, "card_open", 0)
+                    batch.update(documentCard, "p${openPlayer+1}card${openCardNum+1}", pCard[openPlayer][openCardNum]*10)
                 }
+                turnEnd()
+            }
+        }
+        else {
+            if(pCard[openPlayer][openCardNum] == actionToCard(nowActionCode, challengeNum)) {
+                mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
+                mPlayerCard[openPlayer][openCardNum].setImageResource(cardFromNumber(pCard[openPlayer][openCardNum]))
+                addRedBorderToImage(mPlayerCard[openPlayer][openCardNum])
+                Thread.sleep(1000)
+                if(openPlayer + 1 == number) cardChange(openPlayer+1, openCardNum+1)
+                if(number == nowChallengeCode2) cardElimination()
+                else {
+                    Thread.sleep(5000)
+                }
+                turnEnd()
+            }
+            else {
+                mActionText.text = "도전 성공으로 P${nowChallenger}의 카드가 한장 제거됩니다"
+                Thread.sleep(1000)
+                db.runBatch{ batch->
+                    batch.update(documentCard, "card_open", 0)
+                    batch.update(documentCard, "p${openPlayer+1}card${openCardNum+1}", pCard[openPlayer][openCardNum]*10)
+                }
+                actionPerform(nowActionCode)
             }
         }
     }
 
-    private fun challengeFunc() {
-        if(pCard[number-1][0] / 10 == 0 && pCard[number-1][1] / 10 == 0) {
-            Toast.makeText(this, "보여줄 카드를 선택해 주세요", Toast.LENGTH_LONG).show()
-            val builder = AlertDialog.Builder(this).create()
-            val dialogView = layoutInflater.inflate(R.layout.dialog_start_cards_info, null)
-            val cardOne = dialogView.findViewById<ImageView>(R.id.card1_start_cards)
-            val cardTwo = dialogView.findViewById<ImageView>(R.id.card2_start_cards)
-            cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
-            cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
-            val timer = dialogView.findViewById<TextView>(R.id.timer_start_cards)
-            val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
-            var countDownTimer: CountDownTimer? = null
-            builder.setView(dialogView)
-            builder.setCanceledOnTouchOutside(false)
+    private fun cardChange(player: Int, num: Int) {
+        val firstCard = pCardLeft[0].toString().toInt()
+        pCardLeft = pCardLeft.slice(1 until pCardLeft.length)
+        val insertIndex = Random.nextInt(pCardLeft.indices)
+        pCardLeft = pCardLeft.slice(0 until insertIndex) + pCard[player-1][num-1].toString() + pCardLeft.slice(insertIndex until pCardLeft.length)
+        db.runBatch { batch->
+            batch.update(documentCard, "card_left", pCardLeft)
+            batch.update(documentCard, "p${player}card${num}", firstCard)
+            batch.update(documentCard, "card_open", 0)
+        }
+    }
 
-            var selectCard = 1
-            cardOne.alpha = 0.3f
-            cardOne.setOnClickListener {
-                selectCard = 1
-                cardOne.alpha = 0.3f
-                cardTwo.alpha = 1f
-            }
-            cardTwo.setOnClickListener {
-                selectCard = 2
-                cardOne.alpha = 1f
-                cardTwo.alpha = 0.3f
-            }
-            okButton.text = "OPEN"
-            okButton.setOnClickListener {
-                countDownTimer?.cancel()
-                documentCard.update("card_open", number * 10 + selectCard)
-                builder.dismiss()
-            }
-            countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
-                override fun onTick(millisUntilFinished: Long) {
-                    // 매 초마다 실행되는 코드
-                    val secondsLeft = millisUntilFinished / 1000
-                    timer.text = secondsLeft.toString()
-                }
+    private fun addRedBorderToImage(imageView: ImageView) {
+        val originalDrawable = imageView.drawable
+        if (originalDrawable is BitmapDrawable) {
+            val originalBitmap = originalDrawable.bitmap
+            val borderedBitmap = addRedBorder(originalBitmap, 10) // 테두리 두께를 조절할 수 있음
+            imageView.setImageBitmap(borderedBitmap)
+        }
+    }
 
-                override fun onFinish() {
-                    // 타이머가 종료되면 실행되는 코드
-                    documentCard.update("card_open", number * 10 + selectCard)
-                    builder.dismiss()
-                }
-            }
-            builder.show()
-            countDownTimer.start()
-        }
-        else if(pCard[number-1][0] / 10 == 0) {
-            documentCard.update("card_open", number * 10 + 1)
-        }
-        else {
-            documentCard.update("card_open", number * 10 + 2)
-        }
+    private fun addRedBorder(bitmap: Bitmap, borderSize: Int): Bitmap {
+        val width = bitmap.width + 2 * borderSize
+        val height = bitmap.height + 2 * borderSize
+        val borderedBitmap = Bitmap.createBitmap(width, height, bitmap.config)
+
+        val canvas = Canvas(borderedBitmap)
+        val paint = Paint()
+        paint.color = 0xFF0000
+
+        canvas.drawBitmap(bitmap, borderSize.toFloat(), borderSize.toFloat(), null)
+        canvas.drawRect(0f, 0f, width.toFloat(), borderSize.toFloat(), paint)
+        canvas.drawRect(0f, 0f, borderSize.toFloat(), height.toFloat(), paint)
+        canvas.drawRect(0f, (height - borderSize).toFloat(), width.toFloat(), height.toFloat(), paint)
+        canvas.drawRect((width - borderSize).toFloat(), 0f, width.toFloat(), height.toFloat(), paint)
+
+        return borderedBitmap
     }
 
     private fun settingBottomSheetButtonListener() {
@@ -362,13 +458,7 @@ class GameRoomActivity : AppCompatActivity() {
             db.runBatch{ batch->
                 batch.update(documentAction, "from", number)
                 batch.update(documentAction, "action", 2)
-                for(i in 0 until max_number) {
-                    if(i+1 != number) {
-                        batch.update(documentAccept,"p${i+1}", 0)
-                    }
-                }
             }
-            settingThreeDot(number)
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
@@ -383,24 +473,62 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
         buttonAdmit.setOnClickListener {
-            documentAccept.update("p$number", 1)
+            documentAccept.update("p$number", true)
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonForeignAidAdmit.setOnClickListener {
+            documentAccept.update("p$number", true)
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
         buttonChallenge.setOnClickListener {
             db.runTransaction{ transaction->
-                if(transaction.get(documentAction)["challenge_type"].toString().toInt() == 0) {
-                    if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
+                val type = transaction.get(documentAction)["challenge_type"].toString().toInt()
+                val challenger = transaction.get(documentAction)["challenge"].toString().toInt()
+                val challenger2 = transaction.get(documentAction)["challenge2"].toString().toInt()
+                if(type == 0) {
+                    if(challenger == 0) {
                         transaction.update(documentAction, "challenge", number)
                         transaction.update(documentAction, "challenge_type", 1)
                     }
                 }
-                else if(transaction.get(documentAction)["challenge_type"].toString().toInt() == 4) {
-                    if(transaction.get(documentAction)["challenge2"].toString().toInt() == 0) {
+                else if(type == 4 || type == 5 || type == 6 || type == 7) {
+                    if(challenger2 == 0) {
                         transaction.update(documentAction, "challenge2", number)
                     }
-                    transaction.update(documentAction, "challenge", number)
                 }
+            }
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonTax.setOnClickListener {
+            db.runBatch{ batch->
+                batch.update(documentAction, "action", 4)
+                batch.update(documentAction, "from", number)
+            }
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonAssassinate.setOnClickListener {
+            if(mPlayerCoin[number-1].text.toString().toInt() >= 3) {
+                bottomSheet.dismiss()
+                mActionText.text = "대상 플레이어를 선택해 주세요"
+                settingPlayerClickListener(5)
+            }
+            else {
+                Toast.makeText(this, "코인이 3개 이상일 때 사용할 수 있습니다", Toast.LENGTH_SHORT).show()
+            }
+        }
+        buttonSteal.setOnClickListener {
+            bottomSheet.dismiss()
+            mActionText.text = "대상 플레이어를 선택해 주세요"
+            settingPlayerClickListener(6)
+        }
+        buttonExchange.setOnClickListener {
+            db.runBatch{ batch->
+                batch.update(documentAction, "from", number)
+                batch.update(documentAction, "action", 7)
             }
             actionButtonSetting(0)
             bottomSheet.dismiss()
@@ -412,35 +540,75 @@ class GameRoomActivity : AppCompatActivity() {
                     transaction.update(documentAction, "challenge_type", 4)
                 }
             }
-            settingThreeDot(number)
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonBlockByContessa.setOnClickListener {
+            db.runTransaction{ transaction->
+                if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
+                    transaction.update(documentAction, "challenge", number)
+                    transaction.update(documentAction, "challenge_type", 5)
+                }
+            }
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonBlockByCaptain.setOnClickListener {
+            db.runTransaction{ transaction->
+                if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
+                    transaction.update(documentAction, "challenge", number)
+                    transaction.update(documentAction, "challenge_type", 6)
+                }
+            }
+            actionButtonSetting(0)
+            bottomSheet.dismiss()
+        }
+        buttonBlockByAmbassador.setOnClickListener {
+            db.runTransaction{ transaction->
+                if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
+                    transaction.update(documentAction, "challenge", number)
+                    transaction.update(documentAction, "challenge_type", 7)
+                }
+            }
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
     }
 
-    private fun settingThreeDot(actor: Int) {
+    private fun settingThreeDot(except: Int) {
         db.runBatch{ batch->
             for( i in 0 until max_number) {
-                if(i + 1 != actor) {
+                if(i + 1 != except) {
                     batch.update(documentAccept, "p${i+1}", 0)
+                }
+                else {
+                    batch.update(documentAccept, "p${i+1}", null)
                 }
             }
         }
     }
 
     private fun settingPlayerClickListener(actionNumber: Int){
+        if(actionNumber == 3) { mActionText.text = "COUP 대상 플레이어를 선택해 주세요" }
+        if(actionNumber == 5) { mActionText.text = "암살 대상 플레이어를 선택해 주세요" }
+        if(actionNumber == 6) { mActionText.text = "강탈 대상 플레이어를 선택해 주세요" }
         for(i in 0 until max_number) {
             mPlayerConstraint[i].isClickable = true
             mPlayerConstraint[i].setOnClickListener {
                 if((pCard[i][0] / 10 == 0 || pCard[i][1] / 10 == 0) && i + 1 != number) {
-                    actionButtonSetting(0)
-                    db.runBatch{ batch->
-                        batch.update(documentAction, "from", number)
-                        batch.update(documentAction, "action", actionNumber)
-                        batch.update(documentAction, "to", i + 1)
+                    if(mPlayerCoin[i].text.toString().toInt() <= 0 && actionNumber == 6) {
+                        Toast.makeText(this, "코인이 없는 플레이어를 대상으로 선택할 수 없습니다", Toast.LENGTH_SHORT).show()
                     }
-                    for(j in 0 until max_number) {
-                        mPlayerConstraint[j].isClickable = false
+                    else {
+                        actionButtonSetting(0)
+                        db.runBatch{ batch->
+                            batch.update(documentAction, "from", number)
+                            batch.update(documentAction, "action", actionNumber)
+                            batch.update(documentAction, "to", i + 1)
+                        }
+                        for(j in 0 until max_number) {
+                            mPlayerConstraint[j].isClickable = false
+                        }
                     }
                 }
                 else if(i + 1 == number) {
@@ -635,6 +803,7 @@ class GameRoomActivity : AppCompatActivity() {
         buttonExchange = bottomSheetView.findViewById(R.id.action_exchange_btn)
         buttonChallenge = bottomSheetView.findViewById(R.id.action_challenge_btn)
         buttonAdmit = bottomSheetView.findViewById(R.id.action_admit_btn)
+        buttonForeignAidAdmit = bottomSheetView.findViewById(R.id.action_foreignaidadmit_btn)
         buttonBlockByCaptain = bottomSheetView.findViewById(R.id.action_blockbycaptain_btn)
         buttonBlockByAmbassador = bottomSheetView.findViewById(R.id.action_blockbyambassador_btn)
         buttonBlockByDuke = bottomSheetView.findViewById(R.id.action_blockbyduke_btn)
@@ -791,14 +960,14 @@ class GameRoomActivity : AppCompatActivity() {
         mActionText.text = "게임 준비 중"
     }
     private fun setAccept(snapshot: DocumentSnapshot) {
-        var Thumbsnumber = 0
+        var thumbsNumber = 0
         for(i in 0 until max_number) {
             if(snapshot["p${i+1}"] == null) {
                 mPlayerThreeDot[i].visibility = View.INVISIBLE
                 mPlayerThumbsUp[i].visibility = View.INVISIBLE
             }
             else if(snapshot["p${i+1}"] == true) {
-                Thumbsnumber++
+                thumbsNumber++
                 mPlayerThreeDot[i].visibility = View.INVISIBLE
                 mPlayerThumbsUp[i].visibility = View.VISIBLE
             }
@@ -807,14 +976,15 @@ class GameRoomActivity : AppCompatActivity() {
                 mPlayerThumbsUp[i].visibility = View.INVISIBLE
             }
         }
-        if(Thumbsnumber == max_number - 1) {
+        if(thumbsNumber == max_number - 1) {
             if(nowChallengeCode == 0) {
-                if(nowActionCode == 2) {
-                    foreignAid()
-                }
+                actionPerform(nowActionCode)
             }
-            else if(nowChallengeCode == 4) {
-                mActionText.text = "P${nowTurn}의 FOREIGN AID가 DUKE에 의해 막힘"
+            else {
+                if(nowChallengeCode == 4) mActionText.text = "P${nowTurn}의 FOREIGN AID가 DUKE에 의해 막힘"
+                if(nowChallengeCode == 5) mActionText.text = "P${nowTurn}의 ASSASSINATION이 CONTESSA에 의해 막힘"
+                if(nowChallengeCode == 6) mActionText.text = "P${nowTurn}의 STEAL이 CAPTAIN에 의해 막힘"
+                if(nowChallengeCode == 7) mActionText.text = "P${nowTurn}의 STEAL이 AMBASSADOR에 의해 막힘"
                 turnEnd()
             }
         }
@@ -835,8 +1005,8 @@ class GameRoomActivity : AppCompatActivity() {
             else-> R.drawable.card_back
         }
     }
-
     private fun turnEnd() {
+        Thread.sleep(1000)
         var nextTurn = nowTurn + 1
         if(nextTurn > max_number) nextTurn = 1
         while(nextTurn != nowTurn) {
@@ -850,10 +1020,17 @@ class GameRoomActivity : AppCompatActivity() {
         }
         if(nextTurn == nowTurn) {
             //게임 끝
+            Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
+            snapshotListenerCard.remove()
+            snapshotListenerInfo.remove()
+            snapshotListenerAccept.remove()
+            snapshotListenerCoin.remove()
+            snapshotListenerAction.remove()
+            finish()
         }
         db.runTransaction { transaction->
             if(transaction.get(documentInfo)["turn"] != nextTurn) {
-                Thread.sleep(1000)
+
                 transaction.update(documentAction, "action", 0)
                 transaction.update(documentAction, "from", 0)
                 transaction.update(documentAction, "to", 0)
@@ -861,10 +1038,12 @@ class GameRoomActivity : AppCompatActivity() {
                 transaction.update(documentAction, "challenge_type", 0)
                 transaction.update(documentAction, "challenge2", 0)
                 transaction.update(documentInfo, "turn", nextTurn)
+                for(i in 0 until max_number) {
+                    transaction.update(documentAccept, "p${i+1}", null)
+                }
             }
         }
     }
-
     private fun actionButtonSetting(number: Int) {
         when(number) {
             0 -> {  //할거 없을 때
@@ -918,16 +1097,64 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
+    private fun actionPerform(actionType: Int) {
+        when (actionType) {
+            1->income()
+            2->foreignAid()
+            3->coup()
+            4->tax()
+            5->assassinate()
+            6->steal()
+            7->exchange()
+        }
+    }
+
+    private fun income() {
+        mActionText.text = "INCOME : coin + 1"
+        if(nowTurn == number) {
+            documentCoin.update("p$number", mPlayerCoin[number - 1].text.toString().toInt() + 1)
+            turnEnd()
+        }
+    }
+
     private fun foreignAid() {
-        mActionText.text = "P${nowTurn}의 FOREIGN AID : coin + 2"
+        mActionText.text = "FOREIGN AID : coin + 2"
         if(nowTurn == number) {
             documentCoin.update("p$number", mPlayerCoin[number - 1].text.toString().toInt() + 2)
+            turnEnd()
         }
-        turnEnd()
+    }
+
+    private fun coup() {
+        if(nowTo.toString().toInt() == number) {
+            mActionText.text = "Coup을 당했습니다"
+            documentCoin.update("p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 7)
+            cardElimination()
+            turnEnd()
+        }
+        else {
+            mActionText.text = "P${nowFrom}의 COUP to P${nowTo}"
+        }
+    }
+
+    private fun tax() {
+        mActionText.text  = "P${nowTurn}의 TAX : coin+3"
+        if(nowTurn == number) {
+            documentCoin.update("p$nowTurn", mPlayerCoin[nowTurn-1].text.toString().toInt() + 3)
+            turnEnd()
+        }
     }
 
     private fun assassinate() {
-        mActionText.text  = "P${nowTurn}의 ASSASSINATE : P${nowTo} life-1"
+        if(nowTo == number) {
+            mActionText.text  = "ASSASSINATE을 당했습니다"
+            documentCoin.update("p$nowTurn", mPlayerCoin[nowTurn-1].text.toString().toInt() - 3)
+            cardElimination()
+            turnEnd()
+        }
+        else {
+            mActionText.text  = "P${nowTurn}의 ASSASSINATE : P${nowTo} life-1"
+        }
     }
 
     private fun steal() {
@@ -938,6 +1165,7 @@ class GameRoomActivity : AppCompatActivity() {
                     batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() + 1)
                     batch.update(documentCoin, "p$nowTo", mPlayerCoin[nowTo - 1].text.toString().toInt() - 1)
                 }
+                turnEnd()
             }
         }
         else {
@@ -947,9 +1175,9 @@ class GameRoomActivity : AppCompatActivity() {
                     batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() + 2)
                     batch.update(documentCoin, "p$nowTo", mPlayerCoin[nowTo - 1].text.toString().toInt() - 2)
                 }
+                turnEnd()
             }
         }
-        turnEnd()
     }
 
     private fun exchange() {
@@ -1082,6 +1310,7 @@ class GameRoomActivity : AppCompatActivity() {
                         batch.update(documentCard, "card_left", pCardLeft)
                     }
                     builder.dismiss()
+                    turnEnd()
                 }
             }
 
@@ -1099,12 +1328,16 @@ class GameRoomActivity : AppCompatActivity() {
                     // 타이머가 종료되면 실행되는 코드
                     pCardLeft = headOne.toString()+headTwo.toString()+pCardLeft
                     builder.dismiss()
+                    turnEnd()
                 }
             }
             builder.show()
             countDownTimer.start()
         }
-        else mActionText.text = "P${nowTurn}의 EXCHANGE"
+        else {
+            mActionText.text = "P${nowTurn}의 EXCHANGE"
+            Thread.sleep(5000)
+        }
     }
 
     companion object{
