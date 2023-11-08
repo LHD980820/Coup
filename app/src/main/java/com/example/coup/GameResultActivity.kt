@@ -93,9 +93,10 @@ class GameResultActivity : AppCompatActivity() {
     }
 
     private fun init() {
+        gameId = intent.getStringExtra("gameId").toString()
         constraintLayouts = Array(6) { ConstraintLayout(this) }
         constraintLayouts[0] = findViewById(R.id.constraint_1_game_end)
-        val gradientDrawable = constraintLayouts[0].background as GradientDrawable
+        /*val gradientDrawable = constraintLayouts[0].background as GradientDrawable
 
         val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), 0xFFD700, 0x0000FF)
         colorAnimation.duration = 3000 // 애니메이션 지속 시간 (3초)
@@ -108,7 +109,7 @@ class GameResultActivity : AppCompatActivity() {
         colorAnimation.repeatCount = ValueAnimator.INFINITE // 무한 반복
         colorAnimation.repeatMode = ValueAnimator.REVERSE // 역방향 반복
 
-        colorAnimation.start()
+        colorAnimation.start()*/
 
         constraintLayouts[1] = findViewById(R.id.constraint_2_game_end)
         constraintLayouts[2] = findViewById(R.id.constraint_3_game_end)

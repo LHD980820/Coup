@@ -1012,16 +1012,14 @@ class GameRoomActivity : AppCompatActivity() {
         if(nextTurn > max_number) nextTurn = 1
         var dieNum = 0
         for(i in 0 until max_number) {
-            if(pCard[i][0] / 10 != 0 && pCard[i][0] / 10 != 0) {
+            if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
                 dieNum++
-                if(i + 1 == number) {
-                    db.runTransaction { transaction->
-                        val players = transaction.get(documentResult)["players"] as Long
-                        val rank = transaction.get(documentResult)["p${number}rank"]
-                        if(rank == 0) {
-                            transaction.update(documentResult, "p${number}rank", max_number - players)
-                            transaction.update(documentResult, "players", players + 1)
-                        }
+                db.runTransaction { transaction->
+                    val players = transaction.get(documentResult)["players"] as Long
+                    val rank = transaction.get(documentResult)["p${i+1}rank"]
+                    if(rank == 0) {
+                        transaction.update(documentResult, "p${i+1}rank", max_number - players)
+                        transaction.update(documentResult, "players", players + 1)
                     }
                 }
             }
@@ -1398,7 +1396,7 @@ class GameRoomActivity : AppCompatActivity() {
             val timer = dialogView.findViewById<TextView>(R.id.timer_exchange)
             val ok = dialogView.findViewById<Button>(R.id.ok_button_exchange)
 
-            var cardNum = IntArray(4)
+            val cardNum = IntArray(4)
             cardNum[0] = pCard[number - 1][0]
             cardNum[1] = pCard[number - 1][1]
 
@@ -1564,5 +1562,4 @@ class GameRoomActivity : AppCompatActivity() {
     companion object{
         val TAG = "GameRoomActivity"
     }
-
 }
