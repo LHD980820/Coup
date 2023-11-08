@@ -47,6 +47,7 @@ class GameResultActivity : AppCompatActivity() {
                 for(i in 0 until maxNumber) {
                     constraintLayouts[i].visibility = View.VISIBLE
                     db.collection("user").document(result["p${i+1}"].toString()).get().addOnSuccessListener { document->
+                        Thread.sleep(1000)
                         mPlayerNickname[i].text = document["nickname"].toString()
                         mPlayerRating[i].text = (document["rating"].toString().toInt() + ratingChangeTable[i]).toString()
                         if(ratingChangeTable[i] > 0) mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
@@ -72,6 +73,7 @@ class GameResultActivity : AppCompatActivity() {
                 for(i in 0 until maxNumber) {
                     constraintLayouts[i].visibility = View.VISIBLE
                     db.collection("user").document(snapshot["p${i+1}"].toString()).get().addOnSuccessListener { document->
+                        Thread.sleep(1000)
                         mPlayerNickname[i].text = document["nickname"].toString()
                         mPlayerRating[i].text = (document["rating"].toString().toInt() + ratingChangeTable[i]).toString()
                         if(ratingChangeTable[i] > 0) mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
@@ -93,7 +95,8 @@ class GameResultActivity : AppCompatActivity() {
     }
 
     private fun init() {
-        gameId = intent.getStringExtra("gameId").toString()
+        //gameId = intent.getStringExtra("gameId").toString()
+        gameId = "juggak"
         constraintLayouts = Array(6) { ConstraintLayout(this) }
         constraintLayouts[0] = findViewById(R.id.constraint_1_game_end)
         /*val gradientDrawable = constraintLayouts[0].background as GradientDrawable
