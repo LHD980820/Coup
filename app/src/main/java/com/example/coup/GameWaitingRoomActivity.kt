@@ -522,16 +522,24 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                         "turn" to 0,
                     )
 
+
+                    val gameResult: HashMap<String, Any> = hashMapOf(
+                        "timestamp" to 0,
+                        "players" to 0
+                    )
+
                     for(i in 1 until max_number + 1) {
                         val pValue = document["p$i"]
                         if(pValue != null) {
+                            gameResult["p$i"] = pValue.toString()
+                            gameResult["p${i}rank"] = 0
                             hashmap["p$i"] = pValue.toString()
                             userCoin["p$i"] = 2
                             userAccept["p$i"] = null
                         }
                     }
 
-
+                    val doc_result = db.collection("game_result").document(gameId)
                     val doc_info = db.collection("game_playing").document(gameId+"_INFO")
                     val doc_card = db.collection("game_playing").document(gameId+"_CARD")
                     val doc_coin = db.collection("game_playing").document(gameId+"_COIN")
@@ -550,6 +558,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                             "challenge_type" to 0,
                             "challenge2" to 0
                         ))
+                        batch.set(doc_result, gameResult)
                     }.addOnSuccessListener {
                         Log.d(TAG, "게임 방 생성 성공")
                     }
