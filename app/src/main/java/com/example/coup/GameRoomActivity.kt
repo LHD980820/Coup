@@ -1015,16 +1015,12 @@ class GameRoomActivity : AppCompatActivity() {
             if(pCard[i][0] / 10 != 0 && pCard[i][0] / 10 != 0) {
                 dieNum++
                 if(i + 1 == number) {
-                    documentResult.get().addOnCompleteListener {task->
-                        if(task.isSuccessful) {
-                            val result = task.result
-                            val players = result["players"] as Long
-                            if(result["p${number}rank"] == 0) {
-                                db.runBatch { batch->
-                                    batch.update(documentResult, "p${number}rank", max_number - players)
-                                    batch.update(documentResult, "players", players + 1)
-                                }
-                            }
+                    db.runTransaction { transaction->
+                        val players = transaction.get(documentResult)["players"] as Long
+                        val rank = transaction.get(documentResult)["p${number}rank"]
+                        if(rank == 0) {
+                            transaction.update(documentResult, "p${number}rank", max_number - players)
+                            transaction.update(documentResult, "players", players + 1)
                         }
                     }
                 }

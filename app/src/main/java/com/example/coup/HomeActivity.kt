@@ -69,7 +69,7 @@ class HomeActivity : AppCompatActivity() {
                 finish()
             } else {
                 db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
-                db.collection("user").document(auth.currentUser!!.email.toString()).get().addOnSuccessListener { document->
+                db.collection("user").document(auth.currentUser?.email.toString()).get().addOnSuccessListener { document->
                     val waitingroomMap = document.get("waitingroom") as Map<*, *>
                     val waitingroom0 = waitingroomMap["waitingroom.0"]
                     val waitingroom1 = waitingroomMap["waitingroom.1"].toString()
