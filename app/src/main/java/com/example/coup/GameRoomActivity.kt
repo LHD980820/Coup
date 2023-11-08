@@ -374,10 +374,12 @@ class GameRoomActivity : AppCompatActivity() {
                 mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 Thread.sleep(3000)
+                mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(openPlayer == number) {
                     Log.d(TAG, "true1, change들어옴")
                     Log.d(TAG, "number : $number, openPlayer : $openPlayer")
                     cardChange(openPlayer, openCardNum)
+                    actionPerform(nowActionCode)
                 }
                 else if(nowChallenger == number) {
                     Log.d(TAG, "true1, elimination들어옴")
@@ -402,10 +404,12 @@ class GameRoomActivity : AppCompatActivity() {
                 mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 Thread.sleep(3000)
+                mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(openPlayer == nowChallenger) {
                     Log.d(TAG, "true2, change들어옴")
                     Log.d(TAG, "number : $number, nowChallenger : $nowChallenger")
                     cardChange(openPlayer, openCardNum)
+                    actionPerform(nowActionCode)
                 }
                 else if(number == nowChallengeCode2) {
                     Log.d(TAG, "true2, elimination들어옴")
@@ -646,6 +650,7 @@ class GameRoomActivity : AppCompatActivity() {
             okButton.setOnClickListener {
                 countDownTimer?.cancel()
                 documentCard.update("p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
+                pCard[number-1][selectCard-1] *= 10
                 builder.dismiss()
                 if(nowChallengeCode2 == 0 && nowChallengeCode == 1) actionPerform(nowActionCode)
                 else turnEnd()
@@ -660,6 +665,7 @@ class GameRoomActivity : AppCompatActivity() {
                 override fun onFinish() {
                     // 타이머가 종료되면 실행되는 코드
                     documentCard.update("p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
+                    pCard[number-1][selectCard-1] *= 10
                     builder.dismiss()
                     if(nowChallengeCode2 == 0 && nowChallengeCode == 1) actionPerform(nowActionCode)
                     else turnEnd()
@@ -670,9 +676,13 @@ class GameRoomActivity : AppCompatActivity() {
         }
         else if(pCard[number-1][0] / 10 == 0) {
             documentCard.update("p${number}card1", pCard[number-1][0] * 10)
+            pCard[number-1][0] *= 10
+            turnEnd()
         }
         else {
             documentCard.update("p${number}card2", pCard[number-1][1] * 10)
+            pCard[number-1][1] *= 10
+            turnEnd()
         }
     }
 
@@ -1058,7 +1068,7 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
         while(nextTurn != nowTurn) {
-            if(pCard[nextTurn-1][0] / 10 != 0 && pCard[nextTurn-1][0] / 10 != 0) {
+            if(pCard[nextTurn-1][0] / 10 != 0 && pCard[nextTurn-1][1] / 10 != 0) {
                 nextTurn++
                 if(nextTurn > max_number) nextTurn = 1
             }

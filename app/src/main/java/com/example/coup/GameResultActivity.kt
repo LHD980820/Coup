@@ -42,7 +42,7 @@ class GameResultActivity : AppCompatActivity() {
         documentResult.get().addOnCompleteListener { task->
             if(task.isSuccessful) {
                 val result = task.result
-                maxNumber = result["players"] as Int
+                maxNumber = result["players"].toString().toInt()
                 makeTable(maxNumber)
                 for(i in 0 until maxNumber) {
                     constraintLayouts[i].visibility = View.VISIBLE
@@ -67,7 +67,7 @@ class GameResultActivity : AppCompatActivity() {
         }
         documentSnapshot = documentResult.addSnapshotListener { snapshot, e->
             if(snapshot != null) {
-                maxNumber = snapshot["players"] as Int
+                maxNumber = snapshot["players"].toString().toInt()
                 makeTable(maxNumber)
                 for(i in 0 until maxNumber) {
                     constraintLayouts[i].visibility = View.VISIBLE
