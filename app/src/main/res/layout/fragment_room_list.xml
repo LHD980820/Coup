@@ -17,6 +17,17 @@
             android:layout_height="match_parent"
             android:background="@drawable/home_upper_bar">
 
+            <Button
+                android:id="@+id/button_rule"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/create_room_box"
+                android:text="RULE"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+
             <TextView
                 android:id="@+id/home_coup1"
                 android:layout_width="wrap_content"
