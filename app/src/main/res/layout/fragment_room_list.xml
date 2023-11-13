@@ -24,7 +24,9 @@
                 android:layout_marginStart="8dp"
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/create_room_box"
+                android:fontFamily="@font/zcoolkuaile_regular"
                 android:text="RULE"
+                android:textSize="14sp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
 
