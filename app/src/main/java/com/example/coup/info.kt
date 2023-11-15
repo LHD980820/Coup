@@ -287,7 +287,7 @@ class info : Fragment() {
             val date: TextView
             val people: TextView
             val rank: TextView
-            val score: ImageView
+            val score: TextView
             init {
                 // Define click listener for the ViewHolder's View.
                 date = view.findViewById(R.id.date_match_record)
@@ -312,6 +312,14 @@ class info : Fragment() {
             // Get element from your dataset at this position and replace the
             // contents of the view with that element
             val document = dataSet.documents[position]
+            val max_players = document.get("players").toString().toInt()
+            for(i in 0 until max_players) {
+                if(document.get("p${i+1}").toString() == auth.currentUser?.email) {
+                    viewHolder.people.text = max_players.toString()
+                    viewHolder.rank.text = document.get("p${i+1}rank").toString()
+                    viewHolder.score.text = ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1].toString()
+                }
+            }
 
         }
 
