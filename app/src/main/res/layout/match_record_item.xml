@@ -6,6 +6,7 @@
     android:paddingBottom="4dp">
 
     <TextView
+        android:id="@+id/date_match_record"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.25"
@@ -17,7 +18,7 @@
         android:textSize="20sp" />
 
     <TextView
-        android:id="@+id/text_people_recycle_item_match_record"
+        android:id="@+id/people_match_record"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.25"
@@ -29,7 +30,7 @@
         android:textSize="20sp" />
 
     <TextView
-        android:id="@+id/textView5"
+        android:id="@+id/rank_match_record"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.25"
@@ -41,7 +42,7 @@
         android:textSize="20sp" />
 
     <TextView
-        android:id="@+id/textView7"
+        android:id="@+id/score_match_record"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="0.25"

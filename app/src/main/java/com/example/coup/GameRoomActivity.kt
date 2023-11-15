@@ -51,6 +51,10 @@ import kotlin.random.nextInt
 
 class GameRoomActivity : AppCompatActivity() {
 
+    private val timerDurationShort = 10000 as Long
+    private val timerDurationLong = 20000 as Long
+
+
     private lateinit var mTimeLeft: TextView
     private lateinit var mLeftCardText: TextView
     private lateinit var mActionConstraint: ConstraintLayout
@@ -156,6 +160,33 @@ class GameRoomActivity : AppCompatActivity() {
                 }
                 else mActionText.text = "나의 턴. 행동을 선택해주세요"
                 actionButtonSetting(1)
+            }
+            else if(nowTurn == 9) {
+                //게임 종료
+                val intent = Intent(this, GameResultActivity::class.java)
+                intent.putExtra("gameId", gameId)
+                intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
+                snapshotListenerCard.remove()
+                snapshotListenerInfo.remove()
+                snapshotListenerAccept.remove()
+                snapshotListenerCoin.remove()
+                snapshotListenerAction.remove()
+                documentInfo.update("turn", 9)
+                startActivity(intent)
+                if(number == 1) {
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        documentCard.delete()
+                        documentCoin.delete()
+                        documentAccept.delete()
+                        documentInfo.delete()
+                        documentAction.delete()
+                        finish()
+                    }, 1000)
+                }
+                else {
+                    finish()
+                }
             }
             else {
                 actionButtonSetting(0)
@@ -323,7 +354,7 @@ class GameRoomActivity : AppCompatActivity() {
                 builder.dismiss()
             }
         }
-        countDownTimer = object : CountDownTimer(8000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+        countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { //1초 간격으로 타이머 설정
             override fun onTick(millisUntilFinished: Long) {
                 // 매 초마다 실행되는 코드
                 val secondsLeft = millisUntilFinished / 1000
@@ -373,7 +404,6 @@ class GameRoomActivity : AppCompatActivity() {
                 Log.d(TAG, "true1들어옴")
                 mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
-                Thread.sleep(3000)
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(openPlayer == number) {
                     Log.d(TAG, "true1, change들어옴")
@@ -390,7 +420,6 @@ class GameRoomActivity : AppCompatActivity() {
             else {
                 Log.d(TAG, "false1들어옴")
                 mActionText.text = "도전 성공으로 P${nowTurn}의 카드가 제거됩니다"
-                Thread.sleep(3000)
                 db.runBatch{ batch->
                     batch.update(documentCard, "card_open", 0)
                     batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
@@ -403,7 +432,6 @@ class GameRoomActivity : AppCompatActivity() {
                 Log.d(TAG, "true2들어옴")
                 mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
-                Thread.sleep(3000)
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(openPlayer == nowChallenger) {
                     Log.d(TAG, "true2, change들어옴")
@@ -420,7 +448,6 @@ class GameRoomActivity : AppCompatActivity() {
             else {
                 Log.d(TAG, "false2들어옴")
                 mActionText.text = "도전 성공으로 P${nowChallenger}의 카드가 한장 제거됩니다"
-                Thread.sleep(3000)
                 db.runBatch{ batch->
                     batch.update(documentCard, "card_open", 0)
                     batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
@@ -655,7 +682,7 @@ class GameRoomActivity : AppCompatActivity() {
                 if(nowChallengeCode2 == 0 && nowChallengeCode == 1) actionPerform(nowActionCode)
                 else turnEnd()
             }
-            countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+            countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
                 override fun onTick(millisUntilFinished: Long) {
                     // 매 초마다 실행되는 코드
                     val secondsLeft = millisUntilFinished / 1000
@@ -679,9 +706,12 @@ class GameRoomActivity : AppCompatActivity() {
             pCard[number-1][0] *= 10
             turnEnd()
         }
-        else {
+        else if(pCard[number-1][1] / 10 == 0){
             documentCard.update("p${number}card2", pCard[number-1][1] * 10)
             pCard[number-1][1] *= 10
+            turnEnd()
+        }
+        else {
             turnEnd()
         }
     }
@@ -876,8 +906,8 @@ class GameRoomActivity : AppCompatActivity() {
                             mPlayerCard[i][0].setImageResource(cardFromNumber(result["p${number}card1"].toString().toInt()))
                             mPlayerCard[i][1].setImageResource(cardFromNumber(result["p${number}card2"].toString().toInt()))
                         }
-                        pCard[i][0] = result["p${number}card1"].toString().toInt()
-                        pCard[i][1] = result["p${number}card2"].toString().toInt()
+                        pCard[i][0] = result["p${i+1}card1"].toString().toInt()
+                        pCard[i][1] = result["p${i+1}card2"].toString().toInt()
                     }
                 settingClickListener()
                 }
@@ -1052,6 +1082,7 @@ class GameRoomActivity : AppCompatActivity() {
             snapshotListenerAccept.remove()
             snapshotListenerCoin.remove()
             snapshotListenerAction.remove()
+            documentInfo.update("turn", 9)
             startActivity(intent)
             if(number == 1) {
                 Handler(Looper.getMainLooper()).postDelayed({
@@ -1076,7 +1107,6 @@ class GameRoomActivity : AppCompatActivity() {
                 break
             }
         }
-        Thread.sleep(1000)
         db.runTransaction { transaction->
             if(transaction.get(documentInfo)["turn"] != nextTurn) {
 
@@ -1232,168 +1262,6 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
-    /*private fun exchange() {
-        Log.d(TAG, "cardLeft : $pCardLeft")
-        if(nowTurn == number) {
-            mActionText.text = "버릴 카드 두 장을 선택해 주세요"
-            val builder = AlertDialog.Builder(this).create()
-            val dialogView = layoutInflater.inflate(R.layout.dialog_exchange, null)
-            val cardOne = dialogView.findViewById<ImageView>(R.id.card1_exchange)
-            val cardTwo = dialogView.findViewById<ImageView>(R.id.card2_exchange)
-            val cardThree = dialogView.findViewById<ImageView>(R.id.card3_exchange)
-            val cardFour = dialogView.findViewById<ImageView>(R.id.card4_exchange)
-            val timer = dialogView.findViewById<TextView>(R.id.timer_exchange)
-            val ok = dialogView.findViewById<Button>(R.id.ok_button_exchange)
-
-            var cardNum = IntArray(4)
-            cardNum[0] = pCard[number - 1][0]
-            cardNum[1] = pCard[number - 1][1]
-
-            val headOne = pCardLeft[0].toString().toInt()
-            val headTwo = pCardLeft[1].toString().toInt()
-            cardNum[2] = headOne
-            cardNum[3] = headTwo
-            pCardLeft = pCardLeft.slice(IntRange(2, pCardLeft.length - 1))
-            var countDownTimer: CountDownTimer? = null
-
-            if(pCard[number - 1][0] / 10 != 0) {
-                cardOne.setImageResource(cardFromNumber(0))
-            }
-            else {
-                cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
-            }
-            if(pCard[number - 1][1] / 10 != 0) {
-                cardTwo.setImageResource(cardFromNumber(0))
-            }
-            else {
-                cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
-            }
-            cardThree.setImageResource(cardFromNumber(headOne))
-            cardFour.setImageResource(cardFromNumber(headTwo))
-
-            var selectOne = 0
-            var selectTwo = 0
-            cardOne.setOnClickListener {
-                if(selectOne == 1 || selectTwo == 1) {
-                    if(selectOne == 1) selectOne = 0
-                    else selectTwo = 0
-                    cardOne.alpha = 1f
-                }
-                else if(selectOne == 0 || selectTwo == 0){
-                    if(selectOne == 0) selectOne = 1
-                    else selectTwo = 1
-                    cardOne.alpha = 0.3f
-                }
-                else Toast.makeText(this, "이미 두 장을 선택하였습니다", Toast.LENGTH_SHORT).show()
-            }
-            cardTwo.setOnClickListener {
-                if(selectOne == 2 || selectTwo == 2) {
-                    if(selectOne == 2) selectOne = 0
-                    else selectTwo = 0
-                    cardTwo.alpha = 1f
-                }
-                else if(selectOne == 0 || selectTwo == 0){
-                    if(selectOne == 0) selectOne = 2
-                    else selectTwo = 2
-                    cardTwo.alpha = 0.3f
-                }
-                else Toast.makeText(this, "이미 두 장을 선택하였습니다", Toast.LENGTH_SHORT).show()
-            }
-            cardThree.setOnClickListener {
-                if(selectOne == 3 || selectTwo == 3) {
-                    if(selectOne == 3) selectOne = 0
-                    else selectTwo = 0
-                    cardThree.alpha = 1f
-                }
-                else if(selectOne == 0 || selectTwo == 0){
-                    if(selectOne == 0) selectOne = 3
-                    else selectTwo = 3
-                    cardThree.alpha = 0.3f
-                }
-                else Toast.makeText(this, "이미 두 장을 선택하였습니다", Toast.LENGTH_SHORT).show()
-            }
-
-            cardFour.setOnClickListener {
-                if(selectOne == 4 || selectTwo == 4) {
-                    if(selectOne == 4) selectOne = 0
-                    else selectTwo = 0
-                    cardFour.alpha = 1f
-                }
-                else if(selectOne == 0 || selectTwo == 0){
-                    if(selectOne == 0) selectOne = 4
-                    else selectTwo = 4
-                    cardFour.alpha = 0.3f
-                }
-                else Toast.makeText(this, "이미 두 장을 선택하였습니다", Toast.LENGTH_SHORT).show()
-            }
-            ok.setOnClickListener {
-                if(selectOne == 0 || selectTwo == 0) Toast.makeText(this, "버릴 카드 두 장을 선택해 주세요", Toast.LENGTH_SHORT).show()
-                else {
-                    countDownTimer?.cancel()
-                    var indexOne = 0
-                    var indexTwo = 0
-                    val endRandomPoint = pCardLeft.length-1
-                    val range = 0..endRandomPoint
-                    var randomNum=Random.nextInt(range)
-                    indexOne = randomNum
-                    while(randomNum == indexOne) {
-                        randomNum = Random.nextInt(range)
-                    }
-                    indexTwo = randomNum
-
-                    val sliceOne = pCardLeft.slice(0 until indexOne)
-                    val sliceTwo = pCardLeft.slice(indexOne until indexTwo)
-                    val sliceThree = pCardLeft.slice(indexTwo until pCardLeft.length)
-                    pCardLeft = sliceOne+cardNum[selectOne-1].toString()+sliceTwo+cardNum[selectTwo-1].toString()+sliceThree
-                    var myCard = IntArray(4)
-                    myCard[0] = 0
-                    myCard[1] = 1
-                    myCard[2] = 2
-                    myCard[3] = 3
-                    myCard[selectOne - 1] = -1
-                    myCard[selectTwo - 1] = -1
-                    db.runBatch { batch->
-                        var cdIndex = 1
-                        for(i in 0 until 4) {
-                            if(myCard[i] != -1) {
-                                batch.update(documentCard, "p${number}card${cdIndex}", cardNum[myCard[i]])
-                                cdIndex++
-                            }
-                        }
-                        batch.update(documentCard, "card_left", pCardLeft)
-                    }
-                    builder.dismiss()
-                    turnEnd()
-                }
-            }
-
-            builder.setView(dialogView)
-            builder.setCanceledOnTouchOutside(false)
-
-            countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
-                override fun onTick(millisUntilFinished: Long) {
-                    // 매 초마다 실행되는 코드
-                    val secondsLeft = millisUntilFinished / 1000
-                    timer.text = secondsLeft.toString()
-                }
-
-                override fun onFinish() {
-                    // 타이머가 종료되면 실행되는 코드
-                    Log.d(TAG, "hOne : ${headOne}, hTwo : ${headTwo}, left : ${pCardLeft}")
-                    pCardLeft = headOne.toString()+headTwo.toString()+pCardLeft
-                    builder.dismiss()
-                    turnEnd()
-                }
-            }
-            builder.show()
-            countDownTimer.start()
-        }
-        else {
-            mActionText.text = "P${nowTurn}의 EXCHANGE"
-            Thread.sleep(5000)
-        }
-    }*/
-
     private fun exchange() {
         if(nowTurn == number) {
             mActionText.text = "버릴 카드 두 장을 선택해 주세요"
@@ -1546,7 +1414,7 @@ class GameRoomActivity : AppCompatActivity() {
             builder.setView(dialogView)
             builder.setCanceledOnTouchOutside(false)
 
-            countDownTimer = object : CountDownTimer(5000, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
+            countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
                 override fun onTick(millisUntilFinished: Long) {
                     // 매 초마다 실행되는 코드
                     val secondsLeft = millisUntilFinished / 1000
@@ -1565,7 +1433,6 @@ class GameRoomActivity : AppCompatActivity() {
         }
         else {
             mActionText.text = "P${nowTurn}의 EXCHANGE"
-            Thread.sleep(5000)
         }
     }
 

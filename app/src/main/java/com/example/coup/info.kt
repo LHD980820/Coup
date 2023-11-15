@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -17,11 +18,17 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
@@ -42,6 +49,8 @@ class info : Fragment() {
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
+
+    private val ratingChangeTable = Array(6) { IntArray(6) }
 
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
@@ -70,6 +79,27 @@ class info : Fragment() {
             param2 = it.getString(ARG_PARAM2)
         }
 
+        ratingChangeTable[0][0] = 50
+        ratingChangeTable[0][1] = -30
+        ratingChangeTable[1][0] = 60
+        ratingChangeTable[1][1] = 20
+        ratingChangeTable[1][2] = -40
+        ratingChangeTable[2][0] = 70
+        ratingChangeTable[2][1] = 30
+        ratingChangeTable[2][2] = -30
+        ratingChangeTable[2][3] = -50
+        ratingChangeTable[3][0] = 80
+        ratingChangeTable[3][1] = 50
+        ratingChangeTable[3][2] = 20
+        ratingChangeTable[3][3] = -30
+        ratingChangeTable[3][4] = -60
+        ratingChangeTable[4][0] = 100
+        ratingChangeTable[4][1] = 70
+        ratingChangeTable[4][2] = 30
+        ratingChangeTable[4][3] = -30
+        ratingChangeTable[4][4] = -50
+        ratingChangeTable[4][5] = -70
+
         imagePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val data: Intent? = result.data
@@ -82,6 +112,7 @@ class info : Fragment() {
             }
         }
     }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -223,7 +254,69 @@ class info : Fragment() {
             dialog.show()
         }
 
+        db.collection("game_result")
+            .where(Filter.or(
+                Filter.equalTo("p1", auth.currentUser?.email.toString()),
+                Filter.equalTo("p2", auth.currentUser?.email.toString()),
+                Filter.equalTo("p3", auth.currentUser?.email.toString()),
+                Filter.equalTo("p4", auth.currentUser?.email.toString()),
+                Filter.equalTo("p5", auth.currentUser?.email.toString()),
+                Filter.equalTo("p6", auth.currentUser?.email.toString()),
+            ))
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { documentSnapshots ->
+                val adapter = CustomAdapter(documentSnapshots)
+                val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerView_info)
+                if(context != null) {
+                    recyclerView.layoutManager = LinearLayoutManager(requireContext())
+                    recyclerView.adapter = adapter
+                }
+            }
         return view
+    }
+
+    inner class CustomAdapter(private val dataSet: QuerySnapshot) :
+        RecyclerView.Adapter<CustomAdapter.ViewHolder>() {
+
+        /**
+         * Provide a reference to the type of views that you are using
+         * (custom ViewHolder).
+         */
+        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val date: TextView
+            val people: TextView
+            val rank: TextView
+            val score: ImageView
+            init {
+                // Define click listener for the ViewHolder's View.
+                date = view.findViewById(R.id.date_match_record)
+                people = view.findViewById(R.id.people_match_record)
+                rank = view.findViewById(R.id.rank_match_record)
+                score = view.findViewById(R.id.score_match_record)
+            }
+        }
+
+        // Create new views (invoked by the layout manager)
+        override fun onCreateViewHolder(viewGroup: ViewGroup, viewType: Int): ViewHolder {
+            // Create a new view, which defines the UI of the list item
+            val view = LayoutInflater.from(viewGroup.context)
+                .inflate(R.layout.match_record_item, viewGroup, false)
+
+            return ViewHolder(view)
+        }
+
+        // Replace the contents of a view (invoked by the layout manager)
+        override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
+
+            // Get element from your dataset at this position and replace the
+            // contents of the view with that element
+            val document = dataSet.documents[position]
+
+        }
+
+        // Return the size of your dataset (invoked by the layout manager)
+        override fun getItemCount() = dataSet.size()
     }
 
     private fun uploadImage(imageUri: Uri?) {
