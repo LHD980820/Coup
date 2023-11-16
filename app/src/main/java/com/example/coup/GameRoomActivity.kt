@@ -54,6 +54,8 @@ class GameRoomActivity : AppCompatActivity() {
     private val timerDurationShort = 10000 as Long
     private val timerDurationLong = 20000 as Long
 
+    private var openPlayer = 0
+    private var openCardNum = 0
 
     private lateinit var mTimeLeft: TextView
     private lateinit var mLeftCardText: TextView
@@ -109,6 +111,7 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var bottomSheetBlockByCaptainOrAmbassador: ConstraintLayout
     private lateinit var bottomSheetBlockByContessa: ConstraintLayout
     private lateinit var bottomSheetChallenge: ConstraintLayout
+    private lateinit var bottomSheetOnlyCoup: ConstraintLayout
 
     private lateinit var buttonIncome: Button
     private lateinit var buttonForeignAid: Button
@@ -124,6 +127,7 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var buttonBlockByAmbassador: Button
     private lateinit var buttonBlockByDuke: Button
     private lateinit var buttonBlockByContessa: Button
+    private lateinit var buttonOnlyCoup: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -157,22 +161,24 @@ class GameRoomActivity : AppCompatActivity() {
             if(nowTurn == number) {
                 if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
                     mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
+                    actionButtonSetting(6)
                 }
-                else mActionText.text = "나의 턴. 행동을 선택해주세요"
-                actionButtonSetting(1)
+                else {
+                    mActionText.text = "나의 턴. 행동을 선택해주세요"
+                    actionButtonSetting(1)
+                }
             }
             else if(nowTurn == 9) {
                 //게임 종료
                 val intent = Intent(this, GameResultActivity::class.java)
                 intent.putExtra("gameId", gameId)
                 intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "GAME END", Toast.LENGTH_SHORT).show()
                 snapshotListenerCard.remove()
                 snapshotListenerInfo.remove()
                 snapshotListenerAccept.remove()
                 snapshotListenerCoin.remove()
                 snapshotListenerAction.remove()
-                documentInfo.update("turn", 9)
                 startActivity(intent)
                 if(number == 1) {
                     Handler(Looper.getMainLooper()).postDelayed({
@@ -196,6 +202,7 @@ class GameRoomActivity : AppCompatActivity() {
         }
         snapshotListenerAction = documentAction.addSnapshotListener { snapshot, e ->
             if(snapshot != null) {
+                Thread.sleep(3000)
                 nowActionCode = snapshot.get("action").toString().toInt()
                 nowFrom = snapshot.get("from").toString().toInt()
                 nowTo = snapshot.get("to").toString().toInt()
@@ -396,8 +403,8 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
     private fun cardOpen(openCard: Int, challengeNum: Int) {
-        val openPlayer = openCard/10
-        val openCardNum = openCard%10
+        openPlayer = openCard/10
+        openCardNum = openCard%10
         Log.d(TAG, "openPlayer : $openPlayer, openCardNum : $openCardNum")
         if(challengeNum == 1) {
             if(pCard[openPlayer - 1][openCardNum - 1] == actionToCard(challengeNum)) {
@@ -405,24 +412,37 @@ class GameRoomActivity : AppCompatActivity() {
                 mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
-                if(openPlayer == number) {
-                    Log.d(TAG, "true1, change들어옴")
-                    Log.d(TAG, "number : $number, openPlayer : $openPlayer")
-                    cardChange(openPlayer, openCardNum)
-                    actionPerform(nowActionCode)
-                }
-                else if(nowChallenger == number) {
+                if(nowChallenger == number) {
                     Log.d(TAG, "true1, elimination들어옴")
                     Log.d(TAG, "number : $number, nowChallenger : $nowChallenger")
-                    cardElimination()
+                    if(nowTo == number && nowActionCode == 5) {
+                        db.runBatch { batch->
+                            if(pCard[number - 1][0] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card1", pCard[number - 1][0] * 10)
+                                pCard[number - 1][0] *= 10
+                            }
+                            if(pCard[number - 1][1] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
+                                pCard[number - 1][1] *= 10
+                            }
+                            batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                        }
+                        turnEnd()
+                    }
+                    else {
+                        cardElimination()
+                    }
                 }
             }
             else {
                 Log.d(TAG, "false1들어옴")
                 mActionText.text = "도전 성공으로 P${nowTurn}의 카드가 제거됩니다"
-                db.runBatch{ batch->
-                    batch.update(documentCard, "card_open", 0)
-                    batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
+                db.runTransaction{ transaction->
+                    if(transaction.get(documentCard).get("card_open").toString().toInt() != 0) {
+                        transaction.update(documentCard, "card_open", 0)
+                        transaction.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
+                    }
+
                 }
                 turnEnd()
             }
@@ -433,13 +453,7 @@ class GameRoomActivity : AppCompatActivity() {
                 mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
-                if(openPlayer == nowChallenger) {
-                    Log.d(TAG, "true2, change들어옴")
-                    Log.d(TAG, "number : $number, nowChallenger : $nowChallenger")
-                    cardChange(openPlayer, openCardNum)
-                    actionPerform(nowActionCode)
-                }
-                else if(number == nowChallengeCode2) {
+                if(number == nowChallengeCode2) {
                     Log.d(TAG, "true2, elimination들어옴")
                     Log.d(TAG, "number : $number, nowChallenger2 : $nowChallengeCode2")
                     cardElimination()
@@ -452,6 +466,7 @@ class GameRoomActivity : AppCompatActivity() {
                     batch.update(documentCard, "card_open", 0)
                     batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
                 }
+                pCard[openPlayer - 1][openCardNum - 1] *= 10
                 actionPerform(nowActionCode)
             }
         }
@@ -470,6 +485,7 @@ class GameRoomActivity : AppCompatActivity() {
             Log.d(TAG, "player = $player, num : $num, firstCard : $firstCard")
             batch.update(documentCard, "card_open", 0)
         }
+        pCard[player - 1][num - 1] = firstCard
     }
 
     private fun settingBottomSheetButtonListener() {
@@ -597,6 +613,10 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonOnlyCoup.setOnClickListener {
+            bottomSheet.dismiss()
+            settingPlayerClickListener(3)
+        }
     }
 
     private fun settingThreeDot(except: Int) {
@@ -679,8 +699,7 @@ class GameRoomActivity : AppCompatActivity() {
                 documentCard.update("p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
                 pCard[number-1][selectCard-1] *= 10
                 builder.dismiss()
-                if(nowChallengeCode2 == 0 && nowChallengeCode == 1) actionPerform(nowActionCode)
-                else turnEnd()
+                nextElimination()
             }
             countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
                 override fun onTick(millisUntilFinished: Long) {
@@ -694,8 +713,7 @@ class GameRoomActivity : AppCompatActivity() {
                     documentCard.update("p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
                     pCard[number-1][selectCard-1] *= 10
                     builder.dismiss()
-                    if(nowChallengeCode2 == 0 && nowChallengeCode == 1) actionPerform(nowActionCode)
-                    else turnEnd()
+                    nextElimination()
                 }
             }
             builder.show()
@@ -704,16 +722,30 @@ class GameRoomActivity : AppCompatActivity() {
         else if(pCard[number-1][0] / 10 == 0) {
             documentCard.update("p${number}card1", pCard[number-1][0] * 10)
             pCard[number-1][0] *= 10
-            turnEnd()
+            nextElimination()
         }
         else if(pCard[number-1][1] / 10 == 0){
             documentCard.update("p${number}card2", pCard[number-1][1] * 10)
             pCard[number-1][1] *= 10
-            turnEnd()
+            nextElimination()
         }
         else {
-            turnEnd()
+           nextElimination()
         }
+    }
+
+    private fun nextElimination() {
+        if((nowChallengeCode2 == 0 && nowChallengeCode == 1) || nowChallengeCode2 != 0) {
+            cardChange(openPlayer, openCardNum)
+            if(nowChallengeCode2 == 0 && nowChallengeCode == 1){
+                db.runBatch{ batch->
+                    batch.update(documentAction, "challenge" ,0)
+                    batch.update(documentAction, "challenge2", 0)
+                    batch.update(documentAction, "action", nowActionCode)
+                }
+            }
+        }
+        else turnEnd()
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
@@ -833,6 +865,7 @@ class GameRoomActivity : AppCompatActivity() {
         bottomSheetBlockByDuke = bottomSheetView.findViewById(R.id.game_action_btn_layout5)
         bottomSheetBlockByCaptainOrAmbassador = bottomSheetView.findViewById(R.id.game_action_btn_layout4)
         bottomSheetBlockByContessa = bottomSheetView.findViewById(R.id.game_action_btn_layout6)
+        bottomSheetOnlyCoup = bottomSheetView.findViewById(R.id.game_action_btn_layout7)
         buttonIncome = bottomSheetView.findViewById(R.id.action_income_btn)
         buttonForeignAid = bottomSheetView.findViewById(R.id.action_foreign_aid_btn)
         buttonCoup = bottomSheetView.findViewById(R.id.action_coup_btn)
@@ -847,6 +880,7 @@ class GameRoomActivity : AppCompatActivity() {
         buttonBlockByAmbassador = bottomSheetView.findViewById(R.id.action_blockbyambassador_btn)
         buttonBlockByDuke = bottomSheetView.findViewById(R.id.action_blockbyduke_btn)
         buttonBlockByContessa = bottomSheetView.findViewById(R.id.action_blockbycontessa_btn)
+        buttonOnlyCoup = bottomSheetView.findViewById(R.id.action_onlycoup_btn)
 
         auth = FirebaseManager.getFirebaseAuth()
         storage = FirebaseStorage.getInstance()
@@ -1084,19 +1118,14 @@ class GameRoomActivity : AppCompatActivity() {
             snapshotListenerAction.remove()
             documentInfo.update("turn", 9)
             startActivity(intent)
-            if(number == 1) {
-                Handler(Looper.getMainLooper()).postDelayed({
-                    documentCard.delete()
-                    documentCoin.delete()
-                    documentAccept.delete()
-                    documentInfo.delete()
-                    documentAction.delete()
-                    finish()
-                }, 1000)
-            }
-            else {
+            Handler(Looper.getMainLooper()).postDelayed({
+                documentCard.delete()
+                documentCoin.delete()
+                documentAccept.delete()
+                documentInfo.delete()
+                documentAction.delete()
                 finish()
-            }
+            }, 1000)
         }
         while(nextTurn != nowTurn) {
             if(pCard[nextTurn-1][0] / 10 != 0 && pCard[nextTurn-1][1] / 10 != 0) {
@@ -1132,6 +1161,7 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.GONE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
                 bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.GONE
             }
             1 -> {  //기본행동
                 bottomSheetDefault.visibility = View.VISIBLE
@@ -1140,6 +1170,7 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.GONE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
                 bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.GONE
                 bottomSheet.show()
             }
             2 -> {  //도전
@@ -1149,6 +1180,7 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.GONE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
                 bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.GONE
                 bottomSheet.show()
             }
             3 -> {  //공작으로 막기, 허용
@@ -1158,6 +1190,7 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.VISIBLE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
                 bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.GONE
                 bottomSheet.show()
             }
             4 -> {  //외교관으로 막기, 사령관으로 막기, 도전
@@ -1167,6 +1200,7 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.GONE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.VISIBLE
                 bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.GONE
                 bottomSheet.show()
             }
             5 -> {  //귀부인으로 막기, 도전
@@ -1176,6 +1210,17 @@ class GameRoomActivity : AppCompatActivity() {
                 bottomSheetBlockByDuke.visibility = View.GONE
                 bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
                 bottomSheetBlockByContessa.visibility = View.VISIBLE
+                bottomSheetOnlyCoup.visibility = View.GONE
+                bottomSheet.show()
+            }
+            6 -> {  //코인 10개 넘을때 coup만 뜨게 하기
+                bottomSheetDefault.visibility = View.GONE
+                bottomSheetAbility.visibility = View.GONE
+                bottomSheetChallenge.visibility = View.GONE
+                bottomSheetBlockByDuke.visibility = View.GONE
+                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                bottomSheetBlockByContessa.visibility = View.GONE
+                bottomSheetOnlyCoup.visibility = View.VISIBLE
                 bottomSheet.show()
             }
         }
