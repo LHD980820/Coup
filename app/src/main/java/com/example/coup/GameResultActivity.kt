@@ -81,8 +81,14 @@ class GameResultActivity : AppCompatActivity() {
                     db.collection("user").document(snapshot["p${i+1}"].toString()).get().addOnSuccessListener { document->
                         mPlayerNickname[i].text = document["nickname"].toString()
                         mPlayerRating[i].text = (document["rating"].toString().toInt() + ratingChangeTable[i]).toString()
-                        if(ratingChangeTable[i] > 0) mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
-                        else mPlayerRatingChange[i].text = ratingChangeTable[i].toString()
+                        if(ratingChangeTable[i] > 0) {
+                            mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.red))
+                            mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
+                        }
+                        else {
+                            mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.box_color))
+                            mPlayerRatingChange[i].text = ratingChangeTable[i].toString()
+                        }
                         storage.reference.child("profile_images/${document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
                             if (!this.isDestroyed) {
                                 Glide.with(this)

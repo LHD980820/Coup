@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,6 +34,7 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
+import java.util.Calendar
 
 
 // TODO: Rename parameter arguments, choose names that match
@@ -253,25 +255,32 @@ class info : Fragment() {
             val dialog = builder_logout.create()
             dialog.show()
         }
-
         db.collection("game_result")
-            .where(Filter.or(
-                Filter.equalTo("p1", auth.currentUser?.email.toString()),
-                Filter.equalTo("p2", auth.currentUser?.email.toString()),
-                Filter.equalTo("p3", auth.currentUser?.email.toString()),
-                Filter.equalTo("p4", auth.currentUser?.email.toString()),
-                Filter.equalTo("p5", auth.currentUser?.email.toString()),
-                Filter.equalTo("p6", auth.currentUser?.email.toString()),
+            .where(Filter.and(
+                Filter.greaterThanOrEqualTo("players", 2),
+                Filter.or(
+                    Filter.equalTo("p1", user.email.toString()),
+                    Filter.equalTo("p2", user.email.toString()),
+                    Filter.equalTo("p3", user.email.toString()),
+                    Filter.equalTo("p4", user.email.toString()),
+                    Filter.equalTo("p5", user.email.toString()),
+                    Filter.equalTo("p6", user.email.toString())
+                )
             ))
+            .orderBy("players")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documentSnapshots ->
+                Log.d(TAG, "recyclerView size : " + documentSnapshots.size().toString())
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerView_info)
                 if(context != null) {
                     recyclerView.layoutManager = LinearLayoutManager(requireContext())
                     recyclerView.adapter = adapter
                 }
+            }
+            .addOnFailureListener { e->
+                Log.e(TAG, "Error fetching documents: $e")
             }
         return view
     }
@@ -313,11 +322,32 @@ class info : Fragment() {
             // contents of the view with that element
             val document = dataSet.documents[position]
             val max_players = document.get("players").toString().toInt()
-            for(i in 0 until max_players) {
-                if(document.get("p${i+1}").toString() == auth.currentUser?.email) {
-                    viewHolder.people.text = max_players.toString()
-                    viewHolder.rank.text = document.get("p${i+1}rank").toString()
-                    viewHolder.score.text = ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1].toString()
+            if(max_players >= 2) {
+                for(i in 0 until max_players) {
+                    if(document.get("p${i+1}").toString() == auth.currentUser?.email && document.get("p${i+1}rank").toString().toInt() != 0) {
+                        viewHolder.people.text = max_players.toString()
+                        viewHolder.rank.text = document.get("p${i+1}rank").toString()
+                        if(ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1] > 0) {
+                            viewHolder.score.setTextColor(ContextCompat.getColor(requireContext(), R.color.red))
+                            viewHolder.score.text = "+" + ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1].toString()
+                        }
+                        else {
+                            viewHolder.score.setTextColor(ContextCompat.getColor(requireContext(), R.color.box_color))
+                            viewHolder.score.text = ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1].toString()
+                        }
+
+                        val timestamp = document.getTimestamp("timestamp")!!.toDate()
+                        val calendar = Calendar.getInstance()
+                        calendar.time = timestamp
+
+                        val year = calendar.get(Calendar.YEAR) % 100
+                        val month = calendar.get(Calendar.MONTH) + 1  // 월은 0부터 시작하므로 1을 더함
+                        val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+                        val time = year.toString() + "." + month.toString() + "." + day.toString()
+
+                        viewHolder.date.text = time
+                    }
                 }
             }
 

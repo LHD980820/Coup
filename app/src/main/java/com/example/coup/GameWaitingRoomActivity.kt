@@ -538,6 +538,9 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                             userAccept["p$i"] = null
                         }
                     }
+                    for(i in max_number+1 .. 6) {
+                        gameResult["p$i"] = ""
+                    }
 
                     val doc_result = db.collection("game_result").document(gameId)
                     val doc_info = db.collection("game_playing").document(gameId+"_INFO")
