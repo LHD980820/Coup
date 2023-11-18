@@ -696,7 +696,10 @@ class GameRoomActivity : AppCompatActivity() {
             okButton.text = "Eliminate"
             okButton.setOnClickListener {
                 countDownTimer?.cancel()
-                documentCard.update("p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
+                db.runBatch { batch->
+                    batch.update(documentCard, "p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
+                    batch.update(documentCard, "card_open", 0)
+                }
                 pCard[number-1][selectCard-1] *= 10
                 builder.dismiss()
                 nextElimination()
