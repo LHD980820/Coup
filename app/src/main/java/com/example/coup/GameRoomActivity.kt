@@ -1459,6 +1459,7 @@ class GameRoomActivity : AppCompatActivity() {
                             }
                         }
                         batch.update(documentCard, "card_left", pCardLeft)
+                        batch.update(documentCard, "card_open", 0)
                     }
                     builder.dismiss()
                     turnEnd()
