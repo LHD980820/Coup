@@ -712,7 +712,7 @@ class GameRoomActivity : AppCompatActivity() {
                     // 타이머가 종료되면 실행되는 코드
                     db.runBatch { batch->
                         batch.update(documentCard, "p${number}card$selectCard", pCard[number-1][selectCard-1] * 10)
-                        batch.update(documentCard, "cardopen", 0)
+                        batch.update(documentCard, "card_open", 0)
                     }
                     pCard[number-1][selectCard-1] *= 10
                     builder.dismiss()
@@ -725,7 +725,7 @@ class GameRoomActivity : AppCompatActivity() {
         else if(pCard[number-1][0] / 10 == 0) {
             db.runBatch { batch->
                 batch.update(documentCard, "p${number}card1", pCard[number-1][0] * 10)
-                batch.update(documentCard, "cardopen", 0)
+                batch.update(documentCard, "card_open", 0)
             }
             pCard[number-1][0] *= 10
             nextElimination()
@@ -733,7 +733,7 @@ class GameRoomActivity : AppCompatActivity() {
         else if(pCard[number-1][1] / 10 == 0){
             db.runBatch { batch->
                 batch.update(documentCard, "p${number}card2", pCard[number-1][1] * 10)
-                batch.update(documentCard, "cardopen", 0)
+                batch.update(documentCard, "card_open", 0)
             }
             pCard[number-1][1] *= 10
             nextElimination()
