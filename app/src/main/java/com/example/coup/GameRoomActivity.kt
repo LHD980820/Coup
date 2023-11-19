@@ -419,16 +419,26 @@ class GameRoomActivity : AppCompatActivity() {
                     Log.d(TAG, "number : $number, nowChallenger : $nowChallenger")
                     if(nowTo == number && nowActionCode == 5) {
                         db.runBatch { batch->
-                            if(pCard[number - 1][0] / 10 == 0) {
+                            if(pCard[number - 1][0] / 10 == 0 && pCard[number - 1][1] / 10 == 0) {
                                 batch.update(documentCard, "p${number}card1", pCard[number - 1][0] * 10)
-                                pCard[number - 1][0] *= 10
-                            }
-                            if(pCard[number - 1][1] / 10 == 0) {
                                 batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][0] *= 10
                                 pCard[number - 1][1] *= 10
                             }
-                            batch.update(documentCard, "card_open", 0)
-                            batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                            else if(pCard[number - 1][0] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card1", pCard[number - 1][0] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][0] *= 10
+                            }
+                            else if(pCard[number - 1][1] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][1] *= 10
+                            }
                         }
                         turnEnd()
                     }
