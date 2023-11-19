@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
+import android.os.PersistableBundle
 import android.util.Log
 import android.view.KeyEvent.DispatcherState
 import android.view.View
@@ -304,6 +305,7 @@ class GameRoomActivity : AppCompatActivity() {
                             mPlayerAllDie[i].visibility = View.VISIBLE
                         }
                     }
+                    checkGameEnd()
                 }
                 else {
                     if(nowChallengeCode2 == 0) {
@@ -1068,7 +1070,10 @@ class GameRoomActivity : AppCompatActivity() {
             }
             else {
                 if(nowChallengeCode == 4) mActionText.text = "P${nowTurn}의 FOREIGN AID가 DUKE에 의해 막힘"
-                if(nowChallengeCode == 5) mActionText.text = "P${nowTurn}의 ASSASSINATION이 CONTESSA에 의해 막힘"
+                if(nowChallengeCode == 5) {
+                    mActionText.text = "P${nowTurn}의 ASSASSINATION이 CONTESSA에 의해 막힘"
+                    documentCoin.update("p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                }
                 if(nowChallengeCode == 6) mActionText.text = "P${nowTurn}의 STEAL이 CAPTAIN에 의해 막힘"
                 if(nowChallengeCode == 7) mActionText.text = "P${nowTurn}의 STEAL이 AMBASSADOR에 의해 막힘"
                 turnEnd()
@@ -1096,6 +1101,32 @@ class GameRoomActivity : AppCompatActivity() {
         Log.d(TAG, "p11(${pCard[0][0]}), p12(${pCard[0][1]}), p21(${pCard[1][0]}), p22(${pCard[1][1]})")
         var nextTurn = nowTurn + 1
         if(nextTurn > max_number) nextTurn = 1
+        while(nextTurn != nowTurn) {
+            if(pCard[nextTurn-1][0] / 10 != 0 && pCard[nextTurn-1][1] / 10 != 0) {
+                nextTurn++
+                if(nextTurn > max_number) nextTurn = 1
+            }
+            else {
+                break
+            }
+        }
+        db.runTransaction { transaction->
+            if(transaction.get(documentInfo)["turn"] != nextTurn) {
+                transaction.update(documentAction, "action", 0)
+                transaction.update(documentAction, "from", 0)
+                transaction.update(documentAction, "to", 0)
+                transaction.update(documentAction, "challenge", 0)
+                transaction.update(documentAction, "challenge_type", 0)
+                transaction.update(documentAction, "challenge2", 0)
+                transaction.update(documentInfo, "turn", nextTurn)
+                for(i in 0 until max_number) {
+                    transaction.update(documentAccept, "p${i+1}", null)
+                }
+            }
+        }
+    }
+
+    private fun checkGameEnd() {
         var dieNum = 0
         for(i in 0 until max_number) {
             if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
@@ -1114,10 +1145,12 @@ class GameRoomActivity : AppCompatActivity() {
             //게임 끝
             val intent = Intent(this, GameResultActivity::class.java)
             if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
-                db.runBatch { batch->
-                    batch.update(documentResult, "p${number}rank", 1)
-                    batch.update(documentResult, "players", max_number)
-                    batch.update(documentResult, "timestamp", com.google.firebase.Timestamp.now())
+                db.runTransaction() { transaction->
+                    if(transaction.get(documentResult).get("players") != max_number) {
+                        transaction.update(documentResult, "p${number}rank", 1)
+                        transaction.update(documentResult, "players", max_number)
+                        transaction.update(documentResult, "timestamp", com.google.firebase.Timestamp.now())
+                    }
                 }
             }
             intent.putExtra("gameId", gameId)
@@ -1128,7 +1161,6 @@ class GameRoomActivity : AppCompatActivity() {
             snapshotListenerAccept.remove()
             snapshotListenerCoin.remove()
             snapshotListenerAction.remove()
-            documentInfo.update("turn", 9)
             startActivity(intent)
             Handler(Looper.getMainLooper()).postDelayed({
                 documentCard.delete()
@@ -1138,30 +1170,6 @@ class GameRoomActivity : AppCompatActivity() {
                 documentAction.delete()
                 finish()
             }, 1000)
-        }
-        while(nextTurn != nowTurn) {
-            if(pCard[nextTurn-1][0] / 10 != 0 && pCard[nextTurn-1][1] / 10 != 0) {
-                nextTurn++
-                if(nextTurn > max_number) nextTurn = 1
-            }
-            else {
-                break
-            }
-        }
-        db.runTransaction { transaction->
-            if(transaction.get(documentInfo)["turn"] != nextTurn) {
-
-                transaction.update(documentAction, "action", 0)
-                transaction.update(documentAction, "from", 0)
-                transaction.update(documentAction, "to", 0)
-                transaction.update(documentAction, "challenge", 0)
-                transaction.update(documentAction, "challenge_type", 0)
-                transaction.update(documentAction, "challenge2", 0)
-                transaction.update(documentInfo, "turn", nextTurn)
-                for(i in 0 until max_number) {
-                    transaction.update(documentAccept, "p${i+1}", null)
-                }
-            }
         }
     }
     private fun actionButtonSetting(number: Int) {
@@ -1492,6 +1500,55 @@ class GameRoomActivity : AppCompatActivity() {
         else {
             mActionText.text = "P${nowTurn}의 EXCHANGE"
         }
+    }
+
+    override fun onBackPressed() {
+        val dialog = AlertDialog.Builder(this)
+        if(pCard[number-1][0] / 10 == 0 && pCard[number-1][1] / 10 == 0) {
+            dialog.setTitle("게임에서 나가시겠습니까?")
+                .setPositiveButton("예") { dialog, which->
+                    snapshotListenerAction.remove()
+                    snapshotListenerCoin.remove()
+                    snapshotListenerAccept.remove()
+                    snapshotListenerInfo.remove()
+                    snapshotListenerCard.remove()
+                    dialog.dismiss()
+                    super.onBackPressed()
+                }
+                .setNegativeButton("아니요") { dialog, which->
+                    dialog.dismiss()
+                }
+                .show()
+        }
+        else {
+            dialog.setTitle("기권하시겠습니까?")
+                .setPositiveButton("예") { dialog, which->
+                    snapshotListenerAction.remove()
+                    snapshotListenerCoin.remove()
+                    snapshotListenerAccept.remove()
+                    snapshotListenerInfo.remove()
+                    snapshotListenerCard.remove()
+                    db.runTransaction { transaction->
+                        if(pCard[number-1][0] / 10 == 0) {
+                            transaction.update(documentCard, "p${number}card1", pCard[number-1][0] * 10)
+                        }
+                        if(pCard[number-1][1] / 10 == 0) {
+                            transaction.update(documentCard, "p${number}card2", pCard[number-1][1] * 10)
+                        }
+                    }
+                    if(nowTurn == number) {
+                        turnEnd()
+                    }
+                    finish()
+                    dialog.dismiss()
+                    super.onBackPressed()
+                }
+                .setNegativeButton("아니요") { dialog, which->
+                    dialog.dismiss()
+                }
+                .show()
+        }
+
     }
 
     companion object{
