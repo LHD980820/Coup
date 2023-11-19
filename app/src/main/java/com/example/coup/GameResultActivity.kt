@@ -5,6 +5,8 @@ import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -17,6 +19,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
 import de.hdodenhof.circleimageview.CircleImageView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class GameResultActivity : AppCompatActivity() {
 
@@ -34,82 +40,101 @@ class GameResultActivity : AppCompatActivity() {
 
     private var gameId = ""
     private var maxNumber = 0
-    private var ratingChangeTable = IntArray(6)
+    private val ratingChangeTable = Array(6) { IntArray(6) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_result)
 
-        init()
-        documentResult.get().addOnCompleteListener { task->
-            if(task.isSuccessful) {
-                val result = task.result
-                maxNumber = result["players"].toString().toInt()
-                makeTable(maxNumber)
-                for(i in 0 until maxNumber) {
-                    if(result["p${i+1}rank"].toString().toInt() != 0) {
-                        constraintLayouts[i].visibility = View.VISIBLE
-                        db.collection("user").document(result["p${i+1}"].toString()).get().addOnSuccessListener { document->
-                            mPlayerNickname[i].text = document["nickname"].toString()
-                            mPlayerRating[i].text = (document["rating"].toString().toInt() + ratingChangeTable[i]).toString()
-                            if(ratingChangeTable[i] > 0) {
-                                mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.red))
-                                mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
-                            }
-                            else {
-                                mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.box_color))
-                                mPlayerRatingChange[i].text = ratingChangeTable[i].toString()
-                            }
-                            storage.reference.child("profile_images/${document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                                if (!this.isDestroyed) {
-                                    Glide.with(this)
-                                        .load(imageUrl)
-                                        .into(mPlayerImage[i])
+        CoroutineScope(Dispatchers.IO).launch {
+            init()
+            documentResult.get().addOnCompleteListener { task->
+                if(task.isSuccessful) {
+                    val result = task.result
+                    maxNumber = result["players"].toString().toInt()
+                    if(maxNumber >= 2) {
+                        for(i in 0 until maxNumber) {
+                            if(result["p${i+1}rank"].toString().toInt() != 0) {
+                                val rank = result["p${i+1}rank"].toString().toInt()
+                                constraintLayouts[rank - 1].visibility = View.VISIBLE
+                                db.collection("user").document(result["p${i+1}"].toString()).get().addOnSuccessListener { document->
+                                    mPlayerNickname[rank - 1].text = document["nickname"].toString()
+                                    mPlayerRating[rank - 1].text = (document["rating"].toString().toInt() + ratingChangeTable[maxNumber - 2][rank - 1]).toString()
+                                    if(ratingChangeTable[maxNumber - 2][rank - 1] > 0) {
+                                        mPlayerRatingChange[rank - 1].setTextColor(ContextCompat.getColor(this@GameResultActivity, R.color.red))
+                                        mPlayerRatingChange[rank - 1].text = "+"+ratingChangeTable[maxNumber - 2][rank - 1].toString()
+                                    }
+                                    else {
+                                        mPlayerRatingChange[rank - 1].setTextColor(ContextCompat.getColor(this@GameResultActivity, R.color.box_color))
+                                        mPlayerRatingChange[rank - 1].text = ratingChangeTable[maxNumber - 2][rank - 1].toString()
+                                    }
+                                    storage.reference.child("profile_images/${document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
+                                        if (!this@GameResultActivity.isDestroyed) {
+                                            Glide.with(this@GameResultActivity)
+                                                .load(imageUrl)
+                                                .into(mPlayerImage[rank - 1])
+                                        }
+                                    }
                                 }
                             }
                         }
+                        for(i in maxNumber..5) {
+                            constraintLayouts[i].visibility = View.GONE
+                        }
                     }
                 }
-                for(i in maxNumber..5) {
-                    constraintLayouts[i].visibility = View.GONE
-                }
-            }
-        }
-        documentSnapshot = documentResult.addSnapshotListener { snapshot, e->
-            if(snapshot != null) {
-                maxNumber = snapshot["players"].toString().toInt()
-                makeTable(maxNumber)
-                for(i in 0 until maxNumber) {
-                    constraintLayouts[i].visibility = View.VISIBLE
-                    db.collection("user").document(snapshot["p${i+1}"].toString()).get().addOnSuccessListener { document->
-                        mPlayerNickname[i].text = document["nickname"].toString()
-                        mPlayerRating[i].text = (document["rating"].toString().toInt() + ratingChangeTable[i]).toString()
-                        if(ratingChangeTable[i] > 0) {
-                            mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.red))
-                            mPlayerRatingChange[i].text = "+"+ratingChangeTable[i].toString()
-                        }
-                        else {
-                            mPlayerRatingChange[i].setTextColor(ContextCompat.getColor(this, R.color.box_color))
-                            mPlayerRatingChange[i].text = ratingChangeTable[i].toString()
-                        }
-                        storage.reference.child("profile_images/${document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
-                            if (!this.isDestroyed) {
-                                Glide.with(this)
-                                    .load(imageUrl)
-                                    .into(mPlayerImage[i])
+            }.await()
+            documentSnapshot = documentResult.addSnapshotListener { snapshot, e->
+                if(snapshot != null) {
+                    maxNumber = snapshot["players"].toString().toInt()
+                    if(maxNumber >= 2) {
+                        for(i in 0 until maxNumber) {
+                            if(snapshot["p${i+1}rank"].toString().toInt() != 0) {
+                                val rank = snapshot["p${i+1}rank"].toString().toInt()
+                                constraintLayouts[rank - 1].visibility = View.VISIBLE
+                                db.collection("user").document(snapshot["p${i+1}"].toString()).get().addOnSuccessListener { document->
+                                    mPlayerNickname[rank - 1].text = document["nickname"].toString()
+                                    mPlayerRating[rank - 1].text = (document["rating"].toString().toInt() + ratingChangeTable[maxNumber - 2][rank - 1]).toString()
+                                    if(ratingChangeTable[maxNumber - 2][rank - 1] > 0) {
+                                        mPlayerRatingChange[rank - 1].setTextColor(ContextCompat.getColor(this@GameResultActivity, R.color.red))
+                                        mPlayerRatingChange[rank - 1].text = "+"+ratingChangeTable[maxNumber - 2][rank - 1].toString()
+                                    }
+                                    else {
+                                        mPlayerRatingChange[rank - 1].setTextColor(ContextCompat.getColor(this@GameResultActivity, R.color.box_color))
+                                        mPlayerRatingChange[rank - 1].text = ratingChangeTable[maxNumber - 2][rank - 1].toString()
+                                    }
+                                    storage.reference.child("profile_images/${document.id}.jpg").downloadUrl.addOnSuccessListener { imageUrl ->
+                                        if (!this@GameResultActivity.isDestroyed) {
+                                            Glide.with(this@GameResultActivity)
+                                                .load(imageUrl)
+                                                .into(mPlayerImage[rank - 1])
+                                        }
+                                    }
+                                }
                             }
                         }
+                        for(i in maxNumber..5) {
+                            constraintLayouts[i].visibility = View.GONE
+                        }
                     }
-                }
-                for(i in maxNumber..5) {
-                    constraintLayouts[i].visibility = View.GONE
                 }
             }
         }
+        Handler(Looper.getMainLooper()).postDelayed({
+            db.runTransaction { transaction->
+                if(transaction.get(documentResult).get("finish").toString().toInt() == 0) {
+                    for(i in 1..transaction.get(documentResult).get("players").toString().toInt()) {
+                        val documentUser = transaction.get(db.collection("user").document(transaction.get(documentResult).get("p$i").toString()))
+                        transaction.update(documentUser.reference, "rating",
+                            documentUser["rating"].toString().toInt() + ratingChangeTable[maxNumber - 2][transaction.get(documentResult).get("p${i}rank").toString().toInt() - 1])
+                    }
+                }
+                transaction.update(documentResult, "finish", 1)
+            }
+        }, 1000)
     }
 
-    private fun init() {
+    private suspend fun init() {
         gameId = intent.getStringExtra("gameId").toString()
-        gameId = "juggak"
         constraintLayouts = Array(6) { ConstraintLayout(this) }
         constraintLayouts[0] = findViewById(R.id.constraint_1_game_end)
         /*val gradientDrawable = constraintLayouts[0].background as GradientDrawable
@@ -126,6 +151,26 @@ class GameResultActivity : AppCompatActivity() {
         colorAnimation.repeatMode = ValueAnimator.REVERSE // 역방향 반복
 
         colorAnimation.start()*/
+        ratingChangeTable[0][0] = 50
+        ratingChangeTable[0][1] = -30
+        ratingChangeTable[1][0] = 60
+        ratingChangeTable[1][1] = 20
+        ratingChangeTable[1][2] = -40
+        ratingChangeTable[2][0] = 70
+        ratingChangeTable[2][1] = 30
+        ratingChangeTable[2][2] = -30
+        ratingChangeTable[2][3] = -50
+        ratingChangeTable[3][0] = 80
+        ratingChangeTable[3][1] = 50
+        ratingChangeTable[3][2] = 20
+        ratingChangeTable[3][3] = -30
+        ratingChangeTable[3][4] = -60
+        ratingChangeTable[4][0] = 100
+        ratingChangeTable[4][1] = 70
+        ratingChangeTable[4][2] = 30
+        ratingChangeTable[4][3] = -30
+        ratingChangeTable[4][4] = -50
+        ratingChangeTable[4][5] = -70
 
         constraintLayouts[1] = findViewById(R.id.constraint_2_game_end)
         constraintLayouts[2] = findViewById(R.id.constraint_3_game_end)
@@ -169,44 +214,20 @@ class GameResultActivity : AppCompatActivity() {
         mOkButton.setOnClickListener {
             documentSnapshot.remove()
             finish()
+            db.runTransaction { transaction->
+                if(transaction.get(documentResult).get("finish").toString().toInt() == 0) {
+                    for(i in 1..transaction.get(documentResult).get("players").toString().toInt()) {
+                        val documentUser = transaction.get(db.collection("user").document(transaction.get(documentResult).get("p$i").toString()))
+                        transaction.update(documentUser.reference, "rating",
+                            documentUser["rating"].toString().toInt() + ratingChangeTable[maxNumber - 2][transaction.get(documentResult).get("p${i}rank").toString().toInt() - 1])
+                    }
+                    transaction.update(documentResult, "finish", 1)
+                }
+            }
         }
 
         db = FirestoreManager.getFirestore()
         documentResult = db.collection("game_result").document(gameId)
         storage = FirebaseStorage.getInstance()
-    }
-    private fun makeTable(players: Int) {
-        when (players) {
-            2-> {
-                ratingChangeTable[0] = 50
-                ratingChangeTable[1] = -30
-            }
-            3-> {
-                ratingChangeTable[0] = 60
-                ratingChangeTable[1] = 20
-                ratingChangeTable[2] = -40
-            }
-            4-> {
-                ratingChangeTable[0] = 70
-                ratingChangeTable[1] = 30
-                ratingChangeTable[2] = -30
-                ratingChangeTable[3] = -50
-            }
-            5-> {
-                ratingChangeTable[0] = 80
-                ratingChangeTable[1] = 50
-                ratingChangeTable[2] = 20
-                ratingChangeTable[3] = -30
-                ratingChangeTable[4] = -60
-            }
-            else-> {
-                ratingChangeTable[0] = 100
-                ratingChangeTable[1] = 70
-                ratingChangeTable[2] = 30
-                ratingChangeTable[3] = -30
-                ratingChangeTable[4] = -50
-                ratingChangeTable[5] = -70
-            }
-        }
     }
 }

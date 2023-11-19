@@ -525,7 +525,8 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
                     val gameResult: HashMap<String, Any> = hashMapOf(
                         "timestamp" to 0,
-                        "players" to 0
+                        "players" to 0,
+                        "finish" to 0
                     )
 
                     for(i in 1 until max_number + 1) {

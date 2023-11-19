@@ -360,7 +360,7 @@ class GameRoomActivity : AppCompatActivity() {
             else {
                 countDownTimer?.cancel()
                 documentCard.update("card_open", number*10+selectCard)
-                builder.dismiss()
+                if(builder.isShowing) builder.dismiss()
             }
         }
         countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { //1초 간격으로 타이머 설정
@@ -427,6 +427,7 @@ class GameRoomActivity : AppCompatActivity() {
                                 batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
                                 pCard[number - 1][1] *= 10
                             }
+                            batch.update(documentCard, "card_open", 0)
                             batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
                         }
                         turnEnd()
@@ -757,6 +758,9 @@ class GameRoomActivity : AppCompatActivity() {
                     batch.update(documentAction, "challenge2", 0)
                     batch.update(documentAction, "action", nowActionCode)
                 }
+            }
+            else {
+                turnEnd()
             }
         }
         else turnEnd()
@@ -1134,8 +1138,8 @@ class GameRoomActivity : AppCompatActivity() {
                 db.runTransaction { transaction->
                     val players = transaction.get(documentResult)["players"] as Long
                     val rank = transaction.get(documentResult)["p${i+1}rank"]
-                    if(rank == 0) {
-                        transaction.update(documentResult, "p${i+1}rank", max_number - players)
+                    if(rank.toString().toInt() == 0) {
+                        transaction.update(documentResult, "p${i+1}rank", max_number - players.toInt())
                         transaction.update(documentResult, "players", players + 1)
                     }
                 }
@@ -1143,7 +1147,6 @@ class GameRoomActivity : AppCompatActivity() {
         }
         if(dieNum + 1 == max_number) {
             //게임 끝
-            val intent = Intent(this, GameResultActivity::class.java)
             if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
                 db.runTransaction() { transaction->
                     if(transaction.get(documentResult).get("players") != max_number) {
@@ -1152,24 +1155,28 @@ class GameRoomActivity : AppCompatActivity() {
                         transaction.update(documentResult, "timestamp", com.google.firebase.Timestamp.now())
                     }
                 }
+                    .addOnSuccessListener {
+                        val intent = Intent(this, GameResultActivity::class.java)
+                        intent.putExtra("gameId", gameId)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                        Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
+                        snapshotListenerCard.remove()
+                        snapshotListenerInfo.remove()
+                        snapshotListenerAccept.remove()
+                        snapshotListenerCoin.remove()
+                        snapshotListenerAction.remove()
+                        startActivity(intent)
+                        documentInfo.update("turn", 9)
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            documentCard.delete()
+                            documentCoin.delete()
+                            documentAccept.delete()
+                            documentInfo.delete()
+                            documentAction.delete()
+                            finish()
+                        }, 1000)
+                    }
             }
-            intent.putExtra("gameId", gameId)
-            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
-            snapshotListenerCard.remove()
-            snapshotListenerInfo.remove()
-            snapshotListenerAccept.remove()
-            snapshotListenerCoin.remove()
-            snapshotListenerAction.remove()
-            startActivity(intent)
-            Handler(Looper.getMainLooper()).postDelayed({
-                documentCard.delete()
-                documentCoin.delete()
-                documentAccept.delete()
-                documentInfo.delete()
-                documentAction.delete()
-                finish()
-            }, 1000)
         }
     }
     private fun actionButtonSetting(number: Int) {
@@ -1539,7 +1546,6 @@ class GameRoomActivity : AppCompatActivity() {
                     if(nowTurn == number) {
                         turnEnd()
                     }
-                    finish()
                     dialog.dismiss()
                     super.onBackPressed()
                 }
