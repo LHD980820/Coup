@@ -2,28 +2,18 @@ package com.example.coup
 
 import android.graphics.Color
 import android.os.Bundle
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AnimationUtils
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.compose.ui.res.colorResource
+import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.firebase.ui.firestore.FirestoreRecyclerOptions
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.firestore.ktx.firestoreSettings
-import com.google.firebase.firestore.ktx.memoryCacheSettings
-import com.google.firebase.firestore.ktx.persistentCacheSettings
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.ktx.storage
 import de.hdodenhof.circleimageview.CircleImageView
 
@@ -118,16 +108,15 @@ class ranking : Fragment() {
                         .into(viewHolder.profile_image)
                 }
             }
-
+            Log.d("Ranking", "")
             // Check if the position is 0, 1, or 2 (1st, 2nd, or 3rd place)
-            if (position < 3) {
+            if (position < 3) {/////
                 //1,2,3등의 배경은 금,은,동
-                when (position) {
+                when (position) {/////
                     0 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80ffd700"))
                     1 -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80c0c0c0"))
                     else -> viewHolder.itemView.setBackgroundColor(Color.parseColor("#80bf8970"))
                 }
-
                 // Apply (Blinking) Animation
                 //val blinkingAnimation = AnimationUtils.loadAnimation(viewHolder.itemView.context, R.anim.blink_animation)
                 //viewHolder.itemView.startAnimation(blinkingAnimation)
