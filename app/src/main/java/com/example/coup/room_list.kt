@@ -36,6 +36,7 @@ class room_list : Fragment() {
     private var param1: String? = null
     private var param2: String? = null
     private lateinit var createRoomButton: Button
+    private lateinit var ruleButton: Button
     private lateinit var db: FirebaseFirestore
     private lateinit var user: FirebaseAuth
 
@@ -57,6 +58,7 @@ class room_list : Fragment() {
         val view = inflater.inflate(R.layout.fragment_room_list, container, false)
         // "create_room" 버튼 찾기
         createRoomButton = view.findViewById(R.id.create_room)
+        ruleButton = view.findViewById(R.id.button_rule)
 
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
@@ -79,6 +81,15 @@ class room_list : Fragment() {
         createRoomButton.setOnClickListener {
             val dialog = CreateRoomDialog(requireContext())
             dialog.show()
+        }
+
+        //"rule" 버튼에 대한 클릭 이벤트 처리
+        ruleButton.setOnClickListener {
+            val builder_rule_explanation = AlertDialog.Builder(requireContext()).create()
+            val dialog_rule_explanation = inflater.inflate(R.layout.dialog_game_rule, null)
+            builder_rule_explanation.setView(dialog_rule_explanation)
+
+            builder_rule_explanation.show()
         }
 
         return view
