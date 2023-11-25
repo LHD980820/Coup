@@ -101,7 +101,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/card_coin" />
+                app:srcCompat="@drawable/action_coin" />
 
             <ImageView
                 android:id="@+id/action_icon_right_game_room"
@@ -113,7 +113,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                app:srcCompat="@drawable/card_coin" />
+                app:srcCompat="@drawable/action_coin" />
 
 
             <TextView
@@ -193,7 +193,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p6_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p6_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p6_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p6_coin_game_room"
@@ -337,7 +337,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p5_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p5_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p5_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p5_coin_game_room"
@@ -492,7 +492,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p4_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p4_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p4_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p4_coin_game_room"
@@ -636,7 +636,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p3_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p3_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p3_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p3_coin_game_room"
@@ -791,7 +791,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p2_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p2_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p2_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p2_coin_game_room"
@@ -935,7 +935,7 @@
                         app:layout_constraintBottom_toBottomOf="@+id/p1_coin_game_room"
                         app:layout_constraintEnd_toStartOf="@+id/p1_coin_game_room"
                         app:layout_constraintTop_toTopOf="@+id/p1_coin_game_room"
-                        app:srcCompat="@drawable/card_coin" />
+                        app:srcCompat="@drawable/action_coin" />
 
                     <TextView
                         android:id="@+id/p1_coin_game_room"
