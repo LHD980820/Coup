@@ -146,6 +146,7 @@ class HomeActivity : AppCompatActivity() {
             .setPositiveButton("예") { dialog, which->
                 dialog.dismiss()
                 db.collection("user").document(auth.currentUser!!.email.toString()).update("state", false)
+                super.onBackPressed()
                 finish()
             }
             .setNegativeButton("아니요") { dialog, which->

@@ -186,7 +186,7 @@ class GameRoomActivity : AppCompatActivity() {
         }
         snapshotListenerAction = documentAction.addSnapshotListener { snapshot, e ->
             if(snapshot != null) {
-                Thread.sleep(3000)
+                Thread.sleep(1000)
                 nowActionCode = snapshot.get("action").toString().toInt()
                 nowFrom = snapshot.get("from").toString().toInt()
                 nowTo = snapshot.get("to").toString().toInt()
@@ -246,6 +246,9 @@ class GameRoomActivity : AppCompatActivity() {
                                 actionButtonSetting(2)
                             }
                         }
+                        else { //9 : 즉시실행
+                            actionPerform(nowActionCode)
+                        }
                     }
                 }
                 else {
@@ -279,6 +282,7 @@ class GameRoomActivity : AppCompatActivity() {
                             pCard[i][j] = snapshot["p${i+1}card${j+1}"].toString().toInt()
                             if(i + 1 == number || pCard[i][j] / 10 != 0) {
                                 mPlayerCard[i][j].setImageResource(cardFromNumber(pCard[i][j]))
+                                mPlayerCardDie[i][j].visibility = View.INVISIBLE
                             }
                             if(pCard[i][j] / 10 != 0) {
                                 mPlayerCardDie[i][j].visibility = View.VISIBLE
@@ -747,7 +751,7 @@ class GameRoomActivity : AppCompatActivity() {
             cardChange(openPlayer, openCardNum)
             if(nowChallengeCode2 == 0 && nowChallengeCode == 1){
                 db.runBatch{ batch->
-                    batch.update(documentAction, "challenge_type" ,0)
+                    batch.update(documentAction, "challenge_type" ,9)
                     batch.update(documentAction, "challenge2", 0)
                     batch.update(documentAction, "action", nowActionCode)
                 }
@@ -1125,52 +1129,60 @@ class GameRoomActivity : AppCompatActivity() {
 
     private fun checkGameEnd() {
         var dieNum = 0
-        for(i in 0 until max_number) {
-            if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
-                dieNum++
-                db.runTransaction { transaction->
-                    val players = transaction.get(documentResult)["players"] as Long
-                    val rank = transaction.get(documentResult)["p${i+1}rank"]
-                    if(rank.toString().toInt() == 0) {
-                        transaction.update(documentResult, "p${i+1}rank", max_number - players.toInt())
-                        transaction.update(documentResult, "players", players + 1)
+        CoroutineScope(Dispatchers.IO).launch {
+            for(i in 0 until max_number) {
+                if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
+                    dieNum++
+                    db.runTransaction { transaction->
+                        val players = transaction.get(documentResult)["players"] as Long
+                        val rank = transaction.get(documentResult)["p${i+1}rank"]
+                        Log.d(TAG, "i: $i, players: $players, rank: $rank")
+                        if(rank.toString().toInt() == 0) {
+                            transaction.update(documentResult, "p${i+1}rank", max_number - players.toInt())
+                            transaction.update(documentResult, "players", players + 1)
+                        }
+                    }.addOnSuccessListener { result ->
+                        Log.d(TAG, "Transaction success: $result")
+                    }.addOnFailureListener { e ->
+                        Log.w(TAG, "Transaction failure.", e)
+                    }.await()
+                }
+            }
+            if(dieNum + 1 == max_number) {
+                //게임 끝
+                if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
+                    db.runTransaction() { transaction->
+                        if(transaction.get(documentResult).get("players") != max_number) {
+                            transaction.update(documentResult, "p${number}rank", 1)
+                            transaction.update(documentResult, "players", max_number)
+                            transaction.update(documentResult, "timestamp", com.google.firebase.Timestamp.now())
+                        }
                     }
+                        .addOnSuccessListener {
+                            val intent = Intent(this@GameRoomActivity, GameResultActivity::class.java)
+                            intent.putExtra("gameId", gameId)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                            Toast.makeText(this@GameRoomActivity, "GameEND", Toast.LENGTH_SHORT).show()
+                            snapshotListenerCard.remove()
+                            snapshotListenerInfo.remove()
+                            snapshotListenerAccept.remove()
+                            snapshotListenerCoin.remove()
+                            snapshotListenerAction.remove()
+                            startActivity(intent)
+                            documentInfo.update("turn", 9)
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                documentCard.delete()
+                                documentCoin.delete()
+                                documentAccept.delete()
+                                documentInfo.delete()
+                                documentAction.delete()
+                                finish()
+                            }, 1000)
+                        }
                 }
             }
         }
-        if(dieNum + 1 == max_number) {
-            //게임 끝
-            if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
-                db.runTransaction() { transaction->
-                    if(transaction.get(documentResult).get("players") != max_number) {
-                        transaction.update(documentResult, "p${number}rank", 1)
-                        transaction.update(documentResult, "players", max_number)
-                        transaction.update(documentResult, "timestamp", com.google.firebase.Timestamp.now())
-                    }
-                }
-                    .addOnSuccessListener {
-                        val intent = Intent(this, GameResultActivity::class.java)
-                        intent.putExtra("gameId", gameId)
-                        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                        Toast.makeText(this, "GameEND", Toast.LENGTH_SHORT).show()
-                        snapshotListenerCard.remove()
-                        snapshotListenerInfo.remove()
-                        snapshotListenerAccept.remove()
-                        snapshotListenerCoin.remove()
-                        snapshotListenerAction.remove()
-                        startActivity(intent)
-                        documentInfo.update("turn", 9)
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            documentCard.delete()
-                            documentCoin.delete()
-                            documentAccept.delete()
-                            documentInfo.delete()
-                            documentAction.delete()
-                            finish()
-                        }, 1000)
-                    }
-            }
-        }
+
     }
     private fun actionButtonSetting(number: Int) {
         when(number) {

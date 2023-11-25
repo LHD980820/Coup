@@ -324,7 +324,7 @@ class info : Fragment() {
             val max_players = document.get("players").toString().toInt()
             if(max_players >= 2) {
                 for(i in 0 until max_players) {
-                    if(document.get("p${i+1}").toString() == auth.currentUser?.email && document.get("p${i+1}rank").toString().toInt() != 0) {
+                    if(document.get("p${i+1}").toString() == auth.currentUser?.email && document.get("p${i+1}rank").toString().toInt() > 0) {
                         viewHolder.people.text = max_players.toString()
                         viewHolder.rank.text = document.get("p${i+1}rank").toString()
                         if(ratingChangeTable[max_players - 2][document.get("p${i+1}rank").toString().toInt() - 1] > 0) {
