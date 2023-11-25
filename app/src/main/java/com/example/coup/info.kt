@@ -257,7 +257,8 @@ class info : Fragment() {
         }
         db.collection("game_result")
             .where(Filter.and(
-                Filter.greaterThanOrEqualTo("players", 2),
+                Filter.notEqualTo("timestamp", 0),
+                Filter.equalTo("finish", 1),
                 Filter.or(
                     Filter.equalTo("p1", user.email.toString()),
                     Filter.equalTo("p2", user.email.toString()),
@@ -267,7 +268,6 @@ class info : Fragment() {
                     Filter.equalTo("p6", user.email.toString())
                 )
             ))
-            .orderBy("players")
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documentSnapshots ->
