@@ -3,18 +3,11 @@ package com.example.coup
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
-import android.os.PersistableBundle
 import android.util.Log
-import android.view.KeyEvent.DispatcherState
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
@@ -22,13 +15,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.runtime.saveable.mapSaver
-import androidx.compose.ui.graphics.Color
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.alpha
 import com.bumptech.glide.Glide
-import com.example.coup.ui.login.LoginActivity
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
@@ -36,17 +25,11 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
-import com.google.protobuf.Parser
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.tasks.await
-import java.util.zip.Inflater
-import kotlin.math.max
 import kotlin.random.Random
 import kotlin.random.nextInt
 
@@ -764,7 +747,7 @@ class GameRoomActivity : AppCompatActivity() {
             cardChange(openPlayer, openCardNum)
             if(nowChallengeCode2 == 0 && nowChallengeCode == 1){
                 db.runBatch{ batch->
-                    batch.update(documentAction, "challenge" ,0)
+                    batch.update(documentAction, "challenge_type" ,0)
                     batch.update(documentAction, "challenge2", 0)
                     batch.update(documentAction, "action", nowActionCode)
                 }
