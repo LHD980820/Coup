@@ -67,7 +67,8 @@ class HomeActivity : AppCompatActivity() {
                 auth.signOut()
                 startActivity(Intent(baseContext, LoginActivity::class.java))
                 finish()
-            } else {
+            }
+            /*else {
                 db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
                 db.collection("user").document(auth.currentUser?.email.toString()).get().addOnSuccessListener { document->
                     val waitingroomMap = document.get("waitingroom") as Map<*, *>
@@ -95,7 +96,7 @@ class HomeActivity : AppCompatActivity() {
 
                     }
                 }
-            }
+            }*/
         }
 
 

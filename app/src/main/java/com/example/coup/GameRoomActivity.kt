@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -142,6 +143,7 @@ class GameRoomActivity : AppCompatActivity() {
     private fun settingSnapshots() {
         snapshotListenerInfo = documentInfo.addSnapshotListener{ snapshot, e->
             nowTurn = snapshot?.get("turn").toString().toInt()
+            settingNowTurn()
             if(nowTurn == number) {
                 if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
                     mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
@@ -308,6 +310,12 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
+    private fun settingNowTurn() {
+        for(i in 0 until max_number) {
+            if(i+1 == nowTurn) mPlayerConstraint[nowTurn - 1].setBackgroundResource(R.drawable.card_big_box_nowturn)
+            else mPlayerConstraint[i].setBackgroundResource(R.drawable.card_big_box)
+        }
+    }
     private fun selectCard() {
         val builder = AlertDialog.Builder(this).create()
         val dialogView = layoutInflater.inflate(R.layout.dialog_start_cards_info, null)
@@ -640,6 +648,10 @@ class GameRoomActivity : AppCompatActivity() {
         if(actionNumber == 6) { mActionText.text = "강탈 대상 플레이어를 선택해 주세요" }
         for(i in 0 until max_number) {
             mPlayerConstraint[i].isClickable = true
+            if(i + 1 != number && (pCard[i][0] / 10 == 0 || pCard[i][1] / 10 == 0)) {
+                val blinkingAnimation = AnimationUtils.loadAnimation(this, R.anim.blink_animation)
+                mPlayerConstraint[i].startAnimation(blinkingAnimation)
+            }
             mPlayerConstraint[i].setOnClickListener {
                 if((pCard[i][0] / 10 == 0 || pCard[i][1] / 10 == 0) && i + 1 != number) {
                     if(mPlayerCoin[i].text.toString().toInt() <= 0 && actionNumber == 6) {
@@ -654,6 +666,7 @@ class GameRoomActivity : AppCompatActivity() {
                         }
                         for(j in 0 until max_number) {
                             mPlayerConstraint[j].isClickable = false
+                            mPlayerConstraint[j].clearAnimation()
                         }
                     }
                 }
