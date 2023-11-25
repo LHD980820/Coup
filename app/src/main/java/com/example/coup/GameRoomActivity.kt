@@ -649,8 +649,10 @@ class GameRoomActivity : AppCompatActivity() {
         for(i in 0 until max_number) {
             mPlayerConstraint[i].isClickable = true
             if(i + 1 != number && (pCard[i][0] / 10 == 0 || pCard[i][1] / 10 == 0)) {
-                val blinkingAnimation = AnimationUtils.loadAnimation(this, R.anim.blink_animation)
-                mPlayerConstraint[i].startAnimation(blinkingAnimation)
+                if(!(nowActionCode == 6 && mPlayerCoin[i].text.toString().toInt() <= 0)) {
+                    val blinkingAnimation = AnimationUtils.loadAnimation(this, R.anim.blink_animation)
+                    mPlayerConstraint[i].startAnimation(blinkingAnimation)
+                }
             }
             mPlayerConstraint[i].setOnClickListener {
                 if((pCard[i][0] / 10 == 0 || pCard[i][1] / 10 == 0) && i + 1 != number) {
