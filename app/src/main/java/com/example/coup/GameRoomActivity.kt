@@ -316,8 +316,10 @@ class GameRoomActivity : AppCompatActivity() {
         val text = dialogView.findViewById<TextView>(R.id.text_start_cards)
         cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
         cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
-        if(pCard[number - 1][0] / 10 != 0) cardOne.setBackgroundResource(R.color.red)
-        if(pCard[number - 1][1] / 10 != 0) cardTwo.setBackgroundResource(R.color.red)
+        if(pCard[number - 1][0] / 10 != 0) cardOne.setImageResource(0)
+        else cardOne.setImageResource(cardFromNumber(pCard[number - 1][0]))
+        if(pCard[number - 1][1] / 10 != 0) cardTwo.setImageResource(0)
+        else cardTwo.setImageResource(cardFromNumber(pCard[number - 1][1]))
         val timer = dialogView.findViewById<TextView>(R.id.timer_start_cards)
         val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
         var countDownTimer: CountDownTimer? = null
