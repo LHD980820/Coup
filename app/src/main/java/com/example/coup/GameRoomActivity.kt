@@ -214,11 +214,17 @@ class GameRoomActivity : AppCompatActivity() {
                             }
                             if(nowActionCode == 5) {
                                 mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) actionButtonSetting(5)
+                                if(nowTurn != number) {
+                                    if(number == nowTo) actionButtonSetting(5)
+                                    else actionButtonSetting(2)
+                                }
                             }
                             if(nowActionCode == 6) {
                                 mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) actionButtonSetting(4)
+                                if(nowTurn != number) {
+                                    if(number == nowTo) actionButtonSetting(4)
+                                    else actionButtonSetting(2)
+                                }
                             }
                             if(nowActionCode == 7) {
                                 mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
@@ -277,7 +283,7 @@ class GameRoomActivity : AppCompatActivity() {
         }
         snapshotListenerCard = documentCard.addSnapshotListener{ snapshot, e->
             if(snapshot != null) {
-                val openCard = snapshot["card_open"].toString().toInt()
+                val openCard = snapshot["card_open"]?.toString()?.toInt()
                 if(openCard == 0) {
                     pCardLeft = snapshot["card_left"].toString()
                     for(i in 0 until max_number) {
@@ -298,13 +304,16 @@ class GameRoomActivity : AppCompatActivity() {
                     checkGameEnd()
                 }
                 else {
-                    if(nowChallengeCode2 == 0) {
-                        if(nowChallengeCode == 1) {
-                            cardOpen(openCard, 1)
+                    if(openCard != null) {
+                        if(nowChallengeCode2 == 0) {
+                            if(nowChallengeCode == 1) {
+                                cardOpen(openCard, 1)
+                            }
                         }
-                    }
-                    else {
-                        cardOpen(openCard, 2)
+                        else {
+                            cardOpen(openCard, 2)
+                        }
+
                     }
                 }
             }
@@ -1536,7 +1545,7 @@ class GameRoomActivity : AppCompatActivity() {
 
     override fun onBackPressed() {
         val dialog = AlertDialog.Builder(this)
-        if(pCard[number-1][0] / 10 == 0 && pCard[number-1][1] / 10 == 0) {
+        if(pCard[number-1][0] / 10 != 0 && pCard[number-1][1] / 10 != 0) {
             dialog.setTitle("게임에서 나가시겠습니까?")
                 .setPositiveButton("예") { dialog, which->
                     snapshotListenerAction.remove()
