@@ -1188,7 +1188,6 @@ class GameRoomActivity : AppCompatActivity() {
                             snapshotListenerCoin.remove()
                             snapshotListenerAction.remove()
                             startActivity(intent)
-                            documentInfo.update("turn", 9)
                             Handler(Looper.getMainLooper()).postDelayed({
                                 documentCard.delete()
                                 documentCoin.delete()
