@@ -1276,7 +1276,6 @@ class GameRoomActivity : AppCompatActivity() {
                 }
             }
         }
-
     }
 
     private fun actionPerform(actionType: Int) {
