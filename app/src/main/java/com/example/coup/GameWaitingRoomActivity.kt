@@ -288,7 +288,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                                 document.reference.update("p${number}ready", true)
                             }
                             else {
-                                document.reference.update("p${number}ready", true)
+                                document.reference.update("p${number}ready", false)
                             }
                         }
                     }.await()
@@ -464,6 +464,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
             intent.putExtra("gameId", gameId)
             intent.putExtra("number", number.toString())
+            intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             Log.d(TAG, "number : " + number)
             startActivity(intent)
             Handler(Looper.getMainLooper()).postDelayed({
@@ -570,6 +571,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     intent.putExtra("gameId", gameId)
                     intent.putExtra("number", number.toString())
                     intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                     startActivity(intent)
                     snapshotListener.remove()
                     document.reference.update("state", false)

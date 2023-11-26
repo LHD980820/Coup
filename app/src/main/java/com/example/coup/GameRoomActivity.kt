@@ -47,6 +47,7 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var mActionConstraint: ConstraintLayout
     private lateinit var mActionIcon: Array<ImageView>
     private lateinit var mActionText: TextView
+    private lateinit var mRuleButton: Button
 
     private lateinit var mPlayerConstraint: Array<ConstraintLayout>
     private lateinit var mPlayerText: Array<TextView>
@@ -143,48 +144,50 @@ class GameRoomActivity : AppCompatActivity() {
     }
     private fun settingSnapshots() {
         snapshotListenerInfo = documentInfo.addSnapshotListener{ snapshot, e->
-            nowTurn = snapshot?.get("turn").toString().toInt()
-            settingNowTurn()
-            if(nowTurn == number) {
-                if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
-                    mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
-                    actionButtonSetting(6)
+            if(snapshot != null && snapshot.get("turn").toString() != "null") {
+                nowTurn = snapshot.get("turn").toString().toInt()
+                settingNowTurn()
+                if(nowTurn == number) {
+                    if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
+                        mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
+                        actionButtonSetting(6)
+                    }
+                    else {
+                        mActionText.text = "나의 턴. 행동을 선택해주세요"
+                        actionButtonSetting(1)
+                    }
                 }
-                else {
-                    mActionText.text = "나의 턴. 행동을 선택해주세요"
-                    actionButtonSetting(1)
-                }
-            }
-            else if(nowTurn == 9) {
-                //게임 종료
-                val intent = Intent(this, GameResultActivity::class.java)
-                intent.putExtra("gameId", gameId)
-                intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                Toast.makeText(this, "GAME END", Toast.LENGTH_SHORT).show()
-                snapshotListenerCard.remove()
-                snapshotListenerInfo.remove()
-                snapshotListenerAccept.remove()
-                snapshotListenerCoin.remove()
-                snapshotListenerAction.remove()
-                startActivity(intent)
-                if(number == 1) {
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        documentCard.delete()
-                        documentCoin.delete()
-                        documentAccept.delete()
-                        documentInfo.delete()
-                        documentAction.delete()
+                else if(nowTurn == 9) {
+                    //게임 종료
+                    val intent = Intent(this, GameResultActivity::class.java)
+                    intent.putExtra("gameId", gameId)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    Toast.makeText(this, "GAME END", Toast.LENGTH_SHORT).show()
+                    snapshotListenerCard.remove()
+                    snapshotListenerInfo.remove()
+                    snapshotListenerAccept.remove()
+                    snapshotListenerCoin.remove()
+                    snapshotListenerAction.remove()
+                    startActivity(intent)
+                    if(number == 1) {
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            documentCard.delete()
+                            documentCoin.delete()
+                            documentAccept.delete()
+                            documentInfo.delete()
+                            documentAction.delete()
+                            finish()
+                        }, 3000)
+                    }
+                    else {
                         finish()
-                    }, 1000)
+                    }
                 }
                 else {
-                    finish()
+                    actionButtonSetting(0)
+                    if(nowTurn == 0) mActionText.text = "게임 준비 중"
+                    else mActionText.text = "P${nowTurn}턴 행동 대기 중"
                 }
-            }
-            else {
-                actionButtonSetting(0)
-                if(nowTurn == 0) mActionText.text = "게임 준비 중"
-                else mActionText.text = "P${nowTurn}턴 행동 대기 중"
             }
         }
         snapshotListenerAction = documentAction.addSnapshotListener { snapshot, e ->
@@ -243,6 +246,7 @@ class GameRoomActivity : AppCompatActivity() {
                             }
                             else {
                                 mActionText.text = "P${nowChallenger}의 도전 신청"
+                                actionButtonSetting(0)
                             }
                         }
                         else if(nowChallengeCode in 4..7) {
@@ -267,6 +271,7 @@ class GameRoomActivity : AppCompatActivity() {
                     }
                     else {
                         mActionText.text = "P${nowChallengeCode2}의 도전 신청"
+                        actionButtonSetting(0)
                     }
                 }
             }
@@ -798,6 +803,13 @@ class GameRoomActivity : AppCompatActivity() {
         mLeftCardText = findViewById(R.id.card_left_game_room)
         mTimeLeft = findViewById(R.id.time_game_room)
         mTimeLeft.visibility = View.INVISIBLE
+        mRuleButton = findViewById(R.id.rule_button_game_room)
+        mRuleButton.setOnClickListener {
+            val builderRuleExplanation = android.app.AlertDialog.Builder(this).create()
+            val dialogRuleExplanation = layoutInflater.inflate(R.layout.dialog_game_rule, null)
+            builderRuleExplanation.setView(dialogRuleExplanation)
+            builderRuleExplanation.show()
+        }
 
         mPlayerConstraint = Array(6) { ConstraintLayout(this) }
         mPlayerConstraint[0] = findViewById(R.id.p1_constraint)
