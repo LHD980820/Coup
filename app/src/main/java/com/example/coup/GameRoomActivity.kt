@@ -72,6 +72,7 @@ class GameRoomActivity : AppCompatActivity() {
     private lateinit var gameId: String
     private var number: Int = 0
     private var max_number: Int = 0
+    private var die_number: Int = 0
     //카드 정보 로컬에 저장
     private var pCard = Array(6) {IntArray(2) {0} }
     private var pCardLeft = "0"
@@ -1082,7 +1083,7 @@ class GameRoomActivity : AppCompatActivity() {
                 mPlayerThumbsUp[i].visibility = View.INVISIBLE
             }
         }
-        if(thumbsNumber == max_number - 1) {
+        if(thumbsNumber == max_number - 1 - die_number) {
             if(nowChallengeCode == 0) {
                 actionPerform(nowActionCode)
             }
@@ -1165,6 +1166,7 @@ class GameRoomActivity : AppCompatActivity() {
                     }.await()
                 }
             }
+            die_number = dieNum
             if(dieNum + 1 == max_number) {
                 //게임 끝
                 if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
@@ -1201,78 +1203,81 @@ class GameRoomActivity : AppCompatActivity() {
         }
 
     }
-    private fun actionButtonSetting(number: Int) {
-        when(number) {
-            0 -> {  //할거 없을 때
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.GONE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.GONE
-            }
-            1 -> {  //기본행동
-                bottomSheetDefault.visibility = View.VISIBLE
-                bottomSheetAbility.visibility = View.VISIBLE
-                bottomSheetChallenge.visibility = View.GONE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.GONE
-                bottomSheet.show()
-            }
-            2 -> {  //도전
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.VISIBLE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.GONE
-                bottomSheet.show()
-            }
-            3 -> {  //공작으로 막기, 허용
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.GONE
-                bottomSheetBlockByDuke.visibility = View.VISIBLE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.GONE
-                bottomSheet.show()
-            }
-            4 -> {  //외교관으로 막기, 사령관으로 막기, 도전
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.VISIBLE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.VISIBLE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.GONE
-                bottomSheet.show()
-            }
-            5 -> {  //귀부인으로 막기, 도전
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.VISIBLE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.VISIBLE
-                bottomSheetOnlyCoup.visibility = View.GONE
-                bottomSheet.show()
-            }
-            6 -> {  //코인 10개 넘을때 coup만 뜨게 하기
-                bottomSheetDefault.visibility = View.GONE
-                bottomSheetAbility.visibility = View.GONE
-                bottomSheetChallenge.visibility = View.GONE
-                bottomSheetBlockByDuke.visibility = View.GONE
-                bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
-                bottomSheetBlockByContessa.visibility = View.GONE
-                bottomSheetOnlyCoup.visibility = View.VISIBLE
-                bottomSheet.show()
+    private fun actionButtonSetting(sheetNumber: Int) {
+        if(pCard[number - 1][0] / 10 == 0 || pCard[number - 1][1] / 10 == 0) {
+            when(sheetNumber) {
+                0 -> {  //할거 없을 때
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.GONE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                }
+                1 -> {  //기본행동
+                    bottomSheetDefault.visibility = View.VISIBLE
+                    bottomSheetAbility.visibility = View.VISIBLE
+                    bottomSheetChallenge.visibility = View.GONE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                    bottomSheet.show()
+                }
+                2 -> {  //도전
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.VISIBLE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                    bottomSheet.show()
+                }
+                3 -> {  //공작으로 막기, 허용
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.GONE
+                    bottomSheetBlockByDuke.visibility = View.VISIBLE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                    bottomSheet.show()
+                }
+                4 -> {  //외교관으로 막기, 사령관으로 막기, 도전
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.VISIBLE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.VISIBLE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                    bottomSheet.show()
+                }
+                5 -> {  //귀부인으로 막기, 도전
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.VISIBLE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.VISIBLE
+                    bottomSheetOnlyCoup.visibility = View.GONE
+                    bottomSheet.show()
+                }
+                6 -> {  //코인 10개 넘을때 coup만 뜨게 하기
+                    bottomSheetDefault.visibility = View.GONE
+                    bottomSheetAbility.visibility = View.GONE
+                    bottomSheetChallenge.visibility = View.GONE
+                    bottomSheetBlockByDuke.visibility = View.GONE
+                    bottomSheetBlockByCaptainOrAmbassador.visibility = View.GONE
+                    bottomSheetBlockByContessa.visibility = View.GONE
+                    bottomSheetOnlyCoup.visibility = View.VISIBLE
+                    bottomSheet.show()
+                }
             }
         }
+
     }
 
     private fun actionPerform(actionType: Int) {

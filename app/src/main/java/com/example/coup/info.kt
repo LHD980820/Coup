@@ -272,6 +272,7 @@ class info : Fragment() {
             .get()
             .addOnSuccessListener { documentSnapshots ->
                 Log.d(TAG, "recyclerView size : " + documentSnapshots.size().toString())
+                mPlays.text = "plays : " + documentSnapshots.size().toString()
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerView_info)
                 if(context != null) {
