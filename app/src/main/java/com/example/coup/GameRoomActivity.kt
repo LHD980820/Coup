@@ -292,37 +292,39 @@ class GameRoomActivity : AppCompatActivity() {
         }
         snapshotListenerCard = documentCard.addSnapshotListener{ snapshot, e->
             if(snapshot != null) {
-                val openCard = snapshot["card_open"]?.toString()?.toInt()
-                if(openCard == 0) {
-                    pCardLeft = snapshot["card_left"].toString()
-                    for(i in 0 until max_number) {
-                        for(j in 0 until 2) {
-                            pCard[i][j] = snapshot["p${i+1}card${j+1}"].toString().toInt()
-                            if(i + 1 == number || pCard[i][j] / 10 != 0) {
-                                mPlayerCard[i][j].setImageResource(cardFromNumber(pCard[i][j]))
-                                mPlayerCardDie[i][j].visibility = View.INVISIBLE
+                if(snapshot["card_open"] != null) {
+                    val openCard = snapshot["card_open"]?.toString()?.toInt()
+                    if(openCard == 0) {
+                        pCardLeft = snapshot["card_left"].toString()
+                        for(i in 0 until max_number) {
+                            for(j in 0 until 2) {
+                                pCard[i][j] = snapshot["p${i+1}card${j+1}"].toString().toInt()
+                                if(i + 1 == number || pCard[i][j] / 10 != 0) {
+                                    mPlayerCard[i][j].setImageResource(cardFromNumber(pCard[i][j]))
+                                    mPlayerCardDie[i][j].visibility = View.INVISIBLE
+                                }
+                                if(pCard[i][j] / 10 != 0) {
+                                    mPlayerCardDie[i][j].visibility = View.VISIBLE
+                                }
                             }
-                            if(pCard[i][j] / 10 != 0) {
-                                mPlayerCardDie[i][j].visibility = View.VISIBLE
+                            if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
+                                mPlayerAllDie[i].visibility = View.VISIBLE
                             }
                         }
-                        if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
-                            mPlayerAllDie[i].visibility = View.VISIBLE
-                        }
+                        checkGameEnd()
                     }
-                    checkGameEnd()
-                }
-                else {
-                    if(openCard != null) {
-                        if(nowChallengeCode2 == 0) {
-                            if(nowChallengeCode == 1) {
-                                cardOpen(openCard, 1)
+                    else {
+                        if(openCard != null) {
+                            if(nowChallengeCode2 == 0) {
+                                if(nowChallengeCode == 1) {
+                                    cardOpen(openCard, 1)
+                                }
                             }
-                        }
-                        else {
-                            cardOpen(openCard, 2)
-                        }
+                            else {
+                                cardOpen(openCard, 2)
+                            }
 
+                        }
                     }
                 }
             }
@@ -1192,6 +1194,7 @@ class GameRoomActivity : AppCompatActivity() {
             }
             die_number = dieNum
             if(dieNum + 1 == max_number) {
+                Log.d(TAG, "게임 끝")
                 //게임 끝
                 if(pCard[number-1][0] / 10 == 0 || pCard[number-1][1] / 10 == 0) {
                     db.runTransaction() { transaction->
@@ -1211,6 +1214,7 @@ class GameRoomActivity : AppCompatActivity() {
                             snapshotListenerAccept.remove()
                             snapshotListenerCoin.remove()
                             snapshotListenerAction.remove()
+                            documentInfo.update("turn", 9)
                             startActivity(intent)
                             Handler(Looper.getMainLooper()).postDelayed({
                                 documentCard.delete()
@@ -1223,6 +1227,7 @@ class GameRoomActivity : AppCompatActivity() {
                         }
                 }
             }
+            else Log.d(TAG, "게임 안 끝남")
         }
 
     }

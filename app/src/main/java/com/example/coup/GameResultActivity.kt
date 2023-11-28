@@ -48,6 +48,8 @@ class GameResultActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_result)
+        auth = FirebaseAuth.getInstance()
+        db = FirestoreManager.getFirestore()
 
         CoroutineScope(Dispatchers.IO).launch {
             init()
@@ -159,6 +161,9 @@ class GameResultActivity : AppCompatActivity() {
         gameId = intent.getStringExtra("gameId").toString()
         constraintLayouts = Array(6) { ConstraintLayout(this) }
         constraintLayouts[0] = findViewById(R.id.constraint_1_game_end)
+
+        documentResult = db.collection("game_result").document(gameId)
+        storage = FirebaseStorage.getInstance()
         /*val gradientDrawable = constraintLayouts[0].background as GradientDrawable
 
         val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), 0xFFD700, 0x0000FF)
@@ -248,10 +253,6 @@ class GameResultActivity : AppCompatActivity() {
             }
         }
 
-        auth = FirebaseAuth.getInstance()
-        db = FirestoreManager.getFirestore()
-        documentResult = db.collection("game_result").document(gameId)
-        storage = FirebaseStorage.getInstance()
     }
 
     override fun onPause() {
@@ -263,9 +264,7 @@ class GameResultActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-        if(db != null) {
-            db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
-        }
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
         super.onResume()
     }
 
