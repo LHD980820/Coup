@@ -32,7 +32,6 @@ class GameRuleDialog(context: Context): Dialog(context) {
     private lateinit var imageViewSummaryTable: ImageView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.dialog_game_rule)
         init()
     }
@@ -69,24 +68,44 @@ class GameRuleDialog(context: Context): Dialog(context) {
             }
         }
         buttonPreparation.setOnClickListener {
-            if(textViewPreparation.visibility == View.GONE) textViewPreparation.visibility = View.VISIBLE
-            else textViewPreparation.visibility = View.GONE
+            if(textViewPreparation.visibility == View.GONE) {
+                buttonPreparation.rotation = 0F
+                textViewPreparation.visibility = View.VISIBLE
+            }
+            else {
+                buttonPreparation.rotation = -90F
+                textViewPreparation.visibility = View.GONE
+            }
         }
         buttonObject.setOnClickListener {
-            if(textViewObject.visibility == View.GONE) textViewObject.visibility = View.VISIBLE
-            else textViewObject.visibility = View.GONE
+            if(textViewObject.visibility == View.GONE) {
+                buttonObject.rotation = 0F
+                textViewObject.visibility = View.VISIBLE
+            }
+            else {
+                buttonObject.rotation = -90F
+                textViewObject.visibility = View.GONE
+            }
         }
         buttonCardAbilities.setOnClickListener {
-            if(textViewCardAbilities.visibility == View.GONE) textViewCardAbilities.visibility = View.VISIBLE
-            else textViewCardAbilities.visibility = View.GONE
+            if(textViewCardAbilities.visibility == View.GONE) {
+                buttonCardAbilities.rotation = 0F
+                textViewCardAbilities.visibility = View.VISIBLE
+            }
+            else {
+                buttonCardAbilities.rotation = -90F
+                textViewCardAbilities.visibility = View.GONE
+            }
         }
         buttonGamePlay.setOnClickListener {
             if(textViewGamePlay1.visibility == View.GONE) {
+                buttonGamePlay.rotation = 0F
                 textViewGamePlay1.visibility = View.VISIBLE
                 textViewGamePlay2.visibility = View.VISIBLE
                 textViewGamePlay3.visibility = View.VISIBLE
             }
             else {
+                buttonGamePlay.rotation = -90F
                 textViewGamePlay1.visibility = View.GONE
                 textViewGamePlay2.visibility = View.GONE
                 textViewGamePlay3.visibility = View.GONE
@@ -94,19 +113,27 @@ class GameRuleDialog(context: Context): Dialog(context) {
         }
         buttonChallenge.setOnClickListener {
             if(textViewChallenge1.visibility == View.GONE) {
+                buttonChallenge.rotation = 0F
                 textViewChallenge1.visibility = View.VISIBLE
                 textViewChallenge2.visibility = View.VISIBLE
                 textViewChallenge3.visibility = View.VISIBLE
             }
             else {
+                buttonChallenge.rotation = -90F
                 textViewChallenge1.visibility = View.GONE
                 textViewChallenge2.visibility = View.GONE
                 textViewChallenge3.visibility = View.GONE
             }
         }
         buttonSummaryTable.setOnClickListener {
-            if(imageViewSummaryTable.visibility == View.GONE) imageViewSummaryTable.visibility = View.VISIBLE
-            else imageViewSummaryTable.visibility = View.GONE
+            if(imageViewSummaryTable.visibility == View.GONE) {
+                buttonSummaryTable.rotation = 0F
+                imageViewSummaryTable.visibility = View.VISIBLE
+            }
+            else {
+                buttonSummaryTable.rotation = -90F
+                imageViewSummaryTable.visibility = View.GONE
+            }
         }
     }
 }

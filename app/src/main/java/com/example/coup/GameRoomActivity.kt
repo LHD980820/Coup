@@ -3,6 +3,8 @@ package com.example.coup
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.os.Handler
@@ -805,7 +807,9 @@ class GameRoomActivity : AppCompatActivity() {
         mTimeLeft.visibility = View.INVISIBLE
         mRuleButton = findViewById(R.id.rule_button_game_room)
         mRuleButton.setOnClickListener {
-            val dialog = GameRuleDialog(this).show()
+            val dialog = GameRuleDialog(this)
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.show()
         }
 
         mPlayerConstraint = Array(6) { ConstraintLayout(this) }
