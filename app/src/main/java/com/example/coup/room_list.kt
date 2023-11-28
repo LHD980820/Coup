@@ -2,6 +2,8 @@ package com.example.coup
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -85,7 +87,9 @@ class room_list : Fragment() {
 
         //"rule" 버튼에 대한 클릭 이벤트 처리
         ruleButton.setOnClickListener {
-            val dialog = GameRuleDialog(requireContext()).show()
+            val dialog = GameRuleDialog(requireContext())
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            dialog.show()
         }
 
         return view
