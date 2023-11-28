@@ -1604,6 +1604,19 @@ class GameRoomActivity : AppCompatActivity() {
 
     }
 
+    override fun onPause() {
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", false)
+        super.onPause()
+    }
+    override fun onStop() {
+        super.onStop()
+    }
+
+    override fun onResume() {
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+        super.onResume()
+    }
+
     companion object{
         val TAG = "GameRoomActivity"
     }

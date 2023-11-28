@@ -299,103 +299,113 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         //강퇴 기능
         if(number == 1) {
             mPlayerImage[1].setOnClickListener {
-                val builder = AlertDialog.Builder(this).create()
-                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
-                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
-                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
-                builder.setView(dialogView)
-                ok.setOnClickListener {
-                    game_room.update("p2", null)
-                    game_room.update("p2ready", false)
-                    game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                game_room.get().addOnSuccessListener { document->
+                    if(document.get("p2") != null) {
+                        val builder = AlertDialog.Builder(this).create()
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                        val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                        val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                        builder.setView(dialogView)
+                        ok.setOnClickListener {
+                            game_room.update("p2", null)
+                            game_room.update("p2ready", false)
+                            game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                            builder.dismiss()
+                        }
+                        cancel.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
                     }
-                    builder.dismiss()
                 }
-                cancel.setOnClickListener {
-                    builder.dismiss()
-                }
-                builder.show()
             }
 
             mPlayerImage[2].setOnClickListener {
-                val builder = AlertDialog.Builder(this).create()
-                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
-                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
-                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
-                builder.setView(dialogView)
-                ok.setOnClickListener {
-                    game_room.update("p3", null)
-                    game_room.update("p3ready", false)
-                    game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                game_room.get().addOnSuccessListener { document->
+                    if(document.get("p3") != null) {
+                        val builder = AlertDialog.Builder(this).create()
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                        val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                        val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                        builder.setView(dialogView)
+                        ok.setOnClickListener {
+                            game_room.update("p3", null)
+                            game_room.update("p3ready", false)
+                            game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                            builder.dismiss()
+                        }
+                        cancel.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
                     }
-                    builder.dismiss()
                 }
-                cancel.setOnClickListener {
-                    builder.dismiss()
-                }
-                builder.show()
             }
 
             mPlayerImage[3].setOnClickListener {
-                val builder = AlertDialog.Builder(this).create()
-                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
-                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
-                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
-                builder.setView(dialogView)
-                ok.setOnClickListener {
-                    game_room.update("p4", null)
-                    game_room.update("p4ready", false)
-                    game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                game_room.get().addOnSuccessListener { document->
+                    if(document.get("p4") != null) {
+                        val builder = AlertDialog.Builder(this).create()
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                        val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                        val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                        builder.setView(dialogView)
+                        ok.setOnClickListener {
+                            game_room.update("p4", null)
+                            game_room.update("p4ready", false)
+                            game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                            builder.dismiss()
+                        }
+                        cancel.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
                     }
-                    builder.dismiss()
                 }
-                cancel.setOnClickListener {
-                    builder.dismiss()
-                }
-                builder.show()
             }
 
             mPlayerImage[4].setOnClickListener {
-                val builder = AlertDialog.Builder(this).create()
-                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
-                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
-                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
-                builder.setView(dialogView)
-                ok.setOnClickListener {
-                    game_room.update("p5", null)
-                    game_room.update("p5ready", false)
-                    game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                game_room.get().addOnSuccessListener { document->
+                    if(document.get("p5") != null) {
+                        val builder = AlertDialog.Builder(this).create()
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                        val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                        val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                        builder.setView(dialogView)
+                        ok.setOnClickListener {
+                            game_room.update("p5", null)
+                            game_room.update("p5ready", false)
+                            game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                            builder.dismiss()
+                        }
+                        cancel.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
                     }
-                    builder.dismiss()
                 }
-                cancel.setOnClickListener {
-                    builder.dismiss()
-                }
-                builder.show()
             }
 
             mPlayerImage[5].setOnClickListener {
-                val builder = AlertDialog.Builder(this).create()
-                val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
-                val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
-                val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
-                builder.setView(dialogView)
-                ok.setOnClickListener {
-                    game_room.update("p6", null)
-                    game_room.update("p6ready", false)
-                    game_room.get().addOnSuccessListener { document->
-                        game_room.update("now_players", {document["now_players"].toString().toInt() - 1})
+                game_room.get().addOnSuccessListener { document->
+                    if(document.get("p6") != null) {
+                        val builder = AlertDialog.Builder(this).create()
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_kick_out, null)
+                        val ok = dialogView.findViewById<Button>(R.id.button_okay_kick_out)
+                        val cancel = dialogView.findViewById<Button>(R.id.button_cancel_kick_out)
+                        builder.setView(dialogView)
+                        ok.setOnClickListener {
+                            game_room.update("p6", null)
+                            game_room.update("p6ready", false)
+                            game_room.update("now_players", document["now_players"].toString().toInt() - 1)
+                            builder.dismiss()
+                        }
+                        cancel.setOnClickListener {
+                            builder.dismiss()
+                        }
+                        builder.show()
                     }
-                    builder.dismiss()
                 }
-                cancel.setOnClickListener {
-                    builder.dismiss()
-                }
-                builder.show()
             }
         }
     }
@@ -605,7 +615,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
             db.collection("game_rooms").document(gameId).update("p${number}ready", false)
         }
         super.onPause()
-        //finish()
     }
     override fun onStop() {
         super.onStop()

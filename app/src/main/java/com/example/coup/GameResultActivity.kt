@@ -15,6 +15,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -35,6 +36,7 @@ class GameResultActivity : AppCompatActivity() {
     private lateinit var mPlayerImage: Array<CircleImageView>
     private lateinit var mOkButton: Button
 
+    private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private lateinit var documentResult: DocumentReference
     private lateinit var documentSnapshot: ListenerRegistration
@@ -246,9 +248,23 @@ class GameResultActivity : AppCompatActivity() {
             }
         }
 
+        auth = FirebaseAuth.getInstance()
         db = FirestoreManager.getFirestore()
         documentResult = db.collection("game_result").document(gameId)
         storage = FirebaseStorage.getInstance()
+    }
+
+    override fun onPause() {
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", false)
+        super.onPause()
+    }
+    override fun onStop() {
+        super.onStop()
+    }
+
+    override fun onResume() {
+        db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+        super.onResume()
     }
 
     companion object{
