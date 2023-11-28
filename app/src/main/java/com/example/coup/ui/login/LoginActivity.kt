@@ -298,6 +298,11 @@ class LoginActivity : Activity() {
         // [END send_email_verification]
     }
 
+    override fun onResume() {
+        ProgressOffButtonOn()
+        super.onResume()
+    }
+
     private fun updateUI(user: FirebaseUser?) {
     }
 
