@@ -4,51 +4,408 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
+    android:layout_gravity="center"
     android:layout_marginVertical="40dp"
     android:background="@drawable/room_info_box_super_big"
-    android:layout_gravity="center">
+    android:backgroundTint="#FFD2A6"
+    android:backgroundTintMode="screen"
+    android:padding="8dp">
 
     <LinearLayout
         android:id="@+id/game_rule_linearlayout1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/game_rule_linearlayout2"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent">
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
         <TextView
             android:id="@+id/game_rule_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/stylish"
+            android:paddingVertical="10dp"
             android:text="Rule of Coup"
             android:textColor="@color/red"
             android:textSize="40dp"
-            android:textStyle="bold"
-            android:fontFamily="@font/stylish"
-            android:paddingVertical="10dp"/>
+            android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/game_rule_linearlayout2"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="500dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/game_rule_linearlayout1">
+        app:layout_constraintTop_toBottomOf="@+id/game_rule_linearlayout1">
+
         <HorizontalScrollView
             android:id="@+id/game_rule_horizontalscrollview"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content">
+
             <ScrollView
                 android:id="@+id/game_rule_scrollview"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
 
-                <ImageView
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:scaleType="matrix"
-                    android:src="@drawable/game_rule_pic" />
+                    android:layout_height="wrap_content">
+
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_components"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent">
+
+                        <Button
+                            android:id="@+id/button_components"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_components"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/components"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_components"
+                            app:layout_constraintStart_toEndOf="@+id/button_components"
+                            app:layout_constraintTop_toTopOf="@+id/button_components" />
+
+                        <TextView
+                            android:id="@+id/textView_components_explanation"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/components_explanation"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_components" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_preparation"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_components">
+
+                        <Button
+                            android:id="@+id/button_preparation"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_preparation"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/preparation"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_preparation"
+                            app:layout_constraintStart_toEndOf="@+id/button_preparation"
+                            app:layout_constraintTop_toTopOf="@+id/button_preparation" />
+
+                        <TextView
+                            android:id="@+id/textView_preparation_explanation"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/preparation_explanation"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_preparation" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_game_object"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_preparation">
+
+                        <Button
+                            android:id="@+id/button_game_object"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_game_object"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/game_object"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_game_object"
+                            app:layout_constraintStart_toEndOf="@+id/button_game_object"
+                            app:layout_constraintTop_toTopOf="@+id/button_game_object" />
+
+                        <TextView
+                            android:id="@+id/textView_game_object_explanation"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/game_object_explanation"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_game_object" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_card_abilities"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_game_object">
+
+                        <Button
+                            android:id="@+id/button_card_abilities"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_card_abilities"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/card_abilities"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_card_abilities"
+                            app:layout_constraintStart_toEndOf="@+id/button_card_abilities"
+                            app:layout_constraintTop_toTopOf="@+id/button_card_abilities" />
+
+                        <TextView
+                            android:id="@+id/textView_card_abilities_explanation"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/card_abilities_explanation"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_card_abilities" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_game_play"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_card_abilities">
+
+                        <Button
+                            android:id="@+id/button_game_play"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_game_play"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/game_play"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_game_play"
+                            app:layout_constraintStart_toEndOf="@+id/button_game_play"
+                            app:layout_constraintTop_toTopOf="@+id/button_game_play" />
+
+                        <TextView
+                            android:id="@+id/textView_game_play1"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/game_play_explanation1"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_game_play" />
+
+                        <TextView
+                            android:id="@+id/textView_game_play2"
+                            android:layout_width="304dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/game_play_explanation2"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textView_game_play1" />
+
+                        <TextView
+                            android:id="@+id/textView_game_play3"
+                            android:layout_width="288dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="32dp"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/game_play_explanation3"
+                            android:textColor="@color/black"
+                            android:textSize="15sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textView_game_play2" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_challenge_rule_book"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_game_play">
+
+                        <Button
+                            android:id="@+id/button_challenge_rule_book"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/textView_challenge_rule_book"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/challenge_rule_book"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_challenge_rule_book"
+                            app:layout_constraintStart_toEndOf="@+id/button_challenge_rule_book"
+                            app:layout_constraintTop_toTopOf="@+id/button_challenge_rule_book" />
+
+                        <TextView
+                            android:id="@+id/textView_challenge_rule_book1"
+                            android:layout_width="320dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/challenge_explanation1"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_challenge_rule_book" />
+
+                        <TextView
+                            android:id="@+id/textView_challenge_rule_book2"
+                            android:layout_width="304dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="16dp"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/challenge_explanation2"
+                            android:textColor="@color/black"
+                            android:textSize="18sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textView_challenge_rule_book1" />
+
+                        <TextView
+                            android:id="@+id/textView_challenge_rule_book3"
+                            android:layout_width="288dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="32dp"
+                            android:layout_marginTop="8dp"
+                            android:fontFamily="@font/zcoolkuaile_regular"
+                            android:text="@string/challenge_explanation3"
+                            android:textColor="@color/black"
+                            android:textSize="15sp"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/textView_challenge_rule_book2" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/constraintLayout_summary_table"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/constraintLayout_challenge_rule_book">
+
+                        <TextView
+                            android:id="@+id/textView_summary_table"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/mulish_bold"
+                            android:text="@string/summary_table"
+                            android:textColor="@color/black"
+                            android:textSize="25sp"
+                            app:layout_constraintBottom_toBottomOf="@+id/button_summary_table"
+                            app:layout_constraintStart_toEndOf="@+id/button_summary_table"
+                            app:layout_constraintTop_toTopOf="@+id/button_summary_table" />
+
+                        <ImageView
+                            android:id="@+id/imageView_summary_table"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:src="@drawable/summary_table"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/button_summary_table" />
+
+                        <Button
+                            android:id="@+id/button_summary_table"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/icon_rule_book"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </ScrollView>
         </HorizontalScrollView>
     </LinearLayout>

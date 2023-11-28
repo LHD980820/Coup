@@ -805,10 +805,7 @@ class GameRoomActivity : AppCompatActivity() {
         mTimeLeft.visibility = View.INVISIBLE
         mRuleButton = findViewById(R.id.rule_button_game_room)
         mRuleButton.setOnClickListener {
-            val builderRuleExplanation = android.app.AlertDialog.Builder(this).create()
-            val dialogRuleExplanation = layoutInflater.inflate(R.layout.dialog_game_rule, null)
-            builderRuleExplanation.setView(dialogRuleExplanation)
-            builderRuleExplanation.show()
+            val dialog = GameRuleDialog(this).show()
         }
 
         mPlayerConstraint = Array(6) { ConstraintLayout(this) }

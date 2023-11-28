@@ -85,11 +85,7 @@ class room_list : Fragment() {
 
         //"rule" 버튼에 대한 클릭 이벤트 처리
         ruleButton.setOnClickListener {
-            val builder_rule_explanation = AlertDialog.Builder(requireContext()).create()
-            val dialog_rule_explanation = inflater.inflate(R.layout.dialog_game_rule, null)
-            builder_rule_explanation.setView(dialog_rule_explanation)
-
-            builder_rule_explanation.show()
+            val dialog = GameRuleDialog(requireContext()).show()
         }
 
         return view

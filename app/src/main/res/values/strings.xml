@@ -58,4 +58,36 @@
     <string name="block_by_duke">block by duke</string>
     <string name="block_by_contessa">block by contessa</string>
     <string name="foreign_aid_admit">foreign aid admit</string>
+    <string name="components">구성품</string>
+    <string name="components_explanation">인물카드 15장 (각 직업별 3장), 코인 70개</string>
+    <string name="preparation">게임 준비</string>
+    <string name="preparation_explanation">1. 인물카드를 인당 2장씩 받습니다.\n2. 받은 카드 본인만 볼 수 있습니다.\n3. 각자 2코인씩 부여받습니다.</string>
+    <string name="object_of_the_game_explanation">\u2022 다른 플레이어들의 카드를 모두 제거하고 최후의 생존자가 되어야 합니다.</string>
+    <string name="game_object">게임 목표</string>
+    <string name="game_object_explanation">다른 플레이어들의 카드를 모두 제거하고 최후의 생존자가 되어야 합니다.</string>
+    <string name="card_abilities">카드 정보</string>
+    <string name="card_abilities_explanation"><![CDATA[• 총 5종류의 인물카드는 각각의 능력을 가집니다.\n
+        • 카드 더미에는 각각의 인물카드가 3장씩만 들어있습니다.(총 15장)\n
+        • 카드 능력에는 행동(action)과 방해(block)가 있습니다.\n
+        • 플레이어의 카드가 제거되면 즉시 해당 카드를 모두에게 공개해야 합니다.\n
+        • 모든 카드를 잃으면 게임에서 탈락하게 됩니다.\n
+        • 각각의 카드 능력은 아래 게임 진행에 있습니다.]]></string>
+    <string name="game_play">게임 진행</string>
+    <string name="game_play_explanation1">본인의 차례가 되면 다음 중 한 가지 행동을 할 수 있습니다.</string>
+    <string name="game_play_explanation2">a. 수입 : 1코인을 얻습니다. 이 행동은 방해할 수 없습니다.\n
+        b. 해외원조 : 2코인을 얻습니다. 이 행동은 공작카드의 능력에 의해 방해받을 수 있습니다.\n
+        c. 쿠 : 다른 플레이어의 카드 하나를 제거합니다. 7코인을 소모하게 되며, 이 행동은 방해할 수 없습니다.\n
+        d. 능력 : 인물카드의 행동 능력을 사용합니다. <font color ='#FFFF0000'><b>자신이 해당 인물카드를 가지고 있지 않아도 사용할 수 있습니다.</b></font></string>
+    <string name="game_play_explanation3"><![CDATA[• 공작 (duke) : 세금징수(TAX) - 3코인을 얻습니다.\n
+        • 암살자 (assassin) : 암살(Assassinate) - 3코인을 사용하여 인물카드를 암살합니다. 귀부인 카드를 가진 경우 암살을 방어할 수 있습니다.\n
+        • 외교관 (ambassador) : 교환(Exchange) - 인물카드 더미에서 무작위로 카드 2장을 가져와 본인의 카드와 교환할 수 있습니다. 원하는 카드 2장만 남기고 2장의 카드는 다시 반납합니다.\n
+        • 사령관 (captain) : 강탈(Steal) - 다른 플레이어로부터 2코인을 가져옵니다. 외교관이나 사령관카드를 가진 경우 강탈을 방어할 수 있습니다.\n
+        • 귀부인 (contessa) : 암살을 막을 수 있습니다.]]></string>
+    <string name="challenge_rule_book">도전</string>
+    <string name="challenge_explanation1">플레이어는 자신에게 없는 카드를 가졌다고 거짓을 말하고, 해당 카드의 능력을 사용할 수 있습니다.
+        다른 플레이어들은 이러한 행동이 거짓인 것 같다는 의심이 들면 도전할 수 있습니다.</string>
+    <string name="challenge_explanation2"><![CDATA[• 도전을 받은 플레이어는 자신이 들고 있는 카드 중 하나를 모두에게 공개해 진실인지 거짓인지 알려야합니다.]]></string>
+    <string name="challenge_explanation3">a. 도전을 받은 플레이어가 실제로 거짓을 말했다면 공개한 카드를 제거합니다.\n
+        b. 거짓을 말하지 않았다면, 공개한 카드는 카드더미의 인물카드와 <font color ='#FFFF0000'><b>무작위로 교환</b></font>됩니다. 이 경우 도전한 플레이어가 인물카드 둘 중 하나를 제거해야 합니다.</string>
+    <string name="summary_table">요약</string>
 </resources>
