@@ -195,85 +195,87 @@ class GameRoomActivity : AppCompatActivity() {
         snapshotListenerAction = documentAction.addSnapshotListener { snapshot, e ->
             if(snapshot != null) {
                 Thread.sleep(1000)
-                nowActionCode = snapshot.get("action").toString().toInt()
-                nowFrom = snapshot.get("from").toString().toInt()
-                nowTo = snapshot.get("to").toString().toInt()
-                nowChallengeCode = snapshot.get("challenge_type").toString().toInt()
-                nowChallenger = snapshot.get("challenge").toString().toInt()
-                nowChallengeCode2 = snapshot.get("challenge2").toString().toInt()
-                if(nowChallengeCode2 == 0) {
-                    if(nowChallengeCode == 0) {
-                        if(nowActionCode == 1) {
-                            actionPerform(1)
-                            turnEnd()
-                        }
-                        if(nowActionCode == 2 || (nowActionCode in 4..7)) {
-                            settingThreeDot(nowTurn)
-                            if(nowActionCode == 2) {
-                                mActionText.text = "FOREIGN AID시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) actionButtonSetting(3)
+                if(snapshot.get("action") != null) {
+                    nowActionCode = snapshot.get("action").toString().toInt()
+                    nowFrom = snapshot.get("from").toString().toInt()
+                    nowTo = snapshot.get("to").toString().toInt()
+                    nowChallengeCode = snapshot.get("challenge_type").toString().toInt()
+                    nowChallenger = snapshot.get("challenge").toString().toInt()
+                    nowChallengeCode2 = snapshot.get("challenge2").toString().toInt()
+                    if(nowChallengeCode2 == 0) {
+                        if(nowChallengeCode == 0) {
+                            if(nowActionCode == 1) {
+                                actionPerform(1)
+                                turnEnd()
                             }
-                            if(nowActionCode == 4) {
-                                mActionText.text = "TAX시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) actionButtonSetting(2)
-                            }
-                            if(nowActionCode == 5) {
-                                mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) {
-                                    if(number == nowTo) actionButtonSetting(5)
-                                    else actionButtonSetting(2)
+                            if(nowActionCode == 2 || (nowActionCode in 4..7)) {
+                                settingThreeDot(nowTurn)
+                                if(nowActionCode == 2) {
+                                    mActionText.text = "FOREIGN AID시전, 다른 플레이어 응답 대기 중"
+                                    if(nowTurn != number) actionButtonSetting(3)
+                                }
+                                if(nowActionCode == 4) {
+                                    mActionText.text = "TAX시전, 다른 플레이어 응답 대기 중"
+                                    if(nowTurn != number) actionButtonSetting(2)
+                                }
+                                if(nowActionCode == 5) {
+                                    mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
+                                    if(nowTurn != number) {
+                                        if(number == nowTo) actionButtonSetting(5)
+                                        else actionButtonSetting(2)
+                                    }
+                                }
+                                if(nowActionCode == 6) {
+                                    mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
+                                    if(nowTurn != number) {
+                                        if(number == nowTo) actionButtonSetting(4)
+                                        else actionButtonSetting(2)
+                                    }
+                                }
+                                if(nowActionCode == 7) {
+                                    mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
+                                    if(nowTurn != number) actionButtonSetting(2)
                                 }
                             }
-                            if(nowActionCode == 6) {
-                                mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) {
-                                    if(number == nowTo) actionButtonSetting(4)
-                                    else actionButtonSetting(2)
-                                }
-                            }
-                            if(nowActionCode == 7) {
-                                mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
-                                if(nowTurn != number) actionButtonSetting(2)
+                            if(nowActionCode == 3) {
+                                actionPerform(3)
                             }
                         }
-                        if(nowActionCode == 3) {
-                            actionPerform(3)
+                        else {
+                            if(nowChallengeCode == 1) {
+                                if(number == nowTurn) {
+                                    mActionText.text = "P${nowChallenger}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
+                                    selectCard()
+                                }
+                                else {
+                                    mActionText.text = "P${nowChallenger}의 도전 신청"
+                                    actionButtonSetting(0)
+                                }
+                            }
+                            else if(nowChallengeCode in 4..7) {
+                                if(nowChallengeCode == 4) mActionText.text = "P${nowChallenger}가 DUKE로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 5) mActionText.text = "P${nowChallenger}가 CONTESSA로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 6) mActionText.text = "P${nowChallenger}가 CAPTAIN로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 AMBASSADOR로 막기 시전, 다른 플레이어 응답 대기 중"
+                                settingThreeDot(nowChallenger)
+                                if(number != nowChallenger) {
+                                    actionButtonSetting(2)
+                                }
+                            }
+                            else { //9 : 즉시실행
+                                actionPerform(nowActionCode)
+                            }
                         }
                     }
                     else {
-                        if(nowChallengeCode == 1) {
-                            if(number == nowTurn) {
-                                mActionText.text = "P${nowChallenger}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
-                                selectCard()
-                            }
-                            else {
-                                mActionText.text = "P${nowChallenger}의 도전 신청"
-                                actionButtonSetting(0)
-                            }
+                        if(number == nowChallenger) {
+                            mActionText.text = "P${nowChallengeCode2}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
+                            selectCard()
                         }
-                        else if(nowChallengeCode in 4..7) {
-                            if(nowChallengeCode == 4) mActionText.text = "P${nowChallenger}가 DUKE로 막기 시전, 다른 플레이어 응답 대기 중"
-                            if(nowChallengeCode == 5) mActionText.text = "P${nowChallenger}가 CONTESSA로 막기 시전, 다른 플레이어 응답 대기 중"
-                            if(nowChallengeCode == 6) mActionText.text = "P${nowChallenger}가 CAPTAIN로 막기 시전, 다른 플레이어 응답 대기 중"
-                            if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 AMBASSADOR로 막기 시전, 다른 플레이어 응답 대기 중"
-                            settingThreeDot(nowChallenger)
-                            if(number != nowChallenger) {
-                                actionButtonSetting(2)
-                            }
+                        else {
+                            mActionText.text = "P${nowChallengeCode2}의 도전 신청"
+                            actionButtonSetting(0)
                         }
-                        else { //9 : 즉시실행
-                            actionPerform(nowActionCode)
-                        }
-                    }
-                }
-                else {
-                    if(number == nowChallenger) {
-                        mActionText.text = "P${nowChallengeCode2}에게 도전 신청을 받았습니다. 공개할 카드를 선택해주세요"
-                        selectCard()
-                    }
-                    else {
-                        mActionText.text = "P${nowChallengeCode2}의 도전 신청"
-                        actionButtonSetting(0)
                     }
                 }
             }
