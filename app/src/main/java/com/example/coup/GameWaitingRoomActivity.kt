@@ -276,6 +276,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         mGameStartButton.setOnClickListener {
             if(number == 1) {
                 CoroutineScope(Dispatchers.IO).launch {
+                    mGameStartButton.isClickable = false
                     gameStart()
                 }
             }
@@ -592,6 +593,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 }
                 else {
                     Toast.makeText(this, "모든 인원이 다 준비해야 시작 가능합니다", Toast.LENGTH_SHORT).show()
+                    mGameStartButton.isClickable = true
                 }
             }
             }.await()

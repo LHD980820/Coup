@@ -263,7 +263,9 @@ class GameResultActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-        db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+        if(db != null) {
+            db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+        }
         super.onResume()
     }
 
