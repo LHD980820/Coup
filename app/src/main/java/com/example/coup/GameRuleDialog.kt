@@ -4,8 +4,8 @@ import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.view.View
-import android.view.Window
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 
@@ -30,8 +30,11 @@ class GameRuleDialog(context: Context): Dialog(context) {
     private lateinit var textViewChallenge2: TextView
     private lateinit var textViewChallenge3: TextView
     private lateinit var imageViewSummaryTable: ImageView
+    private lateinit var buttonCancelDialog: ImageButton
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setCanceledOnTouchOutside(true)
+        setCancelable(true)
         setContentView(R.layout.dialog_game_rule)
         init()
     }
@@ -44,6 +47,7 @@ class GameRuleDialog(context: Context): Dialog(context) {
         buttonGamePlay = findViewById(R.id.button_game_play)
         buttonChallenge = findViewById(R.id.button_challenge_rule_book)
         buttonSummaryTable = findViewById(R.id.button_summary_table)
+        buttonCancelDialog = findViewById(R.id.game_rule_cancel)
 
         textViewComponents = findViewById(R.id.textView_components_explanation)
         textViewPreparation = findViewById(R.id.textView_preparation_explanation)
@@ -134,6 +138,10 @@ class GameRuleDialog(context: Context): Dialog(context) {
                 buttonSummaryTable.rotation = -90F
                 imageViewSummaryTable.visibility = View.GONE
             }
+        }
+
+        buttonCancelDialog.setOnClickListener {
+            dismiss()
         }
     }
 }
