@@ -303,6 +303,9 @@ class GameRoomActivity : AppCompatActivity() {
                                     mPlayerCard[i][j].setImageResource(cardFromNumber(pCard[i][j]))
                                     mPlayerCardDie[i][j].visibility = View.INVISIBLE
                                 }
+                                else {
+                                    mPlayerCard[i][j].setImageResource(0)
+                                }
                                 if(pCard[i][j] / 10 != 0) {
                                     mPlayerCardDie[i][j].visibility = View.VISIBLE
                                 }
@@ -372,7 +375,7 @@ class GameRoomActivity : AppCompatActivity() {
                 cardTwo.alpha = 0.3f
             }
         }
-        text.text = "Select card to open"
+        text.text = "Card Open"
         okButton.setOnClickListener {
             if(selectCard == 0) Toast.makeText(this, "카드를 선택해주세요", Toast.LENGTH_SHORT).show()
             else {
@@ -431,7 +434,6 @@ class GameRoomActivity : AppCompatActivity() {
                 Log.d(TAG, "true1들어옴")
                 mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
-                mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(nowChallenger == number) {
                     Log.d(TAG, "true1, elimination들어옴")
                     Log.d(TAG, "number : $number, nowChallenger : $nowChallenger")
@@ -556,7 +558,27 @@ class GameRoomActivity : AppCompatActivity() {
             bottomSheet.dismiss()
         }
         buttonChallenge.setOnClickListener {
-            db.runTransaction{ transaction->
+            if(nowChallengeCode == 0) {
+                db.runTransaction { transaction->
+                    val type = transaction.get(documentAction)["challenge_type"].toString().toInt()
+                    val challenger = transaction.get(documentAction)["challenge"].toString().toInt()
+                    if(type == 0) {
+                        if(challenger == 0) {
+                            transaction.update(documentAction, "challenge", number)
+                            transaction.update(documentAction, "challenge_type", 1)
+                        }
+                    }
+                }
+            }
+            else if(nowChallengeCode in 4..7) {
+                db.runTransaction { transaction->
+                    val challenger2 = transaction.get(documentAction)["challenge2"].toString().toInt()
+                    if(challenger2 == 0) {
+                        transaction.update(documentAction, "challenge2", number)
+                    }
+                }
+            }
+            /*db.runTransaction{ transaction->
                 val type = transaction.get(documentAction)["challenge_type"].toString().toInt()
                 val challenger = transaction.get(documentAction)["challenge"].toString().toInt()
                 val challenger2 = transaction.get(documentAction)["challenge2"].toString().toInt()
@@ -566,12 +588,12 @@ class GameRoomActivity : AppCompatActivity() {
                         transaction.update(documentAction, "challenge_type", 1)
                     }
                 }
-                else if(type == 4 || type == 5 || type == 6 || type == 7) {
+                else if((type == 4 || type == 5 || type == 6 || type == 7) && nowChallengeCode != 1) {
                     if(challenger2 == 0) {
                         transaction.update(documentAction, "challenge2", number)
                     }
                 }
-            }
+            }*/
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
@@ -730,7 +752,7 @@ class GameRoomActivity : AppCompatActivity() {
                 cardOne.alpha = 1f
                 cardTwo.alpha = 0.3f
             }
-            text.text = "Select card to eliminate"
+            text.text = "Card Elimination"
             okButton.text = "Eliminate"
             okButton.setOnClickListener {
                 countDownTimer?.cancel()
