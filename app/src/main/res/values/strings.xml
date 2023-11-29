@@ -74,15 +74,23 @@
         • 각각의 카드 능력은 아래 게임 진행에 있습니다.]]></string>
     <string name="game_play">게임 진행</string>
     <string name="game_play_explanation1">본인의 차례가 되면 다음 중 한 가지 행동을 할 수 있습니다.</string>
-    <string name="game_play_explanation2">a. 수입 : 1코인을 얻습니다. 이 행동은 방해할 수 없습니다.\n
-        b. 해외원조 : 2코인을 얻습니다. 이 행동은 공작카드의 능력에 의해 방해받을 수 있습니다.\n
-        c. 쿠 : 다른 플레이어의 카드 하나를 제거합니다. 7코인을 소모하게 되며, 이 행동은 방해할 수 없습니다.\n
+    <string name="game_play_explanation2">a. 수입(Income) : 1코인을 얻습니다. 이 행동은 방해할 수 없습니다.\n
+        b. 해외원조(Foreign Aid) : 2코인을 얻습니다. 이 행동은 공작카드의 능력에 의해 방해받을 수 있습니다.\n
+        c. 쿠(Coup) : 다른 플레이어의 카드 하나를 제거합니다. 7코인을 소모하게 되며, 이 행동은 방해할 수 없습니다.\n
         d. 능력 : 인물카드의 행동 능력을 사용합니다. <font color ='#FFFF0000'><b>자신이 해당 인물카드를 가지고 있지 않아도 사용할 수 있습니다.</b></font></string>
-    <string name="game_play_explanation3"><![CDATA[• 공작 (duke) : 세금징수(TAX) - 3코인을 얻습니다.\n
-        • 암살자 (assassin) : 암살(Assassinate) - 3코인을 사용하여 인물카드를 암살합니다. 귀부인 카드를 가진 경우 암살을 방어할 수 있습니다.\n
-        • 외교관 (ambassador) : 교환(Exchange) - 인물카드 더미에서 무작위로 카드 2장을 가져와 본인의 카드와 교환할 수 있습니다. 원하는 카드 2장만 남기고 2장의 카드는 다시 반납합니다.\n
-        • 사령관 (captain) : 강탈(Steal) - 다른 플레이어로부터 2코인을 가져옵니다. 외교관이나 사령관카드를 가진 경우 강탈을 방어할 수 있습니다.\n
-        • 귀부인 (contessa) : 암살을 막을 수 있습니다.]]></string>
+    <string name="game_play_explanation3"><![CDATA[• 공작 (duke) :\n
+        1) 세금징수(TAX) - 3코인을 얻습니다.\n
+        2) 해외원조 방어(Foreign-aid Block): 다른 플레이어의 해외원조를 막습니다.\n
+        • 암살자 (assassin):\n
+        1) 암살(Assassinate) - 3코인을 사용하여 인물카드를 암살합니다.\n
+        • 외교관 (ambassador):\n
+        1) 교환(Exchange) - 인물카드 더미에서 무작위로 카드 2장을 가져와 본인의 카드와 교환할 수 있습니다. 원하는 카드만 남기고 2장의 카드는 다시 반납합니다.\n
+        2) 강탈 방어(Block Steal): 강탈을 방어할 수 있습니다.\n
+        • 사령관 (captain):\n
+        1) 강탈(Steal) - 다른 플레이어로부터 2코인을 가져옵니다. 외교관이나 사령관카드를 가진 경우 강탈을 방어할 수 있습니다.\n
+        2) 강탈 방어(Block Steal): 강탈을 방어할 수 있습니다.\n
+        • 귀부인 (contessa):\n
+        1) 암살 방어(Assassination Block): 암살을 막을 수 있습니다.]]></string>
     <string name="challenge_rule_book">도전</string>
     <string name="challenge_explanation1">플레이어는 자신에게 없는 카드를 가졌다고 거짓을 말하고, 해당 카드의 능력을 사용할 수 있습니다.
         다른 플레이어들은 이러한 행동이 거짓인 것 같다는 의심이 들면 도전할 수 있습니다.</string>

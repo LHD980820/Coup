@@ -1187,17 +1187,12 @@ class GameRoomActivity : AppCompatActivity() {
     }
 
     private fun cardFromNumber(number: Int): Int {
-        return when(number) {
-            1-> R.drawable.card_duke
-            10-> R.drawable.card_duke
-            2-> R.drawable.card_contessa
-            20-> R.drawable.card_contessa
-            3-> R.drawable.card_captine
-            30-> R.drawable.card_captine
-            4-> R.drawable.card_assassin
-            40-> R.drawable.card_assassin
-            5-> R.drawable.card_ambassador
-            50-> R.drawable.card_ambassador
+        return when(number.toString()[0]) {
+            '1'-> R.drawable.card_duke
+            '2'-> R.drawable.card_contessa
+            '3'-> R.drawable.card_captine
+            '4'-> R.drawable.card_assassin
+            '5'-> R.drawable.card_ambassador
             else-> R.drawable.card_back
         }
     }
