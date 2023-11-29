@@ -304,7 +304,7 @@ class GameRoomActivity : AppCompatActivity() {
                                     mPlayerCardDie[i][j].visibility = View.INVISIBLE
                                 }
                                 else {
-                                    mPlayerCard[i][j].setImageResource(0)
+                                    mPlayerCard[i][j].setImageResource(cardFromNumber(0))
                                 }
                                 if(pCard[i][j] / 10 != 0) {
                                     mPlayerCardDie[i][j].visibility = View.VISIBLE
@@ -963,7 +963,7 @@ class GameRoomActivity : AppCompatActivity() {
         buttonBlockByContessa = bottomSheetView.findViewById(R.id.action_blockbycontessa_btn)
         buttonOnlyCoup = bottomSheetView.findViewById(R.id.action_onlycoup_btn)
 
-        auth = FirebaseManager.getFirebaseAuth()
+        auth = FirebaseAuth.getInstance()
         storage = FirebaseStorage.getInstance()
         db = FirestoreManager.getFirestore()
         documentInfo = db.collection("game_playing").document(gameId+"_INFO")

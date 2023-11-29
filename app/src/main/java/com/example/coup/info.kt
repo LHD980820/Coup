@@ -2,6 +2,8 @@ package com.example.coup
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -230,6 +232,7 @@ class info : Fragment() {
             cancel_button_change_nickname.setOnClickListener {
                 builder_check_nickname.dismiss()
             }
+            builder_check_nickname.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             builder_check_nickname.show()
         }
 

@@ -82,6 +82,7 @@ class room_list : Fragment() {
         // "create_room" 버튼에 대한 클릭 이벤트 처리
         createRoomButton.setOnClickListener {
             val dialog = CreateRoomDialog(requireContext())
+            dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             dialog.show()
         }
 
