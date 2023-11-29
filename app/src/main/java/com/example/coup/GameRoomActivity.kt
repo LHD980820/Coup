@@ -356,7 +356,7 @@ class GameRoomActivity : AppCompatActivity() {
         val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
         var countDownTimer: CountDownTimer? = null
         builder.setView(dialogView)
-        builder.setCanceledOnTouchOutside(false)
+        builder.setCancelable(false)
 
         var selectCard = 0
         cardOne.setOnClickListener {
@@ -432,7 +432,7 @@ class GameRoomActivity : AppCompatActivity() {
         if(challengeNum == 1) {
             if(pCard[openPlayer - 1][openCardNum - 1] == actionToCard(challengeNum)) {
                 Log.d(TAG, "true1들어옴")
-                mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 한장 제거됩니다"
+                mActionText.text = "도전 실패로 P${nowChallenger}의 카드가 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 if(nowChallenger == number) {
                     Log.d(TAG, "true1, elimination들어옴")
@@ -483,7 +483,7 @@ class GameRoomActivity : AppCompatActivity() {
         else {
             if(pCard[openPlayer - 1][openCardNum - 1] == actionToCard(challengeNum)) {
                 Log.d(TAG, "true2들어옴")
-                mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 한장 제거됩니다"
+                mActionText.text = "도전 실패로 P${nowChallengeCode2}의 카드가 제거됩니다"
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(pCard[openPlayer - 1][openCardNum - 1]))
                 mPlayerCard[openPlayer - 1][openCardNum - 1].setImageResource(cardFromNumber(0))
                 if(number == nowChallengeCode2) {
@@ -494,13 +494,50 @@ class GameRoomActivity : AppCompatActivity() {
             }
             else {
                 Log.d(TAG, "false2들어옴")
-                mActionText.text = "도전 성공으로 P${nowChallenger}의 카드가 한장 제거됩니다"
-                db.runBatch{ batch->
-                    batch.update(documentCard, "card_open", 0)
-                    batch.update(documentCard, "p${openPlayer}card${openCardNum}", pCard[openPlayer - 1][openCardNum - 1]*10)
+                mActionText.text = "도전 성공으로 P${nowChallenger}의 카드가 제거됩니다"
+                if(nowChallengeCode == 5) {
+                    if(nowTo == number) {
+                        db.runBatch { batch->
+                            if(pCard[number - 1][0] / 10 == 0 && pCard[number - 1][1] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card1", pCard[number - 1][0] * 10)
+                                batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][0] *= 10
+                                pCard[number - 1][1] *= 10
+                            }
+                            else if(pCard[number - 1][0] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card1", pCard[number - 1][0] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][0] *= 10
+                            }
+                            else if(pCard[number - 1][1] / 10 == 0) {
+                                batch.update(documentCard, "p${number}card2", pCard[number - 1][1] * 10)
+                                batch.update(documentCard, "card_open", 0)
+                                batch.update(documentCoin, "p$nowTurn", mPlayerCoin[nowTurn - 1].text.toString().toInt() - 3)
+                                pCard[number - 1][1] *= 10
+                            }
+                        }
+                        turnEnd()
+                    }
                 }
-                pCard[openPlayer - 1][openCardNum - 1] *= 10
-                actionPerform(nowActionCode)
+                else {
+                    db.runTransaction{ transaction->
+                        if(transaction.get(documentCard).get("card_open") != null) {
+                            if(transaction.get(documentCard).get("card_open").toString().toInt() != 0) {
+                                transaction.update(documentCard, "card_open", 0)
+                                transaction.update(
+                                    documentCard,
+                                    "p${openPlayer}card${openCardNum}",
+                                    pCard[openPlayer - 1][openCardNum - 1] * 10
+                                )
+                            }
+                        }
+                    }
+                    pCard[openPlayer - 1][openCardNum - 1] *= 10
+                    actionPerform(nowActionCode)
+                }
             }
         }
     }
@@ -739,7 +776,7 @@ class GameRoomActivity : AppCompatActivity() {
             val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
             var countDownTimer: CountDownTimer? = null
             builder.setView(dialogView)
-            builder.setCanceledOnTouchOutside(false)
+            builder.setCancelable(false)
 
             var selectCard = 1
             cardOne.alpha = 0.3f
@@ -1111,7 +1148,7 @@ class GameRoomActivity : AppCompatActivity() {
             //countDownTimer?.cancel()
             builder.dismiss()
         }
-        builder.setCanceledOnTouchOutside(false)
+        builder.setCancelable(false)
         builder.show()
         mActionText.text = "게임 준비 중"
     }
@@ -1562,7 +1599,7 @@ class GameRoomActivity : AppCompatActivity() {
             }
 
             builder.setView(dialogView)
-            builder.setCanceledOnTouchOutside(false)
+            builder.setCancelable(false)
 
             countDownTimer = object : CountDownTimer(timerDurationLong, 1000) { // 5초 동안, 1초 간격으로 타이머 설정
                 override fun onTick(millisUntilFinished: Long) {
