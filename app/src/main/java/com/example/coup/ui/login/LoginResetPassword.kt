@@ -2,6 +2,8 @@ package com.example.coup.ui.login
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -72,6 +74,7 @@ class LoginResetPassword : Activity() {
         }, 1500)
 
         val dialog = DialogResetPasswordActivity(this)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
     }
 }

@@ -38,7 +38,7 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        auth = FirebaseManager.getFirebaseAuth()
+        auth = FirebaseAuth.getInstance()
         db = FirestoreManager.getFirestore()
 
         db.collection("user").document(auth.currentUser?.email.toString()).addSnapshotListener {snapshot, e->

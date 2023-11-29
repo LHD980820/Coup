@@ -513,6 +513,7 @@ class GameRoomActivity : AppCompatActivity() {
         val insertIndex = Random.nextInt(pCardLeft.indices)
         pCardLeft = pCardLeft.slice(0 until insertIndex) + pCard[player-1][num-1].toString() + pCardLeft.slice(insertIndex until pCardLeft.length)
         db.runBatch { batch->
+            Thread.sleep(1000)
             batch.update(documentCard, "card_left", pCardLeft)
             batch.update(documentCard, "p${player}card${num}", firstCard)
             Log.d(TAG, "player = $player, num : $num, firstCard : $firstCard")
