@@ -74,6 +74,7 @@ class GameRoomActivity : AppCompatActivity() {
 
     private lateinit var gameId: String
     private var number: Int = 0
+    private var playing: Boolean = false
     private var max_number: Int = 0
     private var die_number: Int = 0
     //카드 정보 로컬에 저장
@@ -125,7 +126,7 @@ class GameRoomActivity : AppCompatActivity() {
         //게임 시작
         init()
         actionButtonSetting(0)
-        gameStart()
+        if(!intent.hasExtra("playing")) gameStart()
         settingSnapshots()
         settingBottomSheetButtonListener()
 
@@ -150,6 +151,8 @@ class GameRoomActivity : AppCompatActivity() {
                 nowTurn = snapshot.get("turn").toString().toInt()
                 settingNowTurn()
                 if(nowTurn == number) {
+                    mActionIcon[0].setImageResource(R.drawable.action_coin)
+                    mActionIcon[1].setImageResource(R.drawable.action_coin)
                     if(mPlayerCoin[number - 1].text.toString().toInt() >= 10) {
                         mActionText.text = "나의 턴. 코인이 10개 이상이므로 COUP만 가능합니다"
                         actionButtonSetting(6)
@@ -186,6 +189,8 @@ class GameRoomActivity : AppCompatActivity() {
                     }
                 }
                 else {
+                    mActionIcon[0].setImageResource(R.drawable.action_coin)
+                    mActionIcon[1].setImageResource(R.drawable.action_coin)
                     actionButtonSetting(0)
                     if(nowTurn == 0) mActionText.text = "게임 준비 중"
                     else mActionText.text = "P${nowTurn}턴 행동 대기 중"
@@ -211,28 +216,40 @@ class GameRoomActivity : AppCompatActivity() {
                             if(nowActionCode == 2 || (nowActionCode in 4..7)) {
                                 settingThreeDot(nowTurn)
                                 if(nowActionCode == 2) {
+                                    mActionIcon[0].setImageResource(R.drawable.action_foreign_aid)
+                                    mActionIcon[1].setImageResource(R.drawable.action_foreign_aid)
                                     mActionText.text = "FOREIGN AID시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(3)
                                 }
                                 if(nowActionCode == 4) {
+                                    mActionIcon[0].setImageResource(R.drawable.action_tax)
+                                    mActionIcon[1].setImageResource(R.drawable.action_tax)
                                     mActionText.text = "TAX시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(2)
                                 }
                                 if(nowActionCode == 5) {
-                                    mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
+                                    mActionIcon[0].setImageResource(R.drawable.action_assassination)
+                                    mActionIcon[1].setImageResource(R.drawable.action_assassination)
+                                    if(number == nowTo) mActionText.text = "YOU에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
+                                    else mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) {
                                         if(number == nowTo) actionButtonSetting(5)
                                         else actionButtonSetting(2)
                                     }
                                 }
                                 if(nowActionCode == 6) {
-                                    mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
+                                    mActionIcon[0].setImageResource(R.drawable.action_steal)
+                                    mActionIcon[1].setImageResource(R.drawable.action_steal)
+                                    if(number == nowTo) mActionText.text = "YOU에게 STEAL시전, 다른 플레이어 응답 대기 중"
+                                    else mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) {
                                         if(number == nowTo) actionButtonSetting(4)
                                         else actionButtonSetting(2)
                                     }
                                 }
                                 if(nowActionCode == 7) {
+                                    mActionIcon[0].setImageResource(R.drawable.action_exchange)
+                                    mActionIcon[1].setImageResource(R.drawable.action_exchange)
                                     mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(2)
                                 }
@@ -866,6 +883,7 @@ class GameRoomActivity : AppCompatActivity() {
         gameId = intent.getStringExtra("gameId").toString()
         Log.d(TAG, "number : " + intent.getStringExtra("number").toString())
         number = intent.getStringExtra("number")?.toString()?.toInt()!!
+        if(intent.hasExtra("playing")) playing = true
         mLeftCardText = findViewById(R.id.card_left_game_room)
         mTimeLeft = findViewById(R.id.time_game_room)
         mTimeLeft.visibility = View.INVISIBLE
@@ -1053,7 +1071,7 @@ class GameRoomActivity : AppCompatActivity() {
                     for(i in 0 until max_number) {
                         //자기 번호일 때 "YOU"로 바꾸고, 카드 보이게 하기
                         if(i == number - 1) {
-                            mPlayerText[i].text = "YOU"
+                            mPlayerText[i].text = "YOU(" + (i+1).toString() + ")"
                             val textColor = ContextCompat.getColor(this@GameRoomActivity, R.color.red)
                             mPlayerText[i].setTextColor(textColor)
                             mPlayerCard[i][0].setImageResource(cardFromNumber(result["p${number}card1"].toString().toInt()))

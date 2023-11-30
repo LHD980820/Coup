@@ -247,6 +247,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                     .setTitle("나가기")
                     .setMessage("방을 폭파시키겠습니까?")
                     .setPositiveButton("예") { dialog, which ->
+                        snapshotListener.remove()
                         Log.d(TAG, "성공")
                         db.collection("game_rooms").document(gameId).delete()
                         Log.d(TAG, "성공1")
@@ -261,6 +262,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 builder.show()
             }
             else {
+                snapshotListener.remove()
                 game_room.get().addOnSuccessListener { document->
                     document.reference.update("now_players", (document["now_players"].toString().toInt() - 1))
                 }
@@ -420,7 +422,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
 
     private fun RoomInfo(snapshotData: Map<String, Any>) {
         //강퇴 확인
-        if(number != 1) {
+        if(number > 1) {
             game_room.get().addOnSuccessListener { document->
                 if(document["p$number"] == null) {
                     Toast.makeText(this, "강퇴되었습니다", Toast.LENGTH_SHORT).show()
@@ -640,6 +642,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 .setTitle("나가기")
                 .setMessage("방을 폭파시키겠습니까?")
                 .setPositiveButton("예") { dialog, which ->
+                    snapshotListener.remove()
                     db.collection("game_rooms").document(gameId).delete()
                     dialog.dismiss()
                     finish()
@@ -655,6 +658,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
                 .setTitle("방 나가기")
                 .setMessage("방에서 나가시겠습니까?")
                 .setPositiveButton("예") { dialog, which->
+                    snapshotListener.remove()
                     val waitingroom = hashMapOf(
                     "waitingroom.0" to null,
                     "waitingroom.1" to "0"

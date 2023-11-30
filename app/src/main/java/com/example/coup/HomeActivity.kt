@@ -45,62 +45,69 @@ class HomeActivity : AppCompatActivity() {
             Log.d(TAG, "state 바뀜 : "+snapshot?.get("state").toString())
         }
 
-
-        CoroutineScope(Dispatchers.IO).launch {
-            val document = try {
-                db.collection("user").document(auth.currentUser?.email.toString())
-                    .get(Source.SERVER)
-                    .await()
-            } catch (e: Exception) {
-                // 예외 처리
-                return@launch
-            }
-
-            val isUserOnline = document.getBoolean("state") ?: false
-            Log.d(TAG, "isUserOnline: $isUserOnline")
-
-            if (isUserOnline) {
-                Log.d(TAG, "여기 들어감")
-                runOnUiThread {
-                    Toast.makeText(baseContext, "현재 접속 중인 계정으로 로그아웃됩니다", Toast.LENGTH_SHORT).show()
+        //대기, 게임방 들어가 있는지 확인
+        db.collection("user").document(auth.currentUser?.email.toString())
+            .get(Source.SERVER).addOnSuccessListener { document->
+                if(document.get("state") == true) {
+                    Log.d(TAG, "여기 들어감")
+                    runOnUiThread {
+                        Toast.makeText(baseContext, "현재 접속 중인 계정으로 로그아웃됩니다", Toast.LENGTH_SHORT).show()
+                    }
+                    auth.signOut()
+                    startActivity(Intent(baseContext, LoginActivity::class.java))
+                    finish()
                 }
-                auth.signOut()
-                startActivity(Intent(baseContext, LoginActivity::class.java))
-                finish()
-            }
-            /*else {
-                db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
-                db.collection("user").document(auth.currentUser?.email.toString()).get().addOnSuccessListener { document->
-                    val waitingroomMap = document.get("waitingroom") as Map<*, *>
-                    val waitingroom0 = waitingroomMap["waitingroom.0"]
-                    val waitingroom1 = waitingroomMap["waitingroom.1"].toString()
-                    Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
-                    if(waitingroom0 != null) {
-                        db.collection("game_rooms").document(waitingroom0.toString()).get().addOnSuccessListener{document->
-                            if(document.exists()) {
-                                Log.d(TAG, "waitingroom0 : not nullorempty")
-                                val intent = Intent(baseContext, GameWaitingRoomActivity::class.java)
-                                intent.putExtra("roomId", waitingroom0.toString())
-                                intent.putExtra("number", waitingroom1)
-                                startActivity(intent)
-                            }
-                            else {
-                                val waitingroom = hashMapOf(
-                                    "waitingroom.0" to null,
-                                    "waitingroom.1" to "0"
-                                )
-                                db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                else {
+                    db.collection("user").document(auth.currentUser?.email.toString()).update("state", true)
+                    db.collection("user").document(auth.currentUser?.email.toString()).get().addOnSuccessListener { document->
+                        val waitingroomMap = document.get("waitingroom") as Map<*, *>
+                        val waitingroom0 = waitingroomMap["waitingroom.0"]
+                        val waitingroom1 = waitingroomMap["waitingroom.1"].toString()
+                        Log.d(TAG, "waitingroom : ${waitingroom0}, ${waitingroom1}")
+                        if(waitingroom0 != null) {
+                            db.collection("game_playing").document(waitingroom0.toString()+"_INFO").get().addOnSuccessListener{document->
+                                if(document.exists() && document.get("p$waitingroom1") == auth.currentUser?.email.toString()) {
+                                    Log.d(TAG, "waitingroom0 : not nullorempty")
+                                    val intent = Intent(baseContext, GameRoomActivity::class.java)
+                                    intent.putExtra("gameId", waitingroom0.toString())
+                                    intent.putExtra("number", waitingroom1)
+                                    intent.putExtra("playing", true)
+                                    startActivity(intent)
+                                }
+                                else {
+                                    val waitingroom = hashMapOf(
+                                        "waitingroom.0" to null,
+                                        "waitingroom.1" to "0"
+                                    )
+                                    db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                                    db.collection("game_rooms").document(waitingroom0.toString()).get().addOnSuccessListener{document->
+                                        if(document.exists() && document.get("p$waitingroom1") == auth.currentUser?.email.toString()) {
+                                            Log.d(TAG, "waitingroom0 : not nullorempty")
+                                            val intent = Intent(baseContext, GameWaitingRoomActivity::class.java)
+                                            intent.putExtra("roomId", waitingroom0.toString())
+                                            intent.putExtra("number", waitingroom1)
+                                            startActivity(intent)
+                                        }
+                                        else {
+                                            val waitingroom = hashMapOf(
+                                                "waitingroom.0" to null,
+                                                "waitingroom.1" to "0"
+                                            )
+                                            db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                                        }
+                                    }.addOnFailureListener {
+                                        val waitingroom = hashMapOf(
+                                            "waitingroom.0" to null,
+                                            "waitingroom.1" to "0"
+                                        )
+                                        db.collection("user").document(auth.currentUser?.email.toString()).update("waitingroom", waitingroom)
+                                    }
+                                }
                             }
                         }
-                        //Log.d(TAG, "입장 : " + db.collection("game_rooms").document(waitingroom0.toString()).get().isSuccessful)
-
                     }
                 }
-            }*/
-        }
-
-
-        //대기방 들어가 있는지 확인
+            }
 
 
         bottomNavigationView = findViewById(R.id.bottom_navigation)
