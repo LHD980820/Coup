@@ -228,41 +228,52 @@ class room_list : Fragment() {
             builder.show()
         }
         private fun RoomIn(Docsnapshot: DocumentSnapshot) {
+            var roomState = 0
+            var myNumber = 1
             db.runTransaction { transaction ->
                 val snapshot = transaction.get(Docsnapshot.reference)
                 if(!snapshot.exists()) {
-                    activity?.runOnUiThread {
-                        Toast.makeText(requireContext(), "방을 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                val now_player = snapshot.get("now_players").toString().toInt()
-                if(now_player >= snapshot.get("max_players").toString().toInt()) {
-                    Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
-                    activity?.runOnUiThread {
-                        Toast.makeText(requireContext(), "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
-                    }
-                    Log.d(TAG, "토스트 출력 후")
-                }
-                else if(snapshot.get("state") == false) {
-                    activity?.runOnUiThread {
-                        Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
-                    }
+                    roomState = 0
                 }
                 else {
-                    transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
-                    var my_number: Int = 1
-                    val max_number = snapshot.get("max_players").toString().toInt()
-                    for(i in 1 until max_number + 1) {
-                        if(snapshot.get("p${i}") == null) {
-                            transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
-                            my_number = i
-                            break
+                    val now_player = snapshot.get("now_players").toString().toInt()
+                    if(now_player >= snapshot.get("max_players").toString().toInt()) {
+                        Log.d(TAG, "인원 수 다 참 (${now_player} + ${snapshot.get("max_players").toString()})")
+                        roomState = 1
+                    }
+                    else if(snapshot.get("state") == false) {
+                        roomState = 2
+                    }
+                    else {
+                        roomState = 3
+                        transaction.update(Docsnapshot.reference, "now_players", now_player + 1)
+                        val max_number = snapshot.get("max_players").toString().toInt()
+                        for(i in 1 until max_number + 1) {
+                            if(snapshot.get("p${i}") == null) {
+                                transaction.update(Docsnapshot.reference, "p${i}", user.currentUser!!.email)
+                                myNumber = i
+                                break
+                            }
                         }
                     }
-                    val intent = Intent(requireContext(), GameWaitingRoomActivity::class.java)
-                    intent.putExtra("roomId", Docsnapshot.id)
-                    intent.putExtra("number", my_number.toString())
-                    startActivity(intent)
+                }
+            }.addOnSuccessListener {
+                when(roomState) {
+                    0-> {
+                        Toast.makeText(requireContext(), "방을 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
+                    }
+                    1-> {
+                        Toast.makeText(requireContext(), "인원 수가 다 찼습니다", Toast.LENGTH_SHORT).show()
+                    }
+                    2->{
+                        Toast.makeText(requireContext(), "게임 중인 방입니다", Toast.LENGTH_SHORT).show()
+                    }
+                    else->{
+                        val intent = Intent(requireContext(), GameWaitingRoomActivity::class.java)
+                        intent.putExtra("roomId", Docsnapshot.id)
+                        intent.putExtra("number", myNumber.toString())
+                        startActivity(intent)
+                    }
                 }
             }
         }
