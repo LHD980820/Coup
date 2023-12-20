@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -41,6 +42,8 @@ class room_list : Fragment() {
     private lateinit var ruleButton: Button
     private lateinit var db: FirebaseFirestore
     private lateinit var user: FirebaseAuth
+    private lateinit var refreshLayout: SwipeRefreshLayout
+    private lateinit var noRoomTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +64,9 @@ class room_list : Fragment() {
         // "create_room" 버튼 찾기
         createRoomButton = view.findViewById(R.id.create_room)
         ruleButton = view.findViewById(R.id.button_rule)
+        refreshLayout = view.findViewById(R.id.refresh_room_list)
+        noRoomTextView = view.findViewById(R.id.noRoom_room_list)
+        noRoomTextView.visibility = View.GONE
 
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
@@ -71,6 +77,12 @@ class room_list : Fragment() {
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { documentSnapshots ->
+                if(documentSnapshots.isEmpty) {
+                    noRoomTextView.visibility = View.VISIBLE
+                }
+                else {
+                    noRoomTextView.visibility = View.GONE
+                }
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)
                 if(context != null) {
@@ -93,6 +105,30 @@ class room_list : Fragment() {
             dialog.show()
         }
 
+        refreshLayout.setOnRefreshListener {
+            db.collection("game_rooms")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener { documentSnapshots ->
+                    if(documentSnapshots.isEmpty) {
+                        noRoomTextView.visibility = View.VISIBLE
+                    }
+                    else {
+                        noRoomTextView.visibility = View.GONE
+                    }
+                    val adapter = CustomAdapter(documentSnapshots)
+                    val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)
+                    if(context != null) {
+                        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+                        recyclerView.adapter = adapter
+                    }
+                    refreshLayout.isRefreshing = false
+                }
+                .addOnFailureListener {
+                    Toast.makeText(context, "방 목록 업데이트 실패", Toast.LENGTH_SHORT).show()
+                    refreshLayout.isRefreshing = false
+                }
+        }
         return view
 
     }

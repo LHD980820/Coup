@@ -65,6 +65,7 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     private var max_number: Int = 0
     private var number: Int = 0
     private lateinit var snapshotListener: ListenerRegistration
+    private var startLock = 0
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game_waiting_room)
@@ -185,7 +186,8 @@ class GameWaitingRoomActivity : AppCompatActivity() {
             val snapshotData = snapshot?.data
             if(snapshotData != null) {
                 Log.d(TAG, "데이터 감지")
-                if(snapshotData["state"] == false && number != 1) {
+                if(snapshotData["state"] == false && number != 1 && startLock == 0) {
+                    startLock = 1
                     Log.d(TAG, "방 입장")
                     CoroutineScope(Dispatchers.IO).launch {
                         snapshotListener.remove()

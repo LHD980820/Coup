@@ -322,6 +322,7 @@ class GameRoomActivity : AppCompatActivity() {
                                 }
                                 else {
                                     mPlayerCard[i][j].setImageResource(cardFromNumber(0))
+                                    mPlayerCardDie[i][j].visibility = View.INVISIBLE
                                 }
                                 if(pCard[i][j] / 10 != 0) {
                                     mPlayerCardDie[i][j].visibility = View.VISIBLE
