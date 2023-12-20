@@ -107,6 +107,9 @@ class ranking : Fragment() {
                         .load(imageUrl)
                         .into(viewHolder.profile_image)
                 }
+                    .addOnFailureListener {
+                        viewHolder.profile_image.setImageResource(R.drawable.icon)
+                    }
             }
             Log.d("Ranking", "")
             // Check if the position is 0, 1, or 2 (1st, 2nd, or 3rd place)

@@ -40,6 +40,7 @@ class room_list : Fragment() {
     private var param2: String? = null
     private lateinit var createRoomButton: Button
     private lateinit var ruleButton: Button
+    private lateinit var rule2Button: Button
     private lateinit var db: FirebaseFirestore
     private lateinit var user: FirebaseAuth
     private lateinit var refreshLayout: SwipeRefreshLayout
@@ -63,7 +64,8 @@ class room_list : Fragment() {
         val view = inflater.inflate(R.layout.fragment_room_list, container, false)
         // "create_room" 버튼 찾기
         createRoomButton = view.findViewById(R.id.create_room)
-        ruleButton = view.findViewById(R.id.button_rule)
+        ruleButton = view.findViewById(R.id.button_rule1)
+        rule2Button = view.findViewById(R.id.button_rule2)
         refreshLayout = view.findViewById(R.id.refresh_room_list)
         noRoomTextView = view.findViewById(R.id.noRoom_room_list)
         noRoomTextView.visibility = View.GONE
@@ -103,6 +105,10 @@ class room_list : Fragment() {
             val dialog = GameRuleDialog(requireContext())
             dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             dialog.show()
+        }
+        rule2Button.setOnClickListener {
+            val intent = Intent(context, Tutorial::class.java)
+            startActivity(intent)
         }
 
         refreshLayout.setOnRefreshListener {

@@ -10,6 +10,7 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
@@ -150,6 +151,7 @@ class GameRoomActivity : AppCompatActivity() {
             if(snapshot != null && snapshot.get("turn").toString() != "null") {
                 nowTurn = snapshot.get("turn").toString().toInt()
                 settingNowTurn()
+                bottomSheetButtonColorChange()
                 if(nowTurn == number) {
                     mActionIcon[0].setImageResource(R.drawable.action_coin)
                     mActionIcon[1].setImageResource(R.drawable.action_coin)
@@ -218,20 +220,20 @@ class GameRoomActivity : AppCompatActivity() {
                                 if(nowActionCode == 2) {
                                     mActionIcon[0].setImageResource(R.drawable.action_foreign_aid)
                                     mActionIcon[1].setImageResource(R.drawable.action_foreign_aid)
-                                    mActionText.text = "FOREIGN AID시전, 다른 플레이어 응답 대기 중"
+                                    mActionText.text = "해외 원조 시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(3)
                                 }
                                 if(nowActionCode == 4) {
                                     mActionIcon[0].setImageResource(R.drawable.action_tax)
                                     mActionIcon[1].setImageResource(R.drawable.action_tax)
-                                    mActionText.text = "TAX시전, 다른 플레이어 응답 대기 중"
+                                    mActionText.text = "세금 징수 시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(2)
                                 }
                                 if(nowActionCode == 5) {
                                     mActionIcon[0].setImageResource(R.drawable.action_assassination)
                                     mActionIcon[1].setImageResource(R.drawable.action_assassination)
-                                    if(number == nowTo) mActionText.text = "YOU에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
-                                    else mActionText.text = "P${nowTo}에게 ASSASSINATION시전, 다른 플레이어 응답 대기 중"
+                                    if(number == nowTo) mActionText.text = "나에게 암살 시전, 다른 플레이어 응답 대기 중"
+                                    else mActionText.text = "P${nowTo}에게 암살 시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) {
                                         if(number == nowTo) actionButtonSetting(5)
                                         else actionButtonSetting(2)
@@ -240,8 +242,8 @@ class GameRoomActivity : AppCompatActivity() {
                                 if(nowActionCode == 6) {
                                     mActionIcon[0].setImageResource(R.drawable.action_steal)
                                     mActionIcon[1].setImageResource(R.drawable.action_steal)
-                                    if(number == nowTo) mActionText.text = "YOU에게 STEAL시전, 다른 플레이어 응답 대기 중"
-                                    else mActionText.text = "P${nowTo}에게 STEAL시전, 다른 플레이어 응답 대기 중"
+                                    if(number == nowTo) mActionText.text = "나에게 강탈 시전, 다른 플레이어 응답 대기 중"
+                                    else mActionText.text = "P${nowTo}에게 강탈 시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) {
                                         if(number == nowTo) actionButtonSetting(4)
                                         else actionButtonSetting(2)
@@ -250,7 +252,7 @@ class GameRoomActivity : AppCompatActivity() {
                                 if(nowActionCode == 7) {
                                     mActionIcon[0].setImageResource(R.drawable.action_exchange)
                                     mActionIcon[1].setImageResource(R.drawable.action_exchange)
-                                    mActionText.text = "EXCHANGE시전, 다른 플레이어 응답 대기 중"
+                                    mActionText.text = "교환 시전, 다른 플레이어 응답 대기 중"
                                     if(nowTurn != number) actionButtonSetting(2)
                                 }
                             }
@@ -270,10 +272,12 @@ class GameRoomActivity : AppCompatActivity() {
                                 }
                             }
                             else if(nowChallengeCode in 4..7) {
-                                if(nowChallengeCode == 4) mActionText.text = "P${nowChallenger}가 DUKE로 막기 시전, 다른 플레이어 응답 대기 중"
-                                if(nowChallengeCode == 5) mActionText.text = "P${nowChallenger}가 CONTESSA로 막기 시전, 다른 플레이어 응답 대기 중"
-                                if(nowChallengeCode == 6) mActionText.text = "P${nowChallenger}가 CAPTAIN로 막기 시전, 다른 플레이어 응답 대기 중"
-                                if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 AMBASSADOR로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 4) mActionText.text = "P${nowChallenger}가 공작으로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 5) mActionText.text = "P${nowChallenger}가 귀부인으로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 6) mActionText.text = "P${nowChallenger}가 사령관으로 막기 시전, 다른 플레이어 응답 대기 중"
+                                if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 대사관로 막기 시전, 다른 플레이어 응답 대기 중"
+                                mActionIcon[0].setImageResource(R.drawable.action_block)
+                                mActionIcon[1].setImageResource(R.drawable.action_block)
                                 settingThreeDot(nowChallenger)
                                 if(number != nowChallenger) {
                                     actionButtonSetting(2)
@@ -352,6 +356,37 @@ class GameRoomActivity : AppCompatActivity() {
         }
     }
 
+    private fun bottomSheetButtonColorChange() {
+        val textColorRed = ContextCompat.getColor(this@GameRoomActivity, R.color.red)
+        val textColorBlack = ContextCompat.getColor(this@GameRoomActivity, R.color.black)
+        buttonTax.setTextColor(textColorRed)
+        buttonSteal.setTextColor(textColorRed)
+        buttonAssassinate.setTextColor(textColorRed)
+        buttonExchange.setTextColor(textColorRed)
+        buttonBlockByDuke.setTextColor(textColorRed)
+        buttonBlockByAmbassador.setTextColor(textColorRed)
+        buttonBlockByCaptain.setTextColor(textColorRed)
+        buttonBlockByContessa.setTextColor(textColorRed)
+        if(pCard[number-1][0] == 1 || pCard[number-1][1] == 1) {  //공작
+            buttonTax.setTextColor(textColorBlack)
+            buttonBlockByDuke.setTextColor(textColorBlack)
+        }
+        if(pCard[number-1][0] == 2 || pCard[number-1][1] == 2) {  //귀부인
+            buttonBlockByContessa.setTextColor(textColorBlack)
+        }
+        if(pCard[number-1][0] == 3 || pCard[number-1][1] == 3) {  //사령관
+            buttonSteal.setTextColor(textColorBlack)
+            buttonBlockByCaptain.setTextColor(textColorBlack)
+        }
+        if(pCard[number-1][0] == 4 || pCard[number-1][1] == 4) {  //암살자
+            buttonAssassinate.setTextColor(textColorBlack)
+        }
+        if(pCard[number-1][0] == 5 || pCard[number-1][1] == 5) {  //외교관
+            buttonExchange.setTextColor(textColorBlack)
+            buttonBlockByAmbassador.setTextColor(textColorBlack)
+        }
+    }
+
     private fun settingNowTurn() {
         for(i in 0 until max_number) {
             if(i+1 == nowTurn) mPlayerConstraint[nowTurn - 1].setBackgroundResource(R.drawable.card_big_box_nowturn)
@@ -374,7 +409,9 @@ class GameRoomActivity : AppCompatActivity() {
         val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
         var countDownTimer: CountDownTimer? = null
         builder.setView(dialogView)
+        builder.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         builder.setCancelable(false)
+        text.text = "카드 공개"
 
         var selectCard = 0
         cardOne.setOnClickListener {
@@ -393,7 +430,6 @@ class GameRoomActivity : AppCompatActivity() {
                 cardTwo.alpha = 0.3f
             }
         }
-        text.text = "Card Open"
         okButton.setOnClickListener {
             if(selectCard == 0) Toast.makeText(this, "카드를 선택해주세요", Toast.LENGTH_SHORT).show()
             else {
@@ -579,6 +615,10 @@ class GameRoomActivity : AppCompatActivity() {
 
     private fun settingBottomSheetButtonListener() {
         buttonIncome.setOnClickListener {
+            for(i in 0 until max_number) {
+                mPlayerConstraint[i].isClickable = false
+                mPlayerConstraint[i].clearAnimation()
+            }
             db.runBatch{ batch->
                 batch.update(documentAction, "action", 1)
                 batch.update(documentAction, "from", number)
@@ -587,6 +627,10 @@ class GameRoomActivity : AppCompatActivity() {
             bottomSheet.dismiss()
         }
         buttonForeignAid.setOnClickListener {
+            for(i in 0 until max_number) {
+                mPlayerConstraint[i].isClickable = false
+                mPlayerConstraint[i].clearAnimation()
+            }
             db.runBatch{ batch->
                 batch.update(documentAction, "from", number)
                 batch.update(documentAction, "action", 2)
@@ -654,6 +698,10 @@ class GameRoomActivity : AppCompatActivity() {
             bottomSheet.dismiss()
         }
         buttonTax.setOnClickListener {
+            for(i in 0 until max_number) {
+                mPlayerConstraint[i].isClickable = false
+                mPlayerConstraint[i].clearAnimation()
+            }
             db.runBatch{ batch->
                 batch.update(documentAction, "action", 4)
                 batch.update(documentAction, "from", number)
@@ -675,6 +723,10 @@ class GameRoomActivity : AppCompatActivity() {
             settingPlayerClickListener(6)
         }
         buttonExchange.setOnClickListener {
+            for(i in 0 until max_number) {
+                mPlayerConstraint[i].isClickable = false
+                mPlayerConstraint[i].clearAnimation()
+            }
             db.runBatch{ batch->
                 batch.update(documentAction, "from", number)
                 batch.update(documentAction, "action", 7)
@@ -794,6 +846,7 @@ class GameRoomActivity : AppCompatActivity() {
             val okButton = dialogView.findViewById<Button>(R.id.ok_button_start_cards)
             var countDownTimer: CountDownTimer? = null
             builder.setView(dialogView)
+            builder.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             builder.setCancelable(false)
 
             var selectCard = 1
@@ -808,7 +861,7 @@ class GameRoomActivity : AppCompatActivity() {
                 cardOne.alpha = 1f
                 cardTwo.alpha = 0.3f
             }
-            text.text = "Card Elimination"
+            text.text = "카드 제거"
             okButton.text = "Eliminate"
             okButton.setOnClickListener {
                 countDownTimer?.cancel()
@@ -1568,27 +1621,32 @@ class GameRoomActivity : AppCompatActivity() {
                 if(selectOne == 0 || selectTwo == 0) Toast.makeText(this, "버릴 카드 두 장을 선택해 주세요", Toast.LENGTH_SHORT).show()
                 else {
                     countDownTimer?.cancel()
-                    var indexOne = 0
-                    var indexTwo = 0
-                    val endRandomPoint = pCardLeft.length-1
-                    val range = 0..endRandomPoint
-                    var randomNum=Random.nextInt(range)
-                    indexOne = randomNum
-                    while(randomNum == indexOne) {
-                        randomNum = Random.nextInt(range)
-                    }
-                    indexTwo = randomNum
+                    if(max_number < 6) {
+                        var indexOne = 0
+                        var indexTwo = 0
+                        val endRandomPoint = pCardLeft.length-1
+                        val range = 0..endRandomPoint
+                        var randomNum=Random.nextInt(range)
+                        indexOne = randomNum
+                        while(randomNum == indexOne) {
+                            randomNum = Random.nextInt(range)
+                        }
+                        indexTwo = randomNum
 
-                    if(indexOne>indexTwo){
-                        val tmp =indexOne
-                        indexOne=indexTwo
-                        indexTwo=tmp
-                    }
+                        if(indexOne>indexTwo){
+                            val tmp =indexOne
+                            indexOne=indexTwo
+                            indexTwo=tmp
+                        }
 
-                    val sliceOne = pCardLeft.slice(0 until indexOne)
-                    val sliceTwo = pCardLeft.slice(indexOne until indexTwo)
-                    val sliceThree = pCardLeft.slice(indexTwo until pCardLeft.length)
-                    pCardLeft = sliceOne+cardNum[selectOne-1].toString()+sliceTwo+cardNum[selectTwo-1].toString()+sliceThree
+                        val sliceOne = pCardLeft.slice(0 until indexOne)
+                        val sliceTwo = pCardLeft.slice(indexOne until indexTwo)
+                        val sliceThree = pCardLeft.slice(indexTwo until pCardLeft.length)
+                        pCardLeft = sliceOne+cardNum[selectOne-1].toString()+sliceTwo+cardNum[selectTwo-1].toString()+sliceThree
+                    }
+                    else {
+                        pCardLeft = pCardLeft+cardNum[selectOne-1].toString()+cardNum[selectTwo-1].toString()
+                    }
                     var myCard = IntArray(4)
                     myCard[0] = 0
                     myCard[1] = 1
@@ -1700,5 +1758,6 @@ class GameRoomActivity : AppCompatActivity() {
 
     companion object{
         val TAG = "GameRoomActivity"
+        private const val LONG_PRESSED_TIME = 2L
     }
 }

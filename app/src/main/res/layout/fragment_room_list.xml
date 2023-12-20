@@ -18,14 +18,25 @@
             android:background="@drawable/home_upper_bar">
 
             <Button
-                android:id="@+id/button_rule"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:id="@+id/button_rule1"
+                android:layout_width="120dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/create_room_box"
+                android:text="RULE(text)"
+                app:layout_constraintEnd_toEndOf="@+id/button_rule2"
+                app:layout_constraintStart_toStartOf="@+id/button_rule2"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <Button
+                android:id="@+id/button_rule2"
+                android:layout_width="120dp"
+                android:layout_height="40dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/create_room_box"
                 android:fontFamily="@font/zcoolkuaile_regular"
-                android:text="RULE"
+                android:text="RULE(Image)"
                 android:textSize="14sp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
@@ -86,9 +97,16 @@
                     android:id="@+id/noRoom_room_list"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="방 만들어라"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/coup_main_font"
+                    android:text="@string/noRoom"
+                    android:textAlignment="center"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent" />
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/rooms_recyclerview"
@@ -96,7 +114,7 @@
                     android:layout_height="wrap_content"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="@+id/noRoom_room_list" />
+                    app:layout_constraintTop_toTopOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

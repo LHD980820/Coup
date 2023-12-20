@@ -83,26 +83,26 @@ class info : Fragment() {
             param2 = it.getString(ARG_PARAM2)
         }
 
-        ratingChangeTable[0][0] = 50
-        ratingChangeTable[0][1] = -30
-        ratingChangeTable[1][0] = 60
+        ratingChangeTable[0][0] = 30
+        ratingChangeTable[0][1] = -20
+        ratingChangeTable[1][0] = 50
         ratingChangeTable[1][1] = 20
         ratingChangeTable[1][2] = -40
         ratingChangeTable[2][0] = 70
         ratingChangeTable[2][1] = 30
         ratingChangeTable[2][2] = -30
         ratingChangeTable[2][3] = -50
-        ratingChangeTable[3][0] = 80
-        ratingChangeTable[3][1] = 50
-        ratingChangeTable[3][2] = 20
-        ratingChangeTable[3][3] = -30
-        ratingChangeTable[3][4] = -60
-        ratingChangeTable[4][0] = 100
+        ratingChangeTable[3][0] = 100
+        ratingChangeTable[3][1] = 60
+        ratingChangeTable[3][2] = 30
+        ratingChangeTable[3][3] = -40
+        ratingChangeTable[3][4] = -70
+        ratingChangeTable[4][0] = 130
         ratingChangeTable[4][1] = 70
-        ratingChangeTable[4][2] = 30
+        ratingChangeTable[4][2] = 40
         ratingChangeTable[4][3] = -30
-        ratingChangeTable[4][4] = -50
-        ratingChangeTable[4][5] = -70
+        ratingChangeTable[4][4] = -60
+        ratingChangeTable[4][5] = -90
 
         imagePicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {

@@ -13,6 +13,9 @@
         android:theme="@style/Theme.Coup"
         tools:targetApi="31">
         <activity
+            android:name=".Tutorial"
+            android:exported="false" />
+        <activity
             android:name=".GameResultActivity"
             android:exported="false" />
 
@@ -29,16 +32,20 @@
         <activity
             android:name=".HomeActivity"
             android:exported="false" />
-        <!--<activity
+        <!--
+<activity
             android:name=".ui.login.DialogResetPasswordActivity"
-            android:exported="false" />-->
+            android:exported="false" />
+        -->
         <activity
             android:name=".ui.login.LoginResetPassword"
             android:exported="false" />
-        <!--<activity
+        <!--
+<activity
             android:name=".ui.login.RegisterDialog"
             android:exported="false"
-            android:label="RegisterDialog" />-->
+            android:label="RegisterDialog" />
+        -->
         <activity
             android:name=".ui.login.RegisterActivity"
             android:exported="false"

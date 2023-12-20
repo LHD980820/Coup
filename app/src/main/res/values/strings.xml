@@ -77,7 +77,7 @@
     <string name="game_play_explanation2">a. 수입(Income) : 1코인을 얻습니다. 이 행동은 방해할 수 없습니다.\n
         b. 해외원조(Foreign Aid) : 2코인을 얻습니다. 이 행동은 공작카드의 능력에 의해 방해받을 수 있습니다.\n
         c. 쿠(Coup) : 다른 플레이어의 카드 하나를 제거합니다. 7코인을 소모하게 되며, 이 행동은 방해할 수 없습니다.\n
-        d. 능력 : 인물카드의 행동 능력을 사용합니다. <font color ='#FFFF0000'><b>자신이 해당 인물카드를 가지고 있지 않아도 사용할 수 있습니다.</b></font></string>
+        d. 능력 : 인물카드의 행동 능력을 사용합니다. <font color='#FFFF0000'><b>자신이 해당 인물카드를 가지고 있지 않아도 사용할 수 있습니다.</b></font></string>
     <string name="game_play_explanation3"><![CDATA[• 공작 (duke) :\n
         1) 세금징수(TAX) - 3코인을 얻습니다.\n
         2) 해외원조 방어(Foreign-aid Block): 다른 플레이어의 해외원조를 막습니다.\n
@@ -96,6 +96,7 @@
         다른 플레이어들은 이러한 행동이 거짓인 것 같다는 의심이 들면 도전할 수 있습니다.</string>
     <string name="challenge_explanation2"><![CDATA[• 도전을 받은 플레이어는 자신이 들고 있는 카드 중 하나를 모두에게 공개해 진실인지 거짓인지 알려야합니다.]]></string>
     <string name="challenge_explanation3">a. 도전을 받은 플레이어가 실제로 거짓을 말했다면 공개한 카드를 제거합니다.\n
-        b. 거짓을 말하지 않았다면, 공개한 카드는 카드더미의 인물카드와 <font color ='#FFFF0000'><b>무작위로 교환</b></font>됩니다. 이 경우 도전한 플레이어가 인물카드 둘 중 하나를 제거해야 합니다.</string>
+        b. 거짓을 말하지 않았다면, 공개한 카드는 카드더미의 인물카드와 <font color='#FFFF0000'><b>무작위로 교환</b></font>됩니다. 이 경우 도전한 플레이어가 인물카드 둘 중 하나를 제거해야 합니다.</string>
     <string name="summary_table">요약</string>
+    <string name="noRoom">생성된 방이 없습니다\n방을 만들어 주세요</string>
 </resources>

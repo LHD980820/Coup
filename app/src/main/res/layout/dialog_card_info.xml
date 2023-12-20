@@ -9,8 +9,8 @@
 
     <ImageView
         android:id="@+id/card_info"
-        android:layout_width="197dp"
-        android:layout_height="279dp"
+        android:layout_width="269dp"
+        android:layout_height="380dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
