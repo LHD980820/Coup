@@ -15,10 +15,12 @@
         tools:targetApi="31">
         <activity
             android:name=".Tutorial"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".GameResultActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
 
         <service
             android:name=".ForcedTerminationService"
@@ -26,13 +28,16 @@
 
         <activity
             android:name=".GameRoomActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".GameWaitingRoomActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".HomeActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <!--
 <activity
             android:name=".ui.login.DialogResetPasswordActivity"
@@ -40,7 +45,8 @@
         -->
         <activity
             android:name=".ui.login.LoginResetPassword"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"/>
         <!--
 <activity
             android:name=".ui.login.RegisterDialog"
@@ -50,16 +56,19 @@
         <activity
             android:name=".ui.login.RegisterActivity"
             android:exported="false"
-            android:label="RegisterActivity" />
+            android:label="RegisterActivity"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".ui.login.LoginActivity"
             android:exported="false"
-            android:label="@string/title_activity_login" />
+            android:label="@string/title_activity_login"
+            android:screenOrientation="portrait"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Coup">
+            android:theme="@style/Theme.Coup"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
