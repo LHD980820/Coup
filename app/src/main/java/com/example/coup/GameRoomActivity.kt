@@ -10,7 +10,7 @@ import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.MotionEvent
+import android.view.Gravity
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.widget.Button
@@ -146,6 +146,32 @@ class GameRoomActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun settingCards() {
+        documentCard.get().addOnSuccessListener { snapshot->
+            pCardLeft = snapshot["card_left"].toString()
+            for(i in 0 until max_number) {
+                for(j in 0 until 2) {
+                    pCard[i][j] = snapshot["p${i+1}card${j+1}"].toString().toInt()
+                    if(i + 1 == number || pCard[i][j] / 10 != 0) {
+                        mPlayerCard[i][j].setImageResource(cardFromNumber(pCard[i][j]))
+                        mPlayerCardDie[i][j].visibility = View.INVISIBLE
+                    }
+                    else {
+                        mPlayerCard[i][j].setImageResource(cardFromNumber(0))
+                        mPlayerCardDie[i][j].visibility = View.INVISIBLE
+                    }
+                    if(pCard[i][j] / 10 != 0) {
+                        mPlayerCardDie[i][j].visibility = View.VISIBLE
+                    }
+                }
+                if(pCard[i][0] / 10 != 0 && pCard[i][1] / 10 != 0) {
+                    mPlayerAllDie[i].visibility = View.VISIBLE
+                }
+            }
+            checkGameEnd()
+        }
+    }
     private fun settingSnapshots() {
         snapshotListenerInfo = documentInfo.addSnapshotListener{ snapshot, e->
             if(snapshot != null && snapshot.get("turn").toString() != "null") {
@@ -216,7 +242,7 @@ class GameRoomActivity : AppCompatActivity() {
                                 turnEnd()
                             }
                             if(nowActionCode == 2 || (nowActionCode in 4..7)) {
-                                settingThreeDot(nowTurn)
+                                if(number == nowTurn) settingThreeDot(nowTurn)
                                 if(nowActionCode == 2) {
                                     mActionIcon[0].setImageResource(R.drawable.action_foreign_aid)
                                     mActionIcon[1].setImageResource(R.drawable.action_foreign_aid)
@@ -278,8 +304,8 @@ class GameRoomActivity : AppCompatActivity() {
                                 if(nowChallengeCode == 7) mActionText.text = "P${nowChallenger}가 대사관로 막기 시전, 다른 플레이어 응답 대기 중"
                                 mActionIcon[0].setImageResource(R.drawable.action_block)
                                 mActionIcon[1].setImageResource(R.drawable.action_block)
-                                settingThreeDot(nowChallenger)
-                                if(number != nowChallenger) {
+                                if(number == nowChallenger)settingThreeDot(nowChallenger)
+                                else {
                                     actionButtonSetting(2)
                                 }
                             }
@@ -614,6 +640,8 @@ class GameRoomActivity : AppCompatActivity() {
     }
 
     private fun settingBottomSheetButtonListener() {
+        val toast = Toast.makeText(this, "안녕하세요, 저는 호날두입니다. SIUUUUUUUU", Toast.LENGTH_LONG)
+        toast.setGravity(Gravity.TOP, 0, 200)
         buttonIncome.setOnClickListener {
             for(i in 0 until max_number) {
                 mPlayerConstraint[i].isClickable = false
@@ -625,6 +653,11 @@ class GameRoomActivity : AppCompatActivity() {
             }
             actionButtonSetting(0)
             bottomSheet.dismiss()
+        }
+        buttonIncome.setOnLongClickListener {
+            toast.setText("코인 +1")
+            toast.show()
+            return@setOnLongClickListener true
         }
         buttonForeignAid.setOnClickListener {
             for(i in 0 until max_number) {
@@ -638,6 +671,11 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonForeignAid.setOnLongClickListener {
+            toast.setText("코인 +2\n이 행동은 공작에 의해 막힐 수 있습니다")
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonCoup.setOnClickListener {
             if(mPlayerCoin[number-1].text.toString().toInt() >= 7) {
                 bottomSheet.dismiss()
@@ -646,6 +684,11 @@ class GameRoomActivity : AppCompatActivity() {
             else {
                 Toast.makeText(this, "코인이 7개 이상일 때 사용할 수 있습니다", Toast.LENGTH_SHORT).show()
             }
+        }
+        buttonCoup.setOnLongClickListener {
+            toast.setText("코인 -7\n다른 플레이어 카드 한 장 제거")
+            toast.show()
+            return@setOnLongClickListener true
         }
         buttonAdmit.setOnClickListener {
             documentAccept.update("p$number", true)
@@ -697,6 +740,20 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonChallenge.setOnLongClickListener {
+            var addText: String = "설명"
+            if(nowChallengeCode == 4) addText = "P${nowChallenger}에게 '공작'카드가 없다고 생각하면 클릭하세요"
+            else if(nowChallengeCode == 5) addText = "P${nowChallenger}에게 '귀부인'카드가 없다고 생각하면 클릭하세요"
+            else if(nowChallengeCode == 6) addText = "P${nowChallenger}에게 '사령관'카드가 없다고 생각하면 클릭하세요"
+            else if(nowChallengeCode == 7) addText = "P${nowChallenger}에게 '외교관'카드가 없다고 생각하면 클릭하세요"
+            else if(nowActionCode == 4) addText = "P${nowTurn}에게 '공작'카드가 없다고 생각하면 클릭하세요"
+            else if(nowActionCode == 5) addText = "P${nowTurn}에게 '암살자'카드가 없다고 생각하면 클릭하세요"
+            else if(nowActionCode == 6) addText = "P${nowTurn}에게 '사령관'카드가 없다고 생각하면 클릭하세요"
+            else if(nowActionCode == 7) addText = "P${nowTurn}에게 '외교관'카드가 없다고 생각하면 클릭하세요"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonTax.setOnClickListener {
             for(i in 0 until max_number) {
                 mPlayerConstraint[i].isClickable = false
@@ -709,6 +766,14 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonTax.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 1 || pCard[number-1][1] == 1) addText ="[공작 보유]코인 +3"
+            else addText ="[공작 미보유]코인 +3\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonAssassinate.setOnClickListener {
             if(mPlayerCoin[number-1].text.toString().toInt() >= 3) {
                 bottomSheet.dismiss()
@@ -718,9 +783,25 @@ class GameRoomActivity : AppCompatActivity() {
                 Toast.makeText(this, "코인이 3개 이상일 때 사용할 수 있습니다", Toast.LENGTH_SHORT).show()
             }
         }
+        buttonAssassinate.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 4 || pCard[number-1][1] == 4) addText ="[암살자 보유]코인 -3\n다른 플레이어 카드 한 장 제거"
+            else addText = "[암살자 미보유]코인 -3\n다른 플레이어 카드 한 장 제거\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonSteal.setOnClickListener {
             bottomSheet.dismiss()
             settingPlayerClickListener(6)
+        }
+        buttonSteal.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 3 || pCard[number-1][1] == 3) addText ="[사령관 보유]다른 플레이어 코인 2개 강탈"
+            else addText = "[사령관 미보유]다른 플레이어 코인 2개 강탈\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
         }
         buttonExchange.setOnClickListener {
             for(i in 0 until max_number) {
@@ -734,6 +815,14 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonExchange.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 5 || pCard[number-1][1] == 5) addText ="[외교관 보유]덱에서 카드 2장을 가져와 내 카드와 교체"
+            else addText = "[외교관 미보유]덱에서 카드 2장을 가져와 내 카드와 교체\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonBlockByDuke.setOnClickListener {
             db.runTransaction{ transaction->
                 if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
@@ -743,6 +832,14 @@ class GameRoomActivity : AppCompatActivity() {
             }
             actionButtonSetting(0)
             bottomSheet.dismiss()
+        }
+        buttonBlockByDuke.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 1 || pCard[number-1][1] == 1) addText ="[공작 보유]해외 원조 저지"
+            else addText = "[공작 미보유]해외 원조 저지\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
         }
         buttonBlockByContessa.setOnClickListener {
             db.runTransaction{ transaction->
@@ -754,6 +851,14 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonBlockByContessa.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 2 || pCard[number-1][1] == 2) addText ="[귀부인 보유]암살 저지"
+            else addText = "[귀부인 미보유]암살 저지\n<경고>\n도전 받을 시 게임에서 패배합니다(카드 2장 제거)"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonBlockByCaptain.setOnClickListener {
             db.runTransaction{ transaction->
                 if(transaction.get(documentAction)["challenge"].toString().toInt() == 0) {
@@ -763,6 +868,14 @@ class GameRoomActivity : AppCompatActivity() {
             }
             actionButtonSetting(0)
             bottomSheet.dismiss()
+        }
+        buttonBlockByCaptain.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 3 || pCard[number-1][1] == 3) addText ="[사령관 보유]강탈 저지"
+            else addText = "[사령관 미보유]강탈 저지\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
         }
         buttonBlockByAmbassador.setOnClickListener {
             db.runTransaction{ transaction->
@@ -774,12 +887,19 @@ class GameRoomActivity : AppCompatActivity() {
             actionButtonSetting(0)
             bottomSheet.dismiss()
         }
+        buttonBlockByAmbassador.setOnLongClickListener {
+            val addText: String
+            if(pCard[number-1][0] == 5 || pCard[number-1][1] == 5) addText ="[외교관 보유]강탈 저지"
+            else addText = "[외교관 미보유]강탈 저지\n<경고>\n도전 받을 시 카드가 하나 제거될 수 있습니다"
+            toast.setText(addText)
+            toast.show()
+            return@setOnLongClickListener true
+        }
         buttonOnlyCoup.setOnClickListener {
             bottomSheet.dismiss()
             settingPlayerClickListener(3)
         }
     }
-
     private fun settingThreeDot(except: Int) {
         db.runBatch{ batch->
             for( i in 0 until max_number) {
@@ -1146,8 +1266,8 @@ class GameRoomActivity : AppCompatActivity() {
                 }
             }.await()
             //카드 클릭 시 카드 정보 띄우기
+            if(intent.hasExtra("playing")) settingCards()
         }
-
     }
 
     private fun settingClickListener() {
