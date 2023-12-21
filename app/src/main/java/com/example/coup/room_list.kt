@@ -45,6 +45,7 @@ class room_list : Fragment() {
     private lateinit var user: FirebaseAuth
     private lateinit var refreshLayout: SwipeRefreshLayout
     private lateinit var noRoomTextView: TextView
+    private lateinit var noRoomImageView: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +69,9 @@ class room_list : Fragment() {
         rule2Button = view.findViewById(R.id.button_rule2)
         refreshLayout = view.findViewById(R.id.refresh_room_list)
         noRoomTextView = view.findViewById(R.id.noRoom_room_list)
+        noRoomImageView = view.findViewById(R.id.noRoomImg_room_list)
         noRoomTextView.visibility = View.GONE
+        noRoomImageView.visibility = View.GONE
 
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
@@ -81,9 +84,11 @@ class room_list : Fragment() {
             .addOnSuccessListener { documentSnapshots ->
                 if(documentSnapshots.isEmpty) {
                     noRoomTextView.visibility = View.VISIBLE
+                    noRoomImageView.visibility = View.VISIBLE
                 }
                 else {
                     noRoomTextView.visibility = View.GONE
+                    noRoomImageView.visibility = View.GONE
                 }
                 val adapter = CustomAdapter(documentSnapshots)
                 val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)
@@ -118,9 +123,11 @@ class room_list : Fragment() {
                 .addOnSuccessListener { documentSnapshots ->
                     if(documentSnapshots.isEmpty) {
                         noRoomTextView.visibility = View.VISIBLE
+                        noRoomImageView.visibility = View.VISIBLE
                     }
                     else {
                         noRoomTextView.visibility = View.GONE
+                        noRoomImageView.visibility = View.GONE
                     }
                     val adapter = CustomAdapter(documentSnapshots)
                     val recyclerView = view.findViewById<RecyclerView>(R.id.rooms_recyclerview)

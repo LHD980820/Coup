@@ -53,10 +53,10 @@
     <string name="disagree">Disagree</string>
     <string name="challenge">도전</string>
     <string name="admit">수락</string>
-    <string name="block_by_captain">captain으로 막기</string>
-    <string name="block_by_ambassador">ambassador로 막기</string>
-    <string name="block_by_duke">duke로 막기</string>
-    <string name="block_by_contessa">contessa로 막기</string>
+    <string name="block_by_captain">사령관으로 막기</string>
+    <string name="block_by_ambassador">외교관으로 막기</string>
+    <string name="block_by_duke">공작으로 막기</string>
+    <string name="block_by_contessa">귀부인으로 막기</string>
     <string name="foreign_aid_admit">수락</string>
     <string name="components">구성품</string>
     <string name="components_explanation">인물카드 15장 (각 직업별 3장), 코인 70개</string>
