@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace 'com.example.coup'
+    namespace 'io.github.lhd980820.coup'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.coup"
+        applicationId "io.github.lhd980820.coup"
         minSdk 24
         targetSdk 33
         versionCode 1
