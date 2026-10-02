@@ -14,10 +14,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import io.github.lhd980820.coup.ui.login.LoginActivity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.Firebase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async

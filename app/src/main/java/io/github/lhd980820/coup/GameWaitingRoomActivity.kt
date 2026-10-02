@@ -20,14 +20,13 @@ import com.bumptech.glide.Glide
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.Firebase
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.ktx.storage
+import com.google.firebase.storage.storage
 import de.hdodenhof.circleimageview.CircleImageView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +56,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
     private lateinit var user: FirebaseAuth
     private lateinit var db: FirebaseFirestore
     private lateinit var storage: FirebaseStorage
-    private lateinit var database: FirebaseDatabase
     private lateinit var game_room: DocumentReference
 
 
@@ -111,7 +109,6 @@ class GameWaitingRoomActivity : AppCompatActivity() {
         user = FirebaseManager.getFirebaseAuth()
         db = FirestoreManager.getFirestore()
         storage = Firebase.storage
-        database = FirebaseDatabase.getInstance()
 
         gameId = intent.getStringExtra("roomId").toString()
         number = intent.getStringExtra("number")!!.toInt()

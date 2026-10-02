@@ -17,12 +17,12 @@ import io.github.lhd980820.coup.FirebaseManager
 import io.github.lhd980820.coup.R
 import com.google.firebase.auth.FirebaseAuth    //밑에 전부 다 파이어베이스
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.firestore.ktx.firestoreSettings
-import com.google.firebase.firestore.ktx.memoryCacheSettings
-import com.google.firebase.firestore.ktx.persistentCacheSettings
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.firestoreSettings
+import com.google.firebase.firestore.memoryCacheSettings
+import com.google.firebase.firestore.persistentCacheSettings
+import com.google.firebase.Firebase
 
 class RegisterActivity : Activity(){
     // UI references.
