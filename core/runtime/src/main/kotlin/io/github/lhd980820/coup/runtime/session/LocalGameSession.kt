@@ -89,7 +89,7 @@ public class LocalGameSession(
 
     override suspend fun submit(command: Command): SubmitResult {
         require(command.actor == me) { "a local session can only submit commands for ${me.value}" }
-        return when (val result = authority.submit(command)) {
+        return when (val result = authority.submitFrom(me, command)) {
             is ApplyResult.Accepted -> SubmitResult.Ok
             is ApplyResult.Rejected -> SubmitResult.Rejected(result.reason)
         }

@@ -8,8 +8,9 @@
 |---|---|---|
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
-| 2. 런타임 + AI(EASY/NORMAL) | 🚧 | 런타임(권한자·좌석·로컬 세션) ✅ / AI EASY·NORMAL ✅ / 멀티 전송 계층 ⬜ ← 다음 |
-| 3~7 | ⬜ | |
+| 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
+| 3. 신규 UI 셸 + 싱글플레이 | ⬜ ← 다음 | **Android 빌드 필요** — 오너 결정 필요(아래) |
+| 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
 
@@ -27,9 +28,21 @@
 | 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ✅ |
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
-## 다음 할 일 (Phase 2 나머지)
-1. **멀티 전송 계층**: `GameTransport.Host/Guest`(§6.4), `InMemoryTransport`, `HostGameSession`(권한자 + `RemoteSeat` + 좌석별 뷰 퍼블리시 + 명령 수신·ack), `RemoteGameSession`(엔진 없이 뷰 구독 + 명령 전송). 통합 테스트: 호스트 1 + 게스트 3 완주, 게스트가 받는 뷰에 타인 비공개 카드 없음, 호스트 재시작 시 `EngineJson` 백업으로 복구. 호스트 좌석에 AI 봇을 섞을 수 있어야 한다(`AiSeat` 재사용).
-2. Phase 2 완료 후 Phase 3(신규 UI 셸 + 싱글플레이) — Android 빌드가 필요하므로 로컬 작업 또는 컴파일 미검증 상태로 진행 여부를 오너와 결정.
+## 다음 할 일
+Phase 2 완료. 다음은 Phase 3(설계 §10, §13) — Compose 단일 Activity 셸 + 디자인 시스템 + `GameScreen` + 싱글플레이 설정/결과 화면. **클라우드에서는 Android 컴파일을 검증할 수 없다**(Google Maven/SDK 차단). 선택지:
+- (A) 로컬에서 진행(권장: 빌드·실행 확인 가능). `core`는 `settings.gradle.kts`의 `includeBuild("core")`로 연결(ADR 0001), 앱은 `io.github.lhd980820.coup:runtime`/`:ai`/`:engine`에 의존.
+- (B) 클라우드에서 UI 코드를 작성하되 컴파일 미검증으로 push → 로컬에서 오류 수정 왕복.
+- (C) 그 전에 `:data`(Firestore 전송 구현)나 `RoleUiCatalog`/`GameUiMapper` 같은 **순수 Kotlin 부분**을 `core`에 먼저 만든다. `GameUiMapper`(SessionSnapshot → GameUiState)는 JVM 단위 테스트 대상이라 클라우드에서 검증 가능(설계 §10.4, §12.9).
+
+## 이번 단계 메모 (Phase 2 — 멀티 전송 계층)
+- `GameTransport.Host/Guest` (runtime/transport): `Publication`(원격 사람 좌석별 `ViewEnvelope` + 관전 뷰 + 권한자 백업), `IncomingCommand`(전송 계층이 인증한 `senderUid` 포함), `AckResult`, `GameResultRecord`(순위, 룰 설정, `rated`, 레이팅 변동), `TransportException`.
+- `InMemoryTransport`: 모든 메시지를 JSON 왕복해 전달(객체 공유 없음), 게스트는 자기 좌석 뷰만 구독 가능(`require(me.value == uid)`), `lastBackup`/`result`/`dropHost()` 테스트 훅. Firestore 구현(`:data`)이 같은 계약을 따른다.
+- `HostGameSession`: `GameAuthority` + 방장(`HostSeat.Local`, 정확히 1명) + 원격 사람(`Remote`, uid 대조) + 봇(`Bot`). 상태 변경마다 좌석별 투영 뷰를 게시, 종료 시 `finish`(순위, `rated`, 레이팅 변동). 레이팅 대상(D5): 봇·하우스룰·파라미터 변경이 모두 없을 때만. 게시 실패는 삼키고 `RECONNECTING`으로 표시(다음 게시가 전체 뷰로 따라잡음). `initialState`로 새 게임 또는 `EngineJson` 백업 복구.
+- **명령 사칭 방지**: 명령의 `actor`는 발신자 uid에 대응하는 원격 좌석이어야 한다. 모르는 발신자, 봇/방장 사칭, 다른 사람 이름의 명령은 `NOT_YOUR_DECISION`으로 거절.
+- `RemoteGameSession`: 엔진 없음. 호스트가 투영해 보낸 뷰만 표시, 순서가 뒤바뀐 갱신 폐기, 명령은 ack까지 대기(타임아웃 10초 → `NetworkError`).
+- `GameAuthority.submitFrom(player, command)`: 버전 불일치(`STALE_VERSION`)로만 거절됐고 그 플레이어의 결정이 명령이 근거한 버전 때와 같으면(최근 64버전의 결정 서명 보관) 버전 조건 없이 한 번 더 적용. 로컬 AI와 원격 사람 모두 같은 경로 → 사람 응답자 여럿의 동시 "허용"이 전부 반영된다. 도전이 동시에 몰리면 하나만 수락.
+- 엔진에 `RatingPolicy`/`TableRatingPolicy` 추가(Phase 1에서 누락됐던 항목, 기존 앱 표와 동일).
+- 검증: 호스트 1 + 게스트 3 완주(전원 같은 결과), 봇 혼합, 동시 응답, 사칭, 타인 뷰 구독 차단, **게스트가 받은 모든 갱신에 알 수 없는 카드 ID 없음**(호스트 상태 백업과 대조 — 일부러 호스트 뷰를 게스트에 보내는 버그를 심어 이 테스트가 실패함을 확인), 호스트 백업 복구 후 이어하기, 호스트 소실 감지, 전송 실패/지연 → `NetworkError`.
 
 ## 이번 단계 메모 (Phase 2 — AI)
 - `AiFactory.create(AiDifficulty.EASY|NORMAL, Personality, seed)`. HARD(결정화 탐색)는 Phase 6.
@@ -58,4 +71,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 2 AI(EASY/NORMAL) 완료_
+_마지막 갱신: 2026-10-04, Phase 2 완료_

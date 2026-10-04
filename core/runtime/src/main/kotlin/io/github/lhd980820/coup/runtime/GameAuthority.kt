@@ -34,8 +34,9 @@ public fun interface AuthorityListener {
  *   마감이 지나면 엔진의 기본 명령([GameEngine.timeoutCommand])을 대신 제출한다.
  * - 같은 결정(같은 턴의 같은 결정 요청)이 이어지는 동안은 마감을 다시 잡지 않는다. 예: 다른 사람이 통과해도 내 응답 마감은 그대로.
  * - 좌석·리스너 통지는 하나의 전달 코루틴에서 상태 변경 순서대로 이루어진다.
- * - 좌석이 낸 명령이 버전 차이(STALE_VERSION)로만 거절됐고 그 좌석의 결정 내용이 그대로라면 버전 조건 없이 다시 적용한다.
- *   (예: AI 응답자 두 명이 같은 뷰로 동시에 결정 — 다른 사람의 통과로 버전만 올라갔을 뿐 결정은 여전히 유효하다.)
+ * - [submitFrom]: 명령이 버전 차이(STALE_VERSION)로만 거절됐고 그 플레이어의 결정 내용이 명령이 근거한 버전 때와 같다면
+ *   버전 조건 없이 다시 적용한다. (예: 응답자 여럿이 같은 뷰로 동시에 "허용" — 다른 사람의 통과로 버전만 올라갔을 뿐
+ *   결정은 여전히 유효하다. 로컬 AI든 원격 사람이든 같다.)
  */
 public class GameAuthority(
     private val engine: GameEngine,
@@ -55,6 +56,7 @@ public class GameAuthority(
     private val updates = Channel<Update>(Channel.UNLIMITED)
     private val timers = mutableMapOf<PlayerId, Timer>()
     private val notified = mutableMapOf<PlayerId, Any>() // 전달 코루틴 전용
+    private val decisionHistory = ArrayDeque<Pair<Long, Map<PlayerId, Any>>>() // 최근 버전별 결정권자의 결정 서명
     private var dispatcher: Job? = null
 
     public val state: StateFlow<GameState> = _state.asStateFlow()
@@ -93,14 +95,20 @@ public class GameAuthority(
     /** 명령 제출. 수락되면 상태가 바뀌고 좌석·리스너에 순서대로 통지된다. */
     public suspend fun submit(command: Command): ApplyResult = mutex.withLock { applyLocked(command) }
 
-    /** 좌석이 [signature] 결정에 대해 낸 명령. */
-    private suspend fun submitFromSeat(player: PlayerId, signature: Any, command: Command): ApplyResult = mutex.withLock {
+    /**
+     * [player]가 낸 명령(좌석 컨트롤러나 전송 계층에서 온 것). 명령의 행위자는 [player]여야 한다.
+     * 버전 불일치로만 거절됐고 결정이 그대로면 한 번 더 적용한다(위 설명 참고).
+     */
+    public suspend fun submitFrom(player: PlayerId, command: Command): ApplyResult = mutex.withLock {
+        if (command.actor != player) return@withLock ApplyResult.Rejected(Rejection.NOT_YOUR_DECISION)
         val result = applyLocked(command)
         val stale = result is ApplyResult.Rejected && result.reason == Rejection.STALE_VERSION
         if (!stale) return@withLock result
+        val expected = command.expectedVersion ?: return@withLock result
+        val then = decisionHistory.firstOrNull { it.first == expected }?.second?.get(player) ?: return@withLock result
         val state = _state.value
         val current = engine.legalOptions(state, player) ?: return@withLock result
-        if (signatureOf(state, current) != signature) return@withLock result
+        if (signatureOf(state, current) != then) return@withLock result
         applyLocked(command.withoutExpectedVersion())
     }
 
@@ -120,6 +128,8 @@ public class GameAuthority(
     private fun refreshTimers(state: GameState) {
         val deciders = engine.pendingDeciders(state)
         val requests = deciders.associateWith { checkNotNull(engine.legalOptions(state, it)) }
+        decisionHistory.addLast(state.version to requests.mapValues { signatureOf(state, it.value) })
+        while (decisionHistory.size > HISTORY_SIZE) decisionHistory.removeFirst()
 
         timers.entries.removeAll { (player, timer) ->
             val keep = player in deciders && timer.signature == signatureOf(state, requests.getValue(player))
@@ -163,11 +173,13 @@ public class GameAuthority(
             val signature = signatureOf(update.state, request)
             if (notified[id] != signature) {
                 notified[id] = signature
-                seat.onDecisionRequired(view, request) { command -> submitFromSeat(id, signature, command) }
+                seat.onDecisionRequired(view, request) { command -> submitFrom(id, command) }
             }
         }
     }
 }
+
+private const val HISTORY_SIZE = 64
 
 /** 버전 조건을 뗀 같은 명령. */
 internal fun Command.withoutExpectedVersion(): Command = when (this) {
