@@ -8,7 +8,7 @@
 |---|---|---|
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
-| 2. 런타임 + AI(EASY/NORMAL) | ⬜ ← 다음 | `core/runtime`, `core/ai` 모듈 추가 |
+| 2. 런타임 + AI(EASY/NORMAL) | 🚧 | 런타임(권한자·좌석·로컬 세션) ✅ / 멀티 전송 계층 ⬜ / AI EASY·NORMAL ⬜ |
 | 3~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -27,20 +27,19 @@
 | 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ✅ |
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
-## 다음 할 일 (Phase 2)
-설계 §6, §7, §13. 구현 전에 `docs/adr/0003-phase1-deviations.md`를 읽을 것.
-1. `core/settings.gradle.kts`에 `:runtime`, `:ai` 추가(Kotlin JVM, `:runtime`은 coroutines). `:ai`는 `:engine`에만 의존하고 `GameState` 심볼을 쓰지 않는다(소스 스캔 테스트로 강제, 설계 §7.2).
-2. `:runtime`: `GameAuthority`(Mutex로 명령 직렬화, 결정권자 좌석 구동, 타임아웃 D4: 응답 15초/카드 선택 20초/행동 30초, 가상 `Clock` 주입), `SeatController`(`LocalHumanSeat`/`AiSeat`/`RemoteSeat`), `GameSession`(`LocalGameSession`부터), `InMemoryTransport`.
-3. `:ai` EASY/NORMAL: `AiAgent`, `CardCounter`, `ClaimHistory`, 정책 5종(§7.4). 성능 평가 하네스(`@Tag("slow")`).
-4. 필수 테스트: AI 합법성(1만 결정 거절 0), **뷰 동치 테스트**(히든 정보만 다른 두 상태에서 같은 seed의 AI는 같은 명령), 타임아웃 기본 수, AI 5명 완주(가상 시간).
+## 다음 할 일 (Phase 2 나머지)
+1. **AI EASY/NORMAL** (🧠 신념 모델은 Opus 권장): `core/ai`에 `CardCounter`(미확인 풀 계산 — 확정 블러핑이면 도전), `ClaimHistory`(이벤트에서 주장 기록, 증명/교환 시 리셋), 정책 5종(§7.4), `AiFactory.create(difficulty, personality, seed)`. `RandomAgent`는 기준선으로 유지.
+   - 필수 테스트: 합법성(1만 결정 거절 0 — `AiBoundaryTest` 패턴 재사용), **뷰 동치 테스트**(히든 정보만 다른 두 상태에서 같은 seed의 AI는 같은 명령 — 엔진 `determinize`/시나리오로 상태 쌍 생성), 확정 블러핑 상황에서 NORMAL은 반드시 도전, 토너먼트 하네스(`@Tag("slow")`, CI 제외): RANDOM < EASY < NORMAL.
+2. **멀티 전송 계층**: `GameTransport.Host/Guest`(§6.4), `InMemoryTransport`, `HostGameSession`(권한자 + `RemoteSeat` + 좌석별 뷰 퍼블리시 + 명령 수신·ack), `RemoteGameSession`(엔진 없이 뷰 구독 + 명령 전송). 통합 테스트: 호스트 1 + 게스트 3 완주, 게스트가 받는 뷰에 타인 비공개 카드 없음, 호스트 재시작 시 `EngineJson` 백업으로 복구.
 
-## 이번 단계 메모 (11단계)
-- `RuleSetBuilder`(addRole/replaceRole/removeRole/addAction/modifyAction/removeAction/updateParams), `HouseRule`, `RuleSetRegistry.registerHouseRule/availableHouseRules`. 적용 순서: 기반 → 하우스룰(ID 정렬) → 파라미터 오버라이드 → 검증.
-- 내장 하우스룰: `no_steal_from_broke`(기존 앱 동작 재현), `last_stand`. 파라미터 오버라이드(`forcedActionThreshold` 등)는 하우스룰 없이 동작.
-- 테스트 전용 `TestRules`: 가상 역할 "은행가" 하우스룰로 **엔진 코어 무수정 확장이 끝까지 플레이됨**을 지속 검증. 테스트 엔진(`testEngine`)은 이 레지스트리를 쓴다.
-- 속성 기반 테스트(`PropertyTest`): 6개 룰 조합 x 2~6인 x 60판 불변식, 리플레이 결정성, 중간 백업/복원 후 이어하기, 불법 명령 거절.
-- 골든 파일(`core/engine/src/test/resources/golden/v1/`): `game_state.json`, `player_view.json`, `commands.json`. 직렬화 형식이 바뀌어 깨지면 `ENGINE_SCHEMA_VERSION`을 올리고 이전 골든을 유지하며 마이그레이션 추가. 의도적 재생성: `UPDATE_GOLDEN=1`.
-- Kover: `cd core && ./gradlew test koverVerify` (라인 90% 게이트, CI 포함). 리포트: `core/engine/build/reports/kover/`. 현재 라인 97.9%, 분기 64.2%.
+## 이번 단계 메모 (Phase 2 — 런타임)
+- 모듈: `core/ai`(`:engine`에만 의존), `core/runtime`(`:engine`, `:ai`, coroutines). `core/settings.gradle.kts`에 포함, CI의 `core` 단계가 자동으로 함께 테스트.
+- `:ai`: `AiAgent` 인터페이스(입력은 `PlayerView`/`VisibleEvent`/`DecisionRequest`뿐), 기준선 `RandomAgent`. 정적 검사 테스트로 AI 소스의 `GameState` 참조 금지(주석 제외).
+- `GameAuthority`: Mutex로 명령 직렬화, 결정권자 좌석에 결정 요청(같은 결정은 1회), D4 마감(응답 15초/카드 선택 20초/행동 30초, `TimeoutPolicy.standard(unlimitedLocalHuman)`), 마감 시 `engine.timeoutCommand` 제출. **같은 결정이 이어지는 동안 마감 유지**(다른 사람이 통과해도 내 마감 그대로). 좌석·리스너 통지는 단일 전달 코루틴에서 순서대로.
+- 버그 수정(재현 테스트 포함): AI 응답자 여럿이 같은 뷰로 동시에 결정하면 뒤의 명령이 STALE로 거절되고 재요청이 없어 타임아웃까지 멈췄다 → 좌석 명령이 STALE로만 거절됐고 결정이 그대로면 버전 조건 없이 재적용.
+- `AiSeat`: 결정은 별도 디스패처에서, 연출 지연(`thinkTime`) 지원, 에이전트 예외 시 아무것도 내지 않음(타임아웃 기본 수가 대신). observe/decide 동시 호출 방지.
+- `LocalGameSession`(`GameSession` 구현): 사람 1 + AI들, 내 시점 스냅샷/이벤트만 노출, 다른 좌석 명령 거부.
+- 테스트는 코루틴 가상 시간(`runTest` + `backgroundScope`). 주의: `advanceUntilIdle()`은 backgroundScope 작업만 남으면 멈추므로 `runUntil { 조건 }` 도우미(`runtime/src/test/.../TestTime.kt`)를 쓴다.
 
 ## 알려진 사항
 - 클라우드 샌드박스는 기본 로케일이 UTF-8이 아니라 한글 테스트명 컴파일이 실패한다 → `LC_ALL=C.UTF-8`로 실행. (CI/Windows는 영향 없음)
@@ -51,4 +50,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 1(엔진) 완료_
+_마지막 갱신: 2026-10-04, Phase 2 런타임(로컬) 완료_
