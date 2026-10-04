@@ -6,6 +6,7 @@ import io.github.lhd980820.coup.engine.command.Rejection
 import io.github.lhd980820.coup.engine.event.GameEvent
 import io.github.lhd980820.coup.engine.model.Card
 import io.github.lhd980820.coup.engine.model.CardId
+import io.github.lhd980820.coup.engine.model.ChallengeContext
 import io.github.lhd980820.coup.engine.model.GameState
 import io.github.lhd980820.coup.engine.model.Influence
 import io.github.lhd980820.coup.engine.model.PendingAction
@@ -84,10 +85,10 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Command.DeclareAction -> declareAction(tx, command)
             is Command.LoseInfluence -> loseInfluence(tx, command)
             is Command.Pass -> pass(tx, command)
-            // 6~7단계에서 구현. 그 전까지는 응답 창에서도 WRONG_PHASE로 거절된다.
-            is Command.Challenge,
+            is Command.Challenge -> challenge(tx, command)
+            is Command.RevealCard -> revealCard(tx, command)
+            // 7단계(막기)·8단계(교환)에서 구현. 그 전까지는 WRONG_PHASE / NOT_YOUR_DECISION으로 거절된다.
             is Command.Block,
-            is Command.RevealCard,
             is Command.ChooseExchange,
             -> wrongPhaseOrNotYours(state, command.actor)
         }
@@ -112,8 +113,9 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Phase.AwaitingAction -> DecisionRequest.ChooseAction(LegalMoves.actionOptions(state, rulesOf(state), player))
             is Phase.AwaitingInfluenceLoss -> DecisionRequest.ChooseInfluenceToLose(state.player(player).hiddenCards, phase.reason)
             is Phase.AwaitingResponses -> LegalMoves.respondRequest(state, player, phase.window)
-            // 공개/교환 결정은 6~8단계에서 추가된다.
-            is Phase.AwaitingReveal, is Phase.AwaitingExchange, is Phase.GameOver -> null
+            is Phase.AwaitingReveal -> DecisionRequest.ChooseRevealCard(state.player(player).hiddenCards, phase.claimedRoles)
+            // 교환 결정은 8단계에서 추가된다.
+            is Phase.AwaitingExchange, is Phase.GameOver -> null
         }
     }
 
@@ -158,6 +160,30 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         tx.state = tx.state.copy(phase = Phase.AwaitingResponses(updated))
         tx.emit(GameEvent.Passed(cmd.actor))
         if (updated.waitingOn.isEmpty()) tx.closeAllPassed(window.kind)
+        return null
+    }
+
+    private fun challenge(tx: Transition, cmd: Command.Challenge): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        if (window.allowed[cmd.actor]?.canChallenge != true) return Rejection.CHALLENGE_NOT_ALLOWED
+        val pending = checkNotNull(tx.state.currentAction)
+        when (window.kind) {
+            WindowKind.ACTION -> tx.startChallenge(cmd.actor, pending.actor, pending.claimedRoles, ChallengeContext.ACTION)
+            WindowKind.BLOCK_ONLY -> return Rejection.CHALLENGE_NOT_ALLOWED
+            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+        }
+        return null
+    }
+
+    private fun revealCard(tx: Transition, cmd: Command.RevealCard): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingReveal ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        if (phase.challenged != cmd.actor) return Rejection.NOT_YOUR_DECISION
+        val influence = tx.state.player(cmd.actor).influences.firstOrNull { it.card.id == cmd.cardId }
+            ?: return Rejection.CARD_NOT_OWNED
+        if (influence.revealed) return Rejection.CARD_ALREADY_REVEALED
+        tx.resolveReveal(cmd.cardId)
         return null
     }
 

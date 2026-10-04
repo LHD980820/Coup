@@ -41,6 +41,24 @@ public sealed interface GameEvent {
     public data class Passed(public val player: PlayerId) : GameEvent
 
     @Serializable
+    @SerialName("challenge_issued")
+    public data class ChallengeIssued(
+        public val challenger: PlayerId,
+        public val challenged: PlayerId,
+        public val claimedRoles: Set<RoleId>,
+    ) : GameEvent
+
+    /** 도전에 대한 공개. [proven]이면 주장이 사실로 증명된 것(이 카드는 곧 덱으로 돌아간다). */
+    @Serializable
+    @SerialName("card_revealed")
+    public data class CardRevealed(public val player: PlayerId, public val card: Card, public val proven: Boolean) : GameEvent
+
+    /** 증명에 쓴 카드를 덱에 넣고 새 카드를 뽑았다. [newCard]는 당사자만 볼 수 있다(투영은 10단계). */
+    @Serializable
+    @SerialName("card_replaced")
+    public data class CardReplaced(public val player: PlayerId, public val returned: Card, public val newCard: Card) : GameEvent
+
+    @Serializable
     @SerialName("coins_changed")
     public data class CoinsChanged(
         public val player: PlayerId,

@@ -19,24 +19,28 @@
 | 3 | GameState / Phase / ResolutionStep + newGame (+ RuleSetConfig/Registry) | ✅ |
 | 4 | legalOptions(ChooseAction) + DeclareAction + 응답 없는 행동 (+ 영향력 상실 선택, 탈락/게임 종료 기본 판정) | ✅ |
 | 5 | 응답 창 + Pass + 효과 해결 + EndTurn | ✅ |
-| 6 | 도전 / 공개 / 영향력 상실 / 카드 교체 | ⬜ ← 다음 🧠 Opus 권장 |
-| 7 | 막기 / 막기 도전 / BLOCK_ONLY | ⬜ 🧠 Opus 권장 |
+| 6 | 도전 / 공개 / 영향력 상실 / 카드 교체 | ✅ |
+| 7 | 막기 / 막기 도전 / BLOCK_ONLY | ⬜ ← 다음 🧠 Opus 권장 |
 | 8 | 교환 | ⬜ |
 | 9 | 탈락 / 게임 종료 / 기권 | ⬜ |
 | 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ⬜ |
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ⬜ |
 
 ## 다음 할 일
-1. 6단계(🧠 Opus 권장): `Command.Challenge` / `Command.RevealCard`, `Phase.AwaitingReveal`, `DecisionRequest.ChooseRevealCard`, `ReplaceProvenCard`(증명 카드를 덱에 넣고 셔플 후 1장 드로우), `ContinueAfterActionChallengeFailed`, `RefundCost`. 설계 §4.5 상태도 참고. 도전 실패 시 행동 계속(막기 가능하면 `BLOCK_ONLY` 창), 도전 성공 시 행위자 카드 상실 + 비용 환불 + 턴 종료.
-2. `Transition.execute`의 `TODO(...)`는 미구현 단계 표시. 해당 단계 완료 시 제거.
+1. 7단계(🧠 Opus 권장): `Command.Block` → `PendingAction.blockedBy` 설정 + `BLOCK_CHALLENGE` 창(막은 사람 제외 생존자 전원, 행위자 포함 도전 가능). 전원 Pass → 막기 성립(`ActionResolved(BLOCKED)`, 비용 환불 없음, `EndTurn`). 막기 도전 → `startChallenge(context = BLOCK)`: 증명 시 도전자 상실 + 막은 사람 카드 교체 + 막기 성립, 블러핑 발각 시 막은 사람 카드 상실 + 행동 해결(`ApplyEffect`, `EndTurn`).
+   - `Transition`의 `TODO("Phase 1 step 7")` 4곳(창 열기/닫기 `BLOCK_CHALLENGE`, `resolveReveal`의 `BLOCK` 분기 2곳)과 `DefaultGameEngine.challenge`의 `BLOCK_CHALLENGE` 분기.
+   - `ResponseWindowTest`의 "막기 명령은 7단계 전까지 거절된다" 테스트를 실제 동작 테스트로 교체.
+   - 무작위 완주 테스트에 막기 추가.
+2. 8단계: 교환(⚠ 현재 `NotImplementedError`).
 
-## 이번 단계 메모 (5단계)
-- 응답 자격(`AllowedResponses`)은 창을 열 때 계산: 주장 있는 행동은 생존 타인 전원이 도전 가능, `BlockPolicy`에 따라 막기 역할 부여(TARGET_ONLY는 대상만). 도전도 막기도 못 하는 사람은 창에 포함하지 않는다. 응답자가 한 명도 없으면 창을 열지 않고 곧바로 통과 처리.
-- 전원 `Pass` → `ApplyEffect` + `EndTurn`. 암살/쿠 등은 효과가 `RequireInfluenceLoss`로 이어진다.
-- `DecisionRequest.Respond`는 공개 정보인 `PendingAction`을 그대로 담는다(별도 `PublicPendingAction` 타입은 만들지 않음 — 설계 §4.4와 다른 점).
-- `Command.Challenge`/`Block`은 응답 창에서도 `WRONG_PHASE`로 거절된다(6~7단계 전까지의 임시 동작; 테스트로 고정되어 있으니 6단계에서 제거/수정할 것).
-- 무작위 완주 테스트(`RandomPlayoutTest`): 2~6인 x 40판, 응답은 항상 Pass. 6~11단계에서 도전/막기/교환/기권을 추가하며 확장한다.
-- ⚠ **알려진 공백**: 교환(`exchange`)을 선언해 전원 통과하면 `NotImplementedError`가 난다(8단계 전까지). 앱 연결 전에 반드시 해결.
+## 이번 단계 메모 (6단계)
+- 도전은 응답 창에서 아직 응답하지 않은 사람만, `canChallenge`일 때만 가능(아니면 `CHALLENGE_NOT_ALLOWED` — 새 Rejection). 첫 도전이 창을 닫는다.
+- 도전받은 사람의 미공개 카드가 1장이면 고를 것이 없으므로 자동 공개.
+- 증명 성공: **카드 교체 → 도전자 상실 → 행동 계속** 순서(설계 §4.5는 상실→교체였음. 결과는 같고, 도전자가 고르는 동안 공개된 카드가 손패에 남지 않게 하려고 바꿈). 행동 계속 = 막을 수 있으면 `BLOCK_ONLY` 창, 아니면 효과 적용.
+- `BLOCK_ONLY` 창은 정책상 막을 수 있는 생존자만(예: 강탈의 대상). 도전에 실패해 탈락한 대상은 들어가지 않고 효과는 fizzle.
+- 블러핑 발각: 공개한 카드 상실(`LossReason.BluffExposed` 신설) → `ActionResolved(FAILED)` → `RefundCost`(파라미터 `refundCostWhenActionChallengeLost`, 기본 true) → `EndTurn`. 스택을 먼저 쌓고 공개해야 게임 종료 시 스택이 비워진다.
+- 새 이벤트: `ChallengeIssued`, `CardRevealed(proven)`, `CardReplaced(returned, newCard)` — `newCard`는 비공개 정보이므로 10단계 투영에서 타인에게 마스킹해야 한다.
+- 메모: 블러핑 발각으로 탈락한 행위자에게도 비용이 환불된다(무해하지만 결과 화면 코인 표시 시 참고).
 
 ## 알려진 사항
 - 클라우드 샌드박스는 기본 로케일이 UTF-8이 아니라 한글 테스트명 컴파일이 실패한다 → `LC_ALL=C.UTF-8`로 실행. (CI/Windows는 영향 없음)
@@ -47,4 +51,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, 엔진 5단계 완료_
+_마지막 갱신: 2026-10-04, 엔진 6단계 완료_

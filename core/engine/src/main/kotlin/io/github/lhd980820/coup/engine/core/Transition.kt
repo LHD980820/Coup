@@ -4,6 +4,8 @@ import io.github.lhd980820.coup.engine.event.ActionOutcome
 import io.github.lhd980820.coup.engine.event.GameEvent
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.engine.model.CardId
+import io.github.lhd980820.coup.engine.model.ChallengeContext
+import io.github.lhd980820.coup.engine.model.Influence
 import io.github.lhd980820.coup.engine.model.AllowedResponses
 import io.github.lhd980820.coup.engine.model.GameState
 import io.github.lhd980820.coup.engine.model.LossReason
@@ -11,6 +13,7 @@ import io.github.lhd980820.coup.engine.model.Phase
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.PlayerState
 import io.github.lhd980820.coup.engine.model.ResponseWindow
+import io.github.lhd980820.coup.engine.model.RoleId
 import io.github.lhd980820.coup.engine.model.TurnInfo
 import io.github.lhd980820.coup.engine.model.WindowKind
 import io.github.lhd980820.coup.engine.rules.BlockPolicy
@@ -64,9 +67,9 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
         is ResolutionStep.Effect -> applyPrimitive(step.primitive).let { false }
         ResolutionStep.EndTurn -> endTurn().let { false }
         is ResolutionStep.OpenResponseWindow -> openResponseWindow(step.kind)
-        is ResolutionStep.ReplaceProvenCard -> TODO("Phase 1 step 6: challenges")
-        ResolutionStep.ContinueAfterActionChallengeFailed -> TODO("Phase 1 step 6: challenges")
-        ResolutionStep.RefundCost -> TODO("Phase 1 step 6: challenges")
+        is ResolutionStep.ReplaceProvenCard -> replaceProvenCard(step.player, step.cardId).let { false }
+        ResolutionStep.ContinueAfterActionChallengeFailed -> continueAfterActionChallengeFailed().let { false }
+        ResolutionStep.RefundCost -> refundCost().let { false }
     }
 
     /**
@@ -103,6 +106,91 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
         when (kind) {
             WindowKind.ACTION, WindowKind.BLOCK_ONLY -> push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
             WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+        }
+    }
+
+    /**
+     * 도전 개시: 응답 창을 닫고 도전받은 사람의 공개를 기다린다.
+     * 미공개 카드가 1장뿐이면 고를 것이 없으므로 즉시 공개한다.
+     * @return 입력을 기다려야 하면 true
+     */
+    fun startChallenge(challenger: PlayerId, challenged: PlayerId, claimedRoles: Set<RoleId>, context: ChallengeContext): Boolean {
+        emit(GameEvent.ChallengeIssued(challenger, challenged, claimedRoles))
+        state = state.copy(phase = Phase.AwaitingReveal(challenged, challenger, claimedRoles, context))
+        val hidden = state.player(challenged).hiddenCards
+        if (hidden.size == 1) {
+            resolveReveal(hidden.single().id)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * 도전받은 사람이 [cardId]를 공개했다(설계 §4.5).
+     * - 주장 역할이면 증명: 카드 교체 → 도전자 영향력 상실 → (행동 도전이면) 행동 계속.
+     * - 아니면 블러핑 발각: 공개한 카드를 잃고 → (행동 도전이면) 행동 실패, 비용 환불, 턴 종료.
+     */
+    fun resolveReveal(cardId: CardId) {
+        val phase = state.phase as Phase.AwaitingReveal
+        val card = state.player(phase.challenged).hiddenCards.first { it.id == cardId }
+        val proven = card.role in phase.claimedRoles
+        emit(GameEvent.CardRevealed(phase.challenged, card, proven))
+
+        if (proven) {
+            // 교체를 상실보다 먼저 한다: 도전자가 잃을 카드를 고르는 동안 공개된 카드가 손패에 남아 있지 않게.
+            val continuation = when (phase.context) {
+                ChallengeContext.ACTION -> ResolutionStep.ContinueAfterActionChallengeFailed
+                ChallengeContext.BLOCK -> TODO("Phase 1 step 7: blocks")
+            }
+            push(
+                ResolutionStep.ReplaceProvenCard(phase.challenged, cardId),
+                ResolutionStep.RequireInfluenceLoss(phase.challenger, LossReason.ChallengeLost),
+                continuation,
+            )
+        } else {
+            when (phase.context) {
+                ChallengeContext.ACTION -> {
+                    val pending = checkNotNull(state.currentAction)
+                    emit(GameEvent.ActionResolved(pending.actionId, ActionOutcome.FAILED))
+                    push(ResolutionStep.RefundCost, ResolutionStep.EndTurn)
+                }
+                ChallengeContext.BLOCK -> TODO("Phase 1 step 7: blocks")
+            }
+            // 스택을 먼저 쌓은 뒤 공개한다: 이 공개로 게임이 끝나면 reveal()이 스택을 비운다.
+            reveal(phase.challenged, cardId, LossReason.BluffExposed)
+        }
+    }
+
+    /** 증명에 쓴 카드를 덱에 넣고 셔플한 뒤 맨 위 카드를 같은 자리에 받는다. */
+    private fun replaceProvenCard(player: PlayerId, cardId: CardId) {
+        val owner = state.player(player)
+        val slot = owner.influences.indexOfFirst { it.card.id == cardId && !it.revealed }
+        if (slot < 0) return // 그사이 카드가 사라졌다(예: 기권) — 교체할 것이 없다.
+        val returned = owner.influences[slot].card
+        val (shuffled, rng) = state.rng.shuffled(state.deck + returned)
+        val drawn = shuffled.first()
+        state = state.copy(deck = shuffled.drop(1), rng = rng)
+        updatePlayer(player) { p ->
+            p.copy(influences = p.influences.toMutableList().also { it[slot] = Influence(drawn) })
+        }
+        emit(GameEvent.CardReplaced(player, returned, drawn))
+    }
+
+    /** 행동에 대한 도전이 실패(행위자가 증명)한 뒤: 막을 수 있는 행동이면 막기 전용 창, 아니면 효과 적용. */
+    private fun continueAfterActionChallengeFailed() {
+        val pending = checkNotNull(state.currentAction)
+        val action = checkNotNull(rules.action(pending.actionId))
+        if (action.blockPolicy != BlockPolicy.NONE && pending.blockedBy == null) {
+            push(ResolutionStep.OpenResponseWindow(WindowKind.BLOCK_ONLY))
+        } else {
+            push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+        }
+    }
+
+    private fun refundCost() {
+        val pending = checkNotNull(state.currentAction)
+        if (rules.params.refundCostWhenActionChallengeLost && pending.costPaid > 0) {
+            changeCoins(pending.actor, pending.costPaid, pending.actionId)
         }
     }
 

@@ -40,6 +40,11 @@ public sealed interface LossReason {
     @SerialName("challenge_lost")
     public data object ChallengeLost : LossReason
 
+    /** 도전받고 주장 역할이 아닌 카드를 공개해(블러핑 발각) 그 카드를 잃는 경우. */
+    @Serializable
+    @SerialName("bluff_exposed")
+    public data object BluffExposed : LossReason
+
     /** 행동 효과(쿠, 암살 등)로 잃는 경우. */
     @Serializable
     @SerialName("action_effect")

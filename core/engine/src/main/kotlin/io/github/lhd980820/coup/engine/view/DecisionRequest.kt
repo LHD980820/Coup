@@ -35,7 +35,7 @@ public data class ActionOption(
 @Serializable
 public data class BlockOption(public val role: RoleId, public val iHoldRole: Boolean)
 
-/** 플레이어가 지금 내려야 하는 결정. 공개/교환 타입은 6단계 이후 추가된다. */
+/** 플레이어가 지금 내려야 하는 결정. 교환 타입은 8단계에서 추가된다. */
 @Serializable
 public sealed interface DecisionRequest {
     @Serializable
@@ -53,6 +53,10 @@ public sealed interface DecisionRequest {
         public val blockOptions: List<BlockOption>,
         public val canPass: Boolean = true,
     ) : DecisionRequest
+
+    /** 도전받았다: 공개할 카드를 고른다. [claimedRoles] 중 하나를 공개하면 증명 성공, 아니면 공개한 카드를 잃는다. */
+    @Serializable
+    public data class ChooseRevealCard(public val cards: List<Card>, public val claimedRoles: Set<RoleId>) : DecisionRequest
 
     @Serializable
     public data class ChooseInfluenceToLose(public val cards: List<Card>, public val reason: LossReason) : DecisionRequest
