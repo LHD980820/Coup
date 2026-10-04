@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /** 방장 기기의 좌석 구성. 멀티플레이에서 [Remote]의 [PlayerId]는 보통 사용자 uid다. */
 public sealed interface HostSeat {
@@ -74,6 +76,7 @@ public class HostGameSession(
     private val ratingPolicy: RatingPolicy = TableRatingPolicy,
     aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
     aiThinkTime: ClosedRange<Duration> = Duration.ZERO..Duration.ZERO,
+    heartbeatInterval: Duration = DEFAULT_HEARTBEAT_INTERVAL,
 ) : GameSession {
     private val local: HostSeat.Local = seats.filterIsInstance<HostSeat.Local>().singleOrNull()
         ?: throw IllegalArgumentException("exactly one local (host) seat is required")
@@ -96,6 +99,7 @@ public class HostGameSession(
     private val _connection = MutableStateFlow(ConnectionState.CONNECTED)
     private val authority: GameAuthority
     private var intake: Job? = null
+    private var heartbeat: Job? = null
     private var finished = false
 
     override val gameId: String = initialState.gameId
@@ -120,6 +124,18 @@ public class HostGameSession(
         authority = GameAuthority(engine, initialState, controllers, timeoutPolicy, clock, scope)
         authority.addListener(AuthorityListener { state, events, deadlines -> onStateChanged(state, events, deadlines) })
         authority.start()
+        heartbeat = scope.launch {
+            while (true) {
+                try {
+                    transport.heartbeat(gameId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    // 다음 주기에 다시 시도한다. 게임 진행에는 영향 없다.
+                }
+                delay(heartbeatInterval)
+            }
+        }
         intake = scope.launch {
             transport.incomingCommands(gameId).collect { incoming ->
                 val ack = handleRemoteCommand(incoming.senderUid, incoming.command)
@@ -195,7 +211,11 @@ public class HostGameSession(
 
     override fun close() {
         intake?.cancel()
+        heartbeat?.cancel()
         authority.stop()
         _connection.value = ConnectionState.CLOSED
     }
 }
+
+/** 방장 생존 신호 주기(설계 §8.2: 10초). */
+public val DEFAULT_HEARTBEAT_INTERVAL: Duration = 10.seconds

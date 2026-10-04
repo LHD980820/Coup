@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin 부분 ✅ `core/presentation` (ADR 0004) / (B) Compose UI는 클라우드에서 컴파일 미검증으로 작성 ⬜ ← 다음 |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비·튜토리얼 ⬜ / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -29,12 +29,21 @@
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
 ## 다음 할 일
-오너 결정: **Android 로컬 빌드는 불가, 클라우드에서만 진행** → (C) 순수 Kotlin 먼저, 이후 (B) Compose UI를 컴파일 미검증으로 작성.
-1. **(C) 남은 순수 Kotlin 부분** (`core`에서 검증 가능):
-   - `:data` 성격의 Firestore 전송: `DocumentStore` 추상화(문서 set/observe/배치/쿼리) 위에 `FirestoreGameTransport`(설계 §8.2 스키마 v2: `games/{id}/views/{uid}`, `authority/state`, `commands/{id}`) 구현 + 메모리 `DocumentStore` 가짜로 테스트. 실제 Firebase 어댑터는 `:app`/Android 쪽 얇은 구현. `firestore.rules`는 작성하되 에뮬레이터 없이는 **미검증**으로 표시.
-   - 방/로비 도메인 모델과 순수 로직(`RoomRepository` 인터페이스, 좌석 배치/준비/시작 규칙, 하우스룰 선택 → `RuleSetConfig`).
-   - 튜토리얼 시나리오(조작된 덱 + `ScriptedAgent`)는 `determinize` 기반으로 순수 Kotlin 테스트 가능.
-2. **(B) Compose UI** (컴파일 미검증 — 로컬 오류 수정 왕복 없이 오너가 직접 열어 확인하기 어려움): `:app`에 단일 Activity 셸, 디자인 시스템, `GameScreen`(은 `GameController.state`를 그리기만), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`(제네릭 카드 폴백). 코드 작성 시 Compose 안정 API만 사용하고 모든 로직은 `:presentation`으로 밀어 넣어 오류 면적을 최소화한다. 이 단계 산출물은 "컴파일 미검증"임을 PR 설명에 명시.
+계획 변경(오너, 2026-10-04): **C -> A안(Android 빌드가 가능한 새 클라우드 세션/환경에서 UI 작업) -> 현재 세션 복귀**. 아래 "A안 전제 조건" 참고.
+1. **(C) 남은 순수 Kotlin 부분**:
+   - 방/로비 도메인(`RoomRepository` 인터페이스, 좌석 배치·준비·시작 규칙, 하우스룰 선택 -> `RuleSetConfig`, 방장이 게임 시작 시 `createGame` + `HostGameSession` 구성).
+   - 튜토리얼 시나리오(조작된 덱 + `ScriptedAgent`, `determinize` 기반).
+   - 사용자/랭킹 도메인(레이팅 반영: `results/{id}`를 읽어 본인 rating 1회 갱신 — 설계 §8.4) — 규칙과 함께.
+2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
+3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
+4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (C) — Firestore 전송, ADR 0005)
+- 새 모듈 `core/remote`: `DocumentStore`(write 배치/observe/observeWhere), `FirestoreSchema`(경로·필드 상수), `FirestoreGameTransport`(host/guest). 게시는 좌석별 뷰 + 관전 뷰 + 권한자 백업 + 메타를 **한 배치**로 쓴다. 방장 본인 뷰는 문서로 나가지 않는다.
+- 명령: 게스트가 `commands/{id}`를 PENDING으로 쓰고 방장이 APPLIED(적용 버전)/REJECTED(사유)로 바꿀 때까지 구독. 형식이 잘못된 명령 문서는 방장이 REJECTED 처리하고 건너뛴다. 발신자(`senderUid`)와 명령의 `actor`가 다르면 방장이 `NOT_YOUR_DECISION`.
+- 연결 상태: 방장 생존 신호(10초 주기, `GameTransport.Host.heartbeat` 신설) -> 게스트는 30초 초과 시 `HOST_LOST`, 게임 FINISHED면 `CLOSED`.
+- 접근 규칙: 테스트 `FakeFirestore.AccessPolicy`가 설계 §8.3 매트릭스를 실행 가능한 모델로 구현. 실제 `firebase/firestore.rules`는 그 손 번역이며 **미검증**(`firebase/README.md`: 검증 절차, 알려진 위험).
+- 15개 테스트(4인 완주, 복구, 명령 수명주기, 동시 응답, 사칭, 접근 거부 6종 등) + 변이 검증.
 
 ## 이번 단계 메모 (Phase 3 (C) — presentation)
 - 새 모듈 `core/presentation` (ADR 0004). `GameUiState`(구조화된 값), `GameUiMapper`(순수 함수), `GameController`(의도 처리), `EventMapper`(로그·애니메이션 신호), `SinglePlayerConfig`/`SinglePlayerSessionFactory`.
@@ -80,4 +89,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 3 (C) 일부 완료_
+_마지막 갱신: 2026-10-04, Phase 3 (C) Firestore 전송 완료_

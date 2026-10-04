@@ -55,7 +55,7 @@ public class GameResultRecord(
 )
 
 /** 전송 실패(네트워크 오류 등). 세션은 이를 [io.github.lhd980820.coup.runtime.session.SubmitResult.NetworkError]로 바꾼다. */
-public class TransportException(message: String, cause: Throwable? = null) : Exception(message, cause)
+public open class TransportException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** 호스트와 게스트 사이의 통로 추상화(설계 §6.4). 메모리 구현은 테스트용, Firestore 구현은 `:data`에 둔다. */
 public interface GameTransport {
@@ -64,6 +64,9 @@ public interface GameTransport {
         public fun incomingCommands(gameId: String): Flow<IncomingCommand>
         public suspend fun acknowledge(gameId: String, commandId: String, ack: AckResult)
         public suspend fun finish(gameId: String, result: GameResultRecord)
+
+        /** "방장이 살아 있다"는 신호. 상태가 안 바뀌는 동안에도 주기적으로 보내 게스트가 방장 소실을 알아챌 수 있게 한다. */
+        public suspend fun heartbeat(gameId: String) {}
     }
 
     public interface Guest {

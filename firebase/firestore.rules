@@ -1,0 +1,76 @@
+rules_version = '2';
+
+// ⚠ 미검증: 이 파일은 core/remote/src/test/.../FakeFirestore.kt 의 AccessPolicy(실행 가능한 모델)를 손으로 옮긴 것이다.
+// 클라우드 개발 환경에서는 Firebase 에뮬레이터를 돌릴 수 없어 이 규칙 자체는 아직 실행해 보지 못했다.
+// 배포 전에 firebase/README.md 의 검증 절차(에뮬레이터 규칙 테스트)를 반드시 수행할 것.
+// 정책을 바꿀 때는 AccessPolicy 와 이 파일을 함께 고친다. (설계 문서 §8.3, docs/adr/0005)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function gameData(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function isHost(gameId) {
+      return signedIn() && request.auth.uid == gameData(gameId).hostUid;
+    }
+
+    function isSeat(gameId) {
+      return signedIn() && request.auth.uid in gameData(gameId).seats;
+    }
+
+    // 게임 문서: 좌석이면 읽기, 방장만 수정. 만드는 사람이 곧 방장이어야 한다.
+    match /games/{gameId} {
+      allow read: if isSeat(gameId);
+      allow create: if signedIn()
+                    && request.resource.data.hostUid == request.auth.uid
+                    && request.auth.uid in request.resource.data.seats;
+      allow update: if isHost(gameId);
+      allow delete: if false;
+
+      // 좌석별 뷰: 자기 것만 읽는다. 관전 뷰는 좌석이면 읽는다. 쓰기는 방장만.
+      match /views/{viewerId} {
+        allow read: if signedIn()
+                    && (viewerId == request.auth.uid
+                        || (viewerId == 'spectator' && isSeat(gameId)));
+        allow write: if isHost(gameId);
+      }
+
+      // 권한자 상태 백업(모든 플레이어의 비공개 카드 포함): 방장만.
+      match /authority/{doc} {
+        allow read, write: if isHost(gameId);
+      }
+
+      // 게스트 명령: 보낸 사람이 자기 uid로, 방장이 아닌 좌석으로, PENDING 상태로만 만든다.
+      // 읽기는 방장 또는 보낸 사람. 상태 변경(승인/거절)은 방장만. 삭제 금지.
+      match /commands/{commandId} {
+        allow create: if isSeat(gameId)
+                      && request.auth.uid != gameData(gameId).hostUid
+                      && request.resource.data.senderUid == request.auth.uid
+                      && request.resource.data.status == 'PENDING';
+        allow get: if isHost(gameId)
+                   || (signedIn() && resource.data.senderUid == request.auth.uid);
+        allow list: if isHost(gameId);
+        allow update: if isHost(gameId);
+        allow delete: if false;
+      }
+    }
+
+    // 종료 결과: 방장이 한 번 만들고 수정 불가. 순위는 공개 정보.
+    match /results/{gameId} {
+      allow read: if signedIn();
+      allow create: if isHost(gameId);
+      allow update, delete: if false;
+    }
+
+    // 그 밖의 경로는 이 파일이 다루지 않는다(사용자/방/랭킹 규칙은 해당 기능 구현 시 추가).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
