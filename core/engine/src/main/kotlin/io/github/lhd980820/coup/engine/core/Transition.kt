@@ -65,7 +65,7 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
     private fun execute(step: ResolutionStep): Boolean = when (step) {
         is ResolutionStep.RequireInfluenceLoss -> requireInfluenceLoss(step.player, step.reason)
         ResolutionStep.ApplyEffect -> applyEffect().let { false }
-        is ResolutionStep.Effect -> applyPrimitive(step.primitive).let { false }
+        is ResolutionStep.Effect -> applyPrimitive(step.primitive)
         ResolutionStep.EndTurn -> endTurn().let { false }
         is ResolutionStep.OpenResponseWindow -> openResponseWindow(step.kind)
         is ResolutionStep.ReplaceProvenCard -> replaceProvenCard(step.player, step.cardId).let { false }
@@ -272,7 +272,8 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
         push(*action.effect.plan(ctx).map { ResolutionStep.Effect(it) }.toTypedArray())
     }
 
-    private fun applyPrimitive(primitive: Primitive) {
+    /** @return 플레이어 입력을 기다려야 하면 true */
+    private fun applyPrimitive(primitive: Primitive): Boolean {
         val actionId = state.currentAction?.actionId
         when (primitive) {
             is Primitive.GainCoins -> changeCoins(primitive.player, primitive.amount, actionId)
@@ -289,8 +290,46 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
                     LossReason.ActionEffect(checkNotNull(actionId) { "influence loss outside an action" }),
                 ),
             )
-            is Primitive.Exchange -> TODO("Phase 1 step 8: exchange")
+            is Primitive.Exchange -> return startExchange(primitive.player, primitive.drawCount)
         }
+        return false
+    }
+
+    /**
+     * 덱 위에서 [drawCount]장을 "엿본다"(선택이 끝날 때까지 덱에 그대로 있어 카드 총량이 보존된다).
+     * 뽑을 카드가 없거나 미공개 카드가 없으면 교환할 것이 없으므로 건너뛴다.
+     * @return 입력을 기다려야 하면 true
+     */
+    private fun startExchange(player: PlayerId, drawCount: Int): Boolean {
+        val hidden = state.player(player).hiddenCards
+        val drawn = state.deck.take(drawCount)
+        if (hidden.isEmpty() || drawn.isEmpty()) return false
+        emit(GameEvent.ExchangeDrawn(player, drawn))
+        state = state.copy(phase = Phase.AwaitingExchange(player, hidden + drawn, keepCount = hidden.size))
+        return true
+    }
+
+    /** 남길 카드를 손패의 미공개 자리에 채우고, 나머지는 덱으로 돌려보낸다(룰 파라미터에 따라 셔플 또는 맨 아래). */
+    fun completeExchange(keep: List<CardId>) {
+        val phase = state.phase as Phase.AwaitingExchange
+        val byId = phase.candidates.associateBy { it.id }
+        val kept = keep.map { byId.getValue(it) }
+        val returned = phase.candidates.filter { it.id !in keep }
+        val drawnCount = phase.candidates.size - phase.keepCount
+
+        val remaining = state.deck.drop(drawnCount)
+        if (rules.params.exchangeReturnShuffles) {
+            val (shuffled, rng) = state.rng.shuffled(remaining + returned)
+            state = state.copy(deck = shuffled, rng = rng)
+        } else {
+            state = state.copy(deck = remaining + returned)
+        }
+
+        val queue = kept.iterator()
+        updatePlayer(phase.player) { p ->
+            p.copy(influences = p.influences.map { if (it.revealed) it else Influence(queue.next()) })
+        }
+        emit(GameEvent.ExchangeCompleted(phase.player))
     }
 
     private fun endTurn() {

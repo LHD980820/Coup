@@ -62,6 +62,15 @@ public sealed interface GameEvent {
     @SerialName("card_replaced")
     public data class CardReplaced(public val player: PlayerId, public val returned: Card, public val newCard: Card) : GameEvent
 
+    /** 교환을 위해 덱 위에서 뽑은 카드. 당사자만 볼 수 있다(투영은 10단계). */
+    @Serializable
+    @SerialName("exchange_drawn")
+    public data class ExchangeDrawn(public val player: PlayerId, public val cards: List<Card>) : GameEvent
+
+    @Serializable
+    @SerialName("exchange_completed")
+    public data class ExchangeCompleted(public val player: PlayerId) : GameEvent
+
     @Serializable
     @SerialName("coins_changed")
     public data class CoinsChanged(

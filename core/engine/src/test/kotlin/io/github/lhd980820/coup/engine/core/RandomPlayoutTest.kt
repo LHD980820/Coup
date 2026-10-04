@@ -18,7 +18,7 @@ import kotlin.random.Random
 
 /**
  * 무작위 합법 수로 끝까지 진행하며 불변식을 검사하는 초기 안전망.
- * 응답은 Pass / (가능하면) 25% 도전 / 25% 막기. 교환은 8단계 전까지 고르지 않는다. (Phase 1 11단계에서 확장)
+ * 응답은 Pass / (가능하면) 25% 도전 / 25% 막기. (Phase 1 11단계에서 확장)
  */
 class RandomPlayoutTest {
 
@@ -42,7 +42,7 @@ class RandomPlayoutTest {
                 val who = deciders.random(rnd)
                 val command = when (val request = testEngine.legalOptions(state, who)!!) {
                     is DecisionRequest.ChooseAction -> {
-                        val options = request.options.filter { it.selectable && it.actionId.value != "exchange" }
+                        val options = request.options.filter { it.selectable }
                         val o = options.random(rnd)
                         Command.DeclareAction(who, o.actionId, o.validTargets?.random(rnd), state.version)
                     }
@@ -52,6 +52,8 @@ class RandomPlayoutTest {
                             Command.Block(who, request.blockOptions.random(rnd).role, state.version)
                         else -> Command.Pass(who, state.version)
                     }
+                    is DecisionRequest.ChooseExchange ->
+                        Command.ChooseExchange(who, request.candidates.shuffled(rnd).take(request.keepCount).map { it.id }, state.version)
                     is DecisionRequest.ChooseRevealCard -> Command.RevealCard(who, request.cards.random(rnd).id, state.version)
                     is DecisionRequest.ChooseInfluenceToLose -> Command.LoseInfluence(who, request.cards.random(rnd).id, state.version)
                 }

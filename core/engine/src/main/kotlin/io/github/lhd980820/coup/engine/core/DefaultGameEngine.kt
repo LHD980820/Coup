@@ -88,9 +88,7 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Command.Challenge -> challenge(tx, command)
             is Command.RevealCard -> revealCard(tx, command)
             is Command.Block -> block(tx, command)
-            // 8단계(교환)에서 구현. 그 전까지는 WRONG_PHASE / NOT_YOUR_DECISION으로 거절된다.
-            is Command.ChooseExchange,
-            -> wrongPhaseOrNotYours(state, command.actor)
+            is Command.ChooseExchange -> chooseExchange(tx, command)
         }
         if (rejection != null) return ApplyResult.Rejected(rejection)
 
@@ -114,8 +112,8 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Phase.AwaitingInfluenceLoss -> DecisionRequest.ChooseInfluenceToLose(state.player(player).hiddenCards, phase.reason)
             is Phase.AwaitingResponses -> LegalMoves.respondRequest(state, player, phase.window)
             is Phase.AwaitingReveal -> DecisionRequest.ChooseRevealCard(state.player(player).hiddenCards, phase.claimedRoles)
-            // 교환 결정은 8단계에서 추가된다.
-            is Phase.AwaitingExchange, is Phase.GameOver -> null
+            is Phase.AwaitingExchange -> DecisionRequest.ChooseExchange(phase.candidates, phase.keepCount)
+            is Phase.GameOver -> null
         }
     }
 
@@ -186,6 +184,17 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
         if (cmd.asRole !in window.allowed[cmd.actor]?.blockRoles.orEmpty()) return Rejection.ROLE_CANNOT_BLOCK
         tx.declareBlock(cmd.actor, cmd.asRole)
+        return null
+    }
+
+    private fun chooseExchange(tx: Transition, cmd: Command.ChooseExchange): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingExchange ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        if (phase.player != cmd.actor) return Rejection.NOT_YOUR_DECISION
+        val valid = cmd.keep.size == phase.keepCount &&
+            cmd.keep.toSet().size == cmd.keep.size &&
+            cmd.keep.all { keep -> phase.candidates.any { it.id == keep } }
+        if (!valid) return Rejection.INVALID_EXCHANGE_SELECTION
+        tx.completeExchange(cmd.keep)
         return null
     }
 
