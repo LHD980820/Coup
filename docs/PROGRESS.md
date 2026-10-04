@@ -8,7 +8,7 @@
 |---|---|---|
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
-| 2. 런타임 + AI(EASY/NORMAL) | 🚧 | 런타임(권한자·좌석·로컬 세션) ✅ / 멀티 전송 계층 ⬜ / AI EASY·NORMAL ⬜ |
+| 2. 런타임 + AI(EASY/NORMAL) | 🚧 | 런타임(권한자·좌석·로컬 세션) ✅ / AI EASY·NORMAL ✅ / 멀티 전송 계층 ⬜ ← 다음 |
 | 3~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -28,9 +28,17 @@
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
 ## 다음 할 일 (Phase 2 나머지)
-1. **AI EASY/NORMAL** (🧠 신념 모델은 Opus 권장): `core/ai`에 `CardCounter`(미확인 풀 계산 — 확정 블러핑이면 도전), `ClaimHistory`(이벤트에서 주장 기록, 증명/교환 시 리셋), 정책 5종(§7.4), `AiFactory.create(difficulty, personality, seed)`. `RandomAgent`는 기준선으로 유지.
-   - 필수 테스트: 합법성(1만 결정 거절 0 — `AiBoundaryTest` 패턴 재사용), **뷰 동치 테스트**(히든 정보만 다른 두 상태에서 같은 seed의 AI는 같은 명령 — 엔진 `determinize`/시나리오로 상태 쌍 생성), 확정 블러핑 상황에서 NORMAL은 반드시 도전, 토너먼트 하네스(`@Tag("slow")`, CI 제외): RANDOM < EASY < NORMAL.
-2. **멀티 전송 계층**: `GameTransport.Host/Guest`(§6.4), `InMemoryTransport`, `HostGameSession`(권한자 + `RemoteSeat` + 좌석별 뷰 퍼블리시 + 명령 수신·ack), `RemoteGameSession`(엔진 없이 뷰 구독 + 명령 전송). 통합 테스트: 호스트 1 + 게스트 3 완주, 게스트가 받는 뷰에 타인 비공개 카드 없음, 호스트 재시작 시 `EngineJson` 백업으로 복구.
+1. **멀티 전송 계층**: `GameTransport.Host/Guest`(§6.4), `InMemoryTransport`, `HostGameSession`(권한자 + `RemoteSeat` + 좌석별 뷰 퍼블리시 + 명령 수신·ack), `RemoteGameSession`(엔진 없이 뷰 구독 + 명령 전송). 통합 테스트: 호스트 1 + 게스트 3 완주, 게스트가 받는 뷰에 타인 비공개 카드 없음, 호스트 재시작 시 `EngineJson` 백업으로 복구. 호스트 좌석에 AI 봇을 섞을 수 있어야 한다(`AiSeat` 재사용).
+2. Phase 2 완료 후 Phase 3(신규 UI 셸 + 싱글플레이) — Android 빌드가 필요하므로 로컬 작업 또는 컴파일 미검증 상태로 진행 여부를 오너와 결정.
+
+## 이번 단계 메모 (Phase 2 — AI)
+- `AiFactory.create(AiDifficulty.EASY|NORMAL, Personality, seed)`. HARD(결정화 탐색)는 Phase 6.
+- 신념: `CardCounter`(미확인 풀 = 구성 − 내 손패 − 공개 카드 − 교환 중 본 카드, 초기하 확률), `ClaimHistory`(주장/막기 기록, 증명·교환·상실 시 리셋, 블러핑 발각률 평활화), `Beliefs`(사전확률 x 주장 우도비 1/블러핑률, 미확인 0장이면 확정 블러핑).
+- 정책(`HeuristicAgent`): 행동 점수 = 이득 + 위협 대상 보너스 − 막힐 위험 − 블러핑 위험. 응답: 역할 있으면 막기, 마지막 카드로 암살당하면 블러핑 막기, 도전은 기대값(EV) 기반. 공개/상실/교환은 역할 가치(`Valuation`: 알려진 행동 표 + 처음 보는 행동은 룰 요약으로 추정).
+- 보정: 블러핑 위험을 낮게 잡으면 NORMAL이 EASY에게 진다(0.42). 의심 0.35 / 신중 2.0으로 보정해 EASY 상대 2인 0.80.
+- 버그 수정(회귀 테스트 포함): 마지막 카드끼리 "암살 → 블러핑 막기 → 통과"가 무한 반복 → 잃을 게 없는 막기의 주장은 무시하고 사전확률로 판단.
+- 대결 승률표(`cd core && ./gradlew :ai:tournament`, 500판/칸): 보통 vs 무작위 2인 0.93 / 4인 0.84 / 6인 0.84, 보통 vs 쉬움 0.80 / 0.76 / 0.78, 쉬움 vs 무작위 0.89 / 0.64 / 0.48. 같은 난이도끼리는 기준선과 일치(측정 검산).
+- 테스트: 실력 서열(기본 실행), 합법성(난이도별 1만 결정 이상, 하우스룰·파라미터 조합·성격 3종), **뷰 동치**(무작위 게임 매 결정마다 상대 손패·덱을 섞은 "다른 세계"를 만들어 같은 결정인지 1천 회 이상 검사), 확정 블러핑 시 반드시 도전, 귀부인 보유 시 암살 막기, 교환 시 역할 다양성.
 
 ## 이번 단계 메모 (Phase 2 — 런타임)
 - 모듈: `core/ai`(`:engine`에만 의존), `core/runtime`(`:engine`, `:ai`, coroutines). `core/settings.gradle.kts`에 포함, CI의 `core` 단계가 자동으로 함께 테스트.
@@ -50,4 +58,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 2 런타임(로컬) 완료_
+_마지막 갱신: 2026-10-04, Phase 2 AI(EASY/NORMAL) 완료_

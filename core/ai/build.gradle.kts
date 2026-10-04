@@ -15,3 +15,15 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.assertk)
 }
+
+// 대규모 대결(@Tag("slow"))은 기본 테스트에서 제외하고 `./gradlew :ai:tournament`로 따로 돌린다.
+tasks.test {
+    useJUnitPlatform { excludeTags("slow") }
+}
+tasks.register<Test>("tournament") {
+    description = "AI 난이도별 대규모 대결 측정 (느림)"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("slow") }
+    testLogging { showStandardStreams = true }
+}
