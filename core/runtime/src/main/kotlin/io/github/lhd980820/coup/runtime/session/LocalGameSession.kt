@@ -52,7 +52,7 @@ public class LocalGameSession(
     }
 
     private val _snapshot = MutableStateFlow<SessionSnapshot?>(null)
-    private val _events = MutableSharedFlow<VisibleEvent>(replay = 0, extraBufferCapacity = 256)
+    private val _events = MutableSharedFlow<VisibleEvent>(replay = EVENT_REPLAY, extraBufferCapacity = 256)
     private val _connection = MutableStateFlow(ConnectionState.CONNECTED)
 
     private val authority: GameAuthority

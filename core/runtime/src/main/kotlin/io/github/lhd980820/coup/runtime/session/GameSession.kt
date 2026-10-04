@@ -38,7 +38,10 @@ public interface GameSession {
     public val me: PlayerId?
     public val snapshot: StateFlow<SessionSnapshot?>
 
-    /** 애니메이션·로그용 이벤트(내 시점으로 투영됨). */
+    /**
+     * 애니메이션·로그용 이벤트(내 시점으로 투영됨). 구독이 늦어도 최근 [EVENT_REPLAY]개는 다시 받는다 —
+     * 화면(ViewModel)이 구독하기 전에 AI가 먼저 행동해도 로그가 빠지지 않게 하기 위해서다.
+     */
     public val events: SharedFlow<VisibleEvent>
     public val connection: StateFlow<ConnectionState>
 
@@ -46,3 +49,6 @@ public interface GameSession {
     public suspend fun concede(): SubmitResult
     public fun close()
 }
+
+/** [GameSession.events]가 늦게 구독한 쪽에 다시 보내주는 최근 이벤트 수. */
+public const val EVENT_REPLAY: Int = 64

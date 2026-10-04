@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | ⬜ ← 다음 | **Android 빌드 필요** — 오너 결정 필요(아래) |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin 부분 ✅ `core/presentation` (ADR 0004) / (B) Compose UI는 클라우드에서 컴파일 미검증으로 작성 ⬜ ← 다음 |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -29,10 +29,19 @@
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
 ## 다음 할 일
-Phase 2 완료. 다음은 Phase 3(설계 §10, §13) — Compose 단일 Activity 셸 + 디자인 시스템 + `GameScreen` + 싱글플레이 설정/결과 화면. **클라우드에서는 Android 컴파일을 검증할 수 없다**(Google Maven/SDK 차단). 선택지:
-- (A) 로컬에서 진행(권장: 빌드·실행 확인 가능). `core`는 `settings.gradle.kts`의 `includeBuild("core")`로 연결(ADR 0001), 앱은 `io.github.lhd980820.coup:runtime`/`:ai`/`:engine`에 의존.
-- (B) 클라우드에서 UI 코드를 작성하되 컴파일 미검증으로 push → 로컬에서 오류 수정 왕복.
-- (C) 그 전에 `:data`(Firestore 전송 구현)나 `RoleUiCatalog`/`GameUiMapper` 같은 **순수 Kotlin 부분**을 `core`에 먼저 만든다. `GameUiMapper`(SessionSnapshot → GameUiState)는 JVM 단위 테스트 대상이라 클라우드에서 검증 가능(설계 §10.4, §12.9).
+오너 결정: **Android 로컬 빌드는 불가, 클라우드에서만 진행** → (C) 순수 Kotlin 먼저, 이후 (B) Compose UI를 컴파일 미검증으로 작성.
+1. **(C) 남은 순수 Kotlin 부분** (`core`에서 검증 가능):
+   - `:data` 성격의 Firestore 전송: `DocumentStore` 추상화(문서 set/observe/배치/쿼리) 위에 `FirestoreGameTransport`(설계 §8.2 스키마 v2: `games/{id}/views/{uid}`, `authority/state`, `commands/{id}`) 구현 + 메모리 `DocumentStore` 가짜로 테스트. 실제 Firebase 어댑터는 `:app`/Android 쪽 얇은 구현. `firestore.rules`는 작성하되 에뮬레이터 없이는 **미검증**으로 표시.
+   - 방/로비 도메인 모델과 순수 로직(`RoomRepository` 인터페이스, 좌석 배치/준비/시작 규칙, 하우스룰 선택 → `RuleSetConfig`).
+   - 튜토리얼 시나리오(조작된 덱 + `ScriptedAgent`)는 `determinize` 기반으로 순수 Kotlin 테스트 가능.
+2. **(B) Compose UI** (컴파일 미검증 — 로컬 오류 수정 왕복 없이 오너가 직접 열어 확인하기 어려움): `:app`에 단일 Activity 셸, 디자인 시스템, `GameScreen`(은 `GameController.state`를 그리기만), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`(제네릭 카드 폴백). 코드 작성 시 Compose 안정 API만 사용하고 모든 로직은 `:presentation`으로 밀어 넣어 오류 면적을 최소화한다. 이 단계 산출물은 "컴파일 미검증"임을 PR 설명에 명시.
+
+## 이번 단계 메모 (Phase 3 (C) — presentation)
+- 새 모듈 `core/presentation` (ADR 0004). `GameUiState`(구조화된 값), `GameUiMapper`(순수 함수), `GameController`(의도 처리), `EventMapper`(로그·애니메이션 신호), `SinglePlayerConfig`/`SinglePlayerSessionFactory`.
+- 컨트롤러 의도: `chooseAction`(대상 필요하면 `PickTarget` 단계), `chooseTarget`, `cancelTarget`, `pass`, `challenge`, `block(role)`, `selectCard`+`confirmCard`, `toggleExchange`(정원 초과 무시)+`confirmExchange`, `concede`. 사용할 수 없는 의도는 조용히 무시. 결정이 바뀌면 선택 상태 자동 초기화. 거절/네트워크 오류는 `messages`로.
+- 통합 테스트가 찾은 결함 수정: 수락 후 새 상태 도착 전 입력 잠금(최대 3초) — 없으면 두 번째 탭이 `STALE_VERSION`으로 거절되어 사용자에게 오류가 보였음.
+- 세션 `events`에 replay 64 추가(구독 시차로 로그 유실 방지, `EVENT_REPLAY`).
+- 테스트: 매퍼(블러핑/비용 부족 표시, 응답/도전/막기/교환/결과 화면 상태, 타인 시점에서는 교환 후보 숨김), 컨트롤러, **UI 버튼만으로 AI 1~5명(쉬움/보통, 하우스룰·파라미터 변경 룰셋 포함)과 끝까지 플레이**, 아무 때나 기권, 늦게 만든 컨트롤러, 설정 검증/결정성, 화면 모델에 내 카드 외의 카드 ID 없음.
 
 ## 이번 단계 메모 (Phase 2 — 멀티 전송 계층)
 - `GameTransport.Host/Guest` (runtime/transport): `Publication`(원격 사람 좌석별 `ViewEnvelope` + 관전 뷰 + 권한자 백업), `IncomingCommand`(전송 계층이 인증한 `senderUid` 포함), `AckResult`, `GameResultRecord`(순위, 룰 설정, `rated`, 레이팅 변동), `TransportException`.
@@ -71,4 +80,4 @@ Phase 2 완료. 다음은 Phase 3(설계 §10, §13) — Compose 단일 Activity
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 2 완료_
+_마지막 갱신: 2026-10-04, Phase 3 (C) 일부 완료_

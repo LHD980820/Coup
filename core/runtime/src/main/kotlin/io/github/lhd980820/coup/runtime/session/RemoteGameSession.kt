@@ -33,7 +33,7 @@ public class RemoteGameSession(
     private val ackTimeout: Duration = 10.seconds,
 ) : GameSession {
     private val _snapshot = MutableStateFlow<SessionSnapshot?>(null)
-    private val _events = MutableSharedFlow<VisibleEvent>(replay = 0, extraBufferCapacity = 256)
+    private val _events = MutableSharedFlow<VisibleEvent>(replay = EVENT_REPLAY, extraBufferCapacity = 256)
     private val _connection = MutableStateFlow(ConnectionState.RECONNECTING)
     private val jobs = mutableListOf<Job>()
     private var lastVersion = -1L
