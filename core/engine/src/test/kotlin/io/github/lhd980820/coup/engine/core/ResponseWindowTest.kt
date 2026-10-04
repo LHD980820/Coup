@@ -236,9 +236,4 @@ class ResponseWindowTest {
         assertThat(state.allCardIds()).hasSize(15)
     }
 
-    @Test
-    fun `막기 명령은 7단계 전까지 거절된다`() {
-        val state = table.declare("a", "foreign_aid").state
-        assertThat(state.reject(Command.Block(id("b"), RoleId("duke")))).isEqualTo(Rejection.WRONG_PHASE)
-    }
 }

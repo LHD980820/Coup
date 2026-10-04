@@ -41,6 +41,10 @@ public sealed interface GameEvent {
     public data class Passed(public val player: PlayerId) : GameEvent
 
     @Serializable
+    @SerialName("block_declared")
+    public data class BlockDeclared(public val blocker: PlayerId, public val role: RoleId, public val actionId: ActionId) : GameEvent
+
+    @Serializable
     @SerialName("challenge_issued")
     public data class ChallengeIssued(
         public val challenger: PlayerId,

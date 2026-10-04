@@ -3,6 +3,7 @@ package io.github.lhd980820.coup.engine.core
 import io.github.lhd980820.coup.engine.event.ActionOutcome
 import io.github.lhd980820.coup.engine.event.GameEvent
 import io.github.lhd980820.coup.engine.model.ActionId
+import io.github.lhd980820.coup.engine.model.BlockClaim
 import io.github.lhd980820.coup.engine.model.CardId
 import io.github.lhd980820.coup.engine.model.ChallengeContext
 import io.github.lhd980820.coup.engine.model.Influence
@@ -91,7 +92,12 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
                     val blockRoles = if (canBlock) rules.rolesBlocking(action.id) else emptySet()
                     if (!canChallenge && blockRoles.isEmpty()) null else p to AllowedResponses(canChallenge, blockRoles)
                 }.toMap()
-            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+            // 막기에 대한 도전: 막은 사람을 제외한 생존자 전원(행위자 포함)이 도전만 할 수 있다.
+            WindowKind.BLOCK_CHALLENGE -> {
+                val blocker = checkNotNull(pending.blockedBy) { "block challenge window without a block" }.blocker
+                state.alivePlayers.filter { it != blocker }
+                    .associateWith { AllowedResponses(canChallenge = true, blockRoles = emptySet()) }
+            }
         }
         if (allowed.isEmpty()) {
             closeAllPassed(kind)
@@ -105,8 +111,20 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
     fun closeAllPassed(kind: WindowKind) {
         when (kind) {
             WindowKind.ACTION, WindowKind.BLOCK_ONLY -> push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
-            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+            // 아무도 막기에 도전하지 않음 → 막기 성립. 이미 지불한 비용은 돌려주지 않는다.
+            WindowKind.BLOCK_CHALLENGE -> {
+                emit(GameEvent.ActionResolved(checkNotNull(state.currentAction).actionId, ActionOutcome.BLOCKED))
+                push(ResolutionStep.EndTurn)
+            }
         }
+    }
+
+    /** [blocker]가 [role]을 주장하며 현재 행동을 막는다. 응답 창을 닫고 막기에 대한 도전 창을 연다. */
+    fun declareBlock(blocker: PlayerId, role: RoleId) {
+        val pending = checkNotNull(state.currentAction)
+        state = state.copy(currentAction = pending.copy(blockedBy = BlockClaim(blocker, role)))
+        emit(GameEvent.BlockDeclared(blocker, role, pending.actionId))
+        push(ResolutionStep.OpenResponseWindow(WindowKind.BLOCK_CHALLENGE))
     }
 
     /**
@@ -140,7 +158,11 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
             // 교체를 상실보다 먼저 한다: 도전자가 잃을 카드를 고르는 동안 공개된 카드가 손패에 남아 있지 않게.
             val continuation = when (phase.context) {
                 ChallengeContext.ACTION -> ResolutionStep.ContinueAfterActionChallengeFailed
-                ChallengeContext.BLOCK -> TODO("Phase 1 step 7: blocks")
+                // 막기가 증명됨 → 막기 성립, 행동 실패(비용 환불 없음).
+                ChallengeContext.BLOCK -> {
+                    emit(GameEvent.ActionResolved(checkNotNull(state.currentAction).actionId, ActionOutcome.BLOCKED))
+                    ResolutionStep.EndTurn
+                }
             }
             push(
                 ResolutionStep.ReplaceProvenCard(phase.challenged, cardId),
@@ -154,7 +176,8 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
                     emit(GameEvent.ActionResolved(pending.actionId, ActionOutcome.FAILED))
                     push(ResolutionStep.RefundCost, ResolutionStep.EndTurn)
                 }
-                ChallengeContext.BLOCK -> TODO("Phase 1 step 7: blocks")
+                // 막기 블러핑 발각 → 막기 무효, 행동이 그대로 해결된다(대상이 막은 사람이면 추가로 잃을 수 있다).
+                ChallengeContext.BLOCK -> push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
             }
             // 스택을 먼저 쌓은 뒤 공개한다: 이 공개로 게임이 끝나면 reveal()이 스택을 비운다.
             reveal(phase.challenged, cardId, LossReason.BluffExposed)

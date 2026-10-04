@@ -87,8 +87,8 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Command.Pass -> pass(tx, command)
             is Command.Challenge -> challenge(tx, command)
             is Command.RevealCard -> revealCard(tx, command)
-            // 7단계(막기)·8단계(교환)에서 구현. 그 전까지는 WRONG_PHASE / NOT_YOUR_DECISION으로 거절된다.
-            is Command.Block,
+            is Command.Block -> block(tx, command)
+            // 8단계(교환)에서 구현. 그 전까지는 WRONG_PHASE / NOT_YOUR_DECISION으로 거절된다.
             is Command.ChooseExchange,
             -> wrongPhaseOrNotYours(state, command.actor)
         }
@@ -172,8 +172,20 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         when (window.kind) {
             WindowKind.ACTION -> tx.startChallenge(cmd.actor, pending.actor, pending.claimedRoles, ChallengeContext.ACTION)
             WindowKind.BLOCK_ONLY -> return Rejection.CHALLENGE_NOT_ALLOWED
-            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+            WindowKind.BLOCK_CHALLENGE -> {
+                val block = checkNotNull(pending.blockedBy)
+                tx.startChallenge(cmd.actor, block.blocker, setOf(block.role), ChallengeContext.BLOCK)
+            }
         }
+        return null
+    }
+
+    private fun block(tx: Transition, cmd: Command.Block): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        if (cmd.asRole !in window.allowed[cmd.actor]?.blockRoles.orEmpty()) return Rejection.ROLE_CANNOT_BLOCK
+        tx.declareBlock(cmd.actor, cmd.asRole)
         return null
     }
 
