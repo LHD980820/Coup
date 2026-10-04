@@ -2,6 +2,8 @@ package io.github.lhd980820.coup.engine.rules.effect
 
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.rules.RuleParams
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /** 효과가 해결되는 시점의 공개 상태 조회 + 행위자/대상. */
 public class EffectContext(
@@ -19,17 +21,28 @@ public class EffectContext(
     public fun requireTarget(): PlayerId = checkNotNull(target) { "action effect requires a target" }
 }
 
-/** 효과가 만들어내는 최소 단위 동작. 엔진 코어가 순서대로 해결한다. */
+/** 효과가 만들어내는 최소 단위 동작. 엔진 코어가 순서대로 해결한다. 해결 스택에 저장되므로 직렬화 가능하다. */
+@Serializable
 public sealed interface Primitive {
+    @Serializable
+    @SerialName("gain_coins")
     public data class GainCoins(public val player: PlayerId, public val amount: Int) : Primitive
 
+    @Serializable
+    @SerialName("pay_coins")
     public data class PayCoins(public val player: PlayerId, public val amount: Int) : Primitive
 
     /** [from]에서 [to]로 최대 [max]코인 이동(보유량이 부족하면 가진 만큼). */
+    @Serializable
+    @SerialName("transfer_coins")
     public data class TransferCoins(public val from: PlayerId, public val to: PlayerId, public val max: Int) : Primitive
 
+    @Serializable
+    @SerialName("lose_influence")
     public data class LoseInfluence(public val player: PlayerId) : Primitive
 
+    @Serializable
+    @SerialName("exchange")
     public data class Exchange(public val player: PlayerId, public val drawCount: Int) : Primitive
 }
 
