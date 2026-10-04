@@ -45,6 +45,11 @@ public sealed interface LossReason {
     @SerialName("bluff_exposed")
     public data object BluffExposed : LossReason
 
+    /** 기권으로 남은 카드를 모두 잃는 경우. */
+    @Serializable
+    @SerialName("concede")
+    public data object Concede : LossReason
+
     /** 행동 효과(쿠, 암살 등)로 잃는 경우. */
     @Serializable
     @SerialName("action_effect")

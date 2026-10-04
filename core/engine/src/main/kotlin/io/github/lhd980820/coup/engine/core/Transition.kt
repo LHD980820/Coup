@@ -79,6 +79,11 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
      */
     private fun openResponseWindow(kind: WindowKind): Boolean {
         val pending = checkNotNull(state.currentAction) { "response window without a pending action" }
+        if (!state.player(pending.actor).isAlive) {
+            // 행위자가 기권했다: 응답을 받을 이유가 없다. ApplyEffect가 취소로 처리한다.
+            push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+            return false
+        }
         val action = checkNotNull(rules.action(pending.actionId))
         val allowed: Map<PlayerId, AllowedResponses> = when (kind) {
             WindowKind.ACTION, WindowKind.BLOCK_ONLY ->
@@ -217,6 +222,75 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
         }
     }
 
+    /**
+     * [player]의 기권. 남은 카드를 모두 공개해 탈락시킨 뒤, 기권 직전 페이즈가 기권자를 기다리고 있었다면 정리하고 진행한다.
+     * 다른 사람의 결정을 기다리던 중이면 그 결정을 건너뛰지 않도록 아무것도 진행하지 않는다.
+     * (일반 명령과 달리 [resolve]를 무조건 호출하지 않는다.)
+     */
+    fun concede(player: PlayerId) {
+        val before = state.phase
+        emit(GameEvent.PlayerConceded(player))
+        state.player(player).hiddenCards.forEach { reveal(player, it.id, LossReason.Concede) }
+        if (state.isOver) return
+
+        when (before) {
+            is Phase.AwaitingAction -> if (before.actor == player) {
+                push(ResolutionStep.EndTurn)
+                resolve()
+            }
+            is Phase.AwaitingResponses -> concedeDuringWindow(player, before.window)
+            is Phase.AwaitingReveal -> when (player) {
+                before.challenged -> {
+                    // 증명하지 않고 포기 = 주장이 성립하지 않는다. 도전자는 아무것도 잃지 않는다.
+                    when (before.context) {
+                        ChallengeContext.ACTION -> {
+                            emit(GameEvent.ActionResolved(checkNotNull(state.currentAction).actionId, ActionOutcome.CANCELLED))
+                            push(ResolutionStep.EndTurn)
+                        }
+                        ChallengeContext.BLOCK -> push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+                    }
+                    resolve()
+                }
+                // 도전자가 기권해도 도전받은 사람은 그대로 공개한다(도전은 유효).
+                else -> Unit
+            }
+            is Phase.AwaitingInfluenceLoss -> if (before.player == player) resolve()
+            is Phase.AwaitingExchange -> if (before.player == player) resolve() // 엿본 카드는 덱에 그대로 있다
+            is Phase.GameOver -> Unit
+        }
+    }
+
+    private fun concedeDuringWindow(player: PlayerId, window: ResponseWindow) {
+        val pending = checkNotNull(state.currentAction)
+        when {
+            // 행위자 기권: 창을 닫고 행동 취소.
+            pending.actor == player -> {
+                push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+                resolve()
+            }
+            // 막기 도전 창에서 막은 사람이 기권: 도전할 수 없는 막기는 무효, 행동이 해결된다.
+            window.kind == WindowKind.BLOCK_CHALLENGE && pending.blockedBy?.blocker == player -> {
+                state = state.copy(currentAction = pending.copy(blockedBy = null))
+                push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+                resolve()
+            }
+            // 응답자 기권: 창에서 빼고, 남은 대기자가 없으면 전원 통과로 처리.
+            player in window.eligible -> {
+                val updated = ResponseWindow(
+                    kind = window.kind,
+                    eligible = window.eligible - player,
+                    passed = window.passed - player,
+                    allowed = window.allowed - player,
+                )
+                state = state.copy(phase = Phase.AwaitingResponses(updated))
+                if (updated.waitingOn.isEmpty()) {
+                    closeAllPassed(window.kind)
+                    resolve()
+                }
+            }
+        }
+    }
+
     private fun requireInfluenceLoss(player: PlayerId, reason: LossReason): Boolean {
         val hidden = state.player(player).hiddenCards
         return when (hidden.size) {
@@ -256,6 +330,10 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
     private fun applyEffect() {
         val pending = checkNotNull(state.currentAction) { "no action to apply" }
         val action = checkNotNull(rules.action(pending.actionId))
+        if (!state.player(pending.actor).isAlive) {
+            emit(GameEvent.ActionResolved(pending.actionId, ActionOutcome.CANCELLED))
+            return
+        }
         val target = pending.target
         if (target != null && !state.player(target).isAlive) {
             emit(GameEvent.ActionResolved(pending.actionId, ActionOutcome.FIZZLED))

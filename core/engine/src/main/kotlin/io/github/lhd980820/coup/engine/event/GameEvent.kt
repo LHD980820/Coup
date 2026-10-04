@@ -15,6 +15,9 @@ public enum class ActionOutcome {
 
     /** 효과 적용 시점에 대상이 이미 탈락해 아무 일도 일어나지 않음. */
     FIZZLED,
+
+    /** 행위자가 기권해 행동이 취소됨. */
+    CANCELLED,
 }
 
 /**
@@ -92,6 +95,10 @@ public sealed interface GameEvent {
     @Serializable
     @SerialName("action_resolved")
     public data class ActionResolved(public val actionId: ActionId, public val outcome: ActionOutcome) : GameEvent
+
+    @Serializable
+    @SerialName("player_conceded")
+    public data class PlayerConceded(public val player: PlayerId) : GameEvent
 
     @Serializable
     @SerialName("player_eliminated")

@@ -22,28 +22,25 @@
 | 6 | 도전 / 공개 / 영향력 상실 / 카드 교체 | ✅ |
 | 7 | 막기 / 막기 도전 / BLOCK_ONLY | ✅ |
 | 8 | 교환 | ✅ |
-| 9 | 탈락 / 게임 종료 / 기권 (탈락·종료는 4단계에서 구현됨, 남은 것: 기권) | ⬜ ← 다음 |
-| 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ⬜ |
+| 9 | 탈락 / 게임 종료 / 기권 | ✅ |
+| 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ⬜ ← 다음 🧠 정보 은닉 검증은 Opus 권장 |
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ⬜ |
 
 ## 다음 할 일
-1. 9단계: `Command.Concede` — 생존자는 언제든 기권 가능. 남은 미공개 카드를 전부 공개 처리(`LossReason.Concede` 신설)하고 탈락 순서에 기록. 상태별 처리 필수:
-   - 자기 턴(`AwaitingAction`) → 다음 생존자로 턴 이동.
-   - 응답 창 대기 중 → 창의 `eligible`/`allowed`에서 제거 후, 대기자가 없어지면 `closeAllPassed`. 기권자가 **행위자**이면 현재 행동 취소 + 턴 종료.
-   - `AwaitingReveal`/`AwaitingInfluenceLoss`/`AwaitingExchange`에서 기권 → 해당 단계를 자동 해결 또는 취소 후 스택 계속.
-   - 기권으로 생존자 1명이 되면 즉시 `GameOver`.
-   - 막기 창에서 **막은 사람**이 기권하면 막기 무효 처리 여부 결정(권장: 막기 취소, 행동 해결).
-   - `Concede`는 `pendingDeciders`가 아니어도 허용되는 유일한 명령. `NOT_YOUR_DECISION` 검사 예외.
-2. 10단계: `view()` / `projectEvents()` / `timeoutCommand()` / `determinize()`. `CardReplaced.newCard`, `ExchangeDrawn.cards`는 당사자 외에는 마스킹 필수. 🧠 정보 은닉 검증은 Opus 권장.
-3. 11단계: 하우스룰 3종, 속성 기반 테스트 확장(합법 수만 쓰는 에이전트 1만 판), 골든 파일.
+1. 10단계: `view(state, viewer)` → `PlayerView`(설계 §4.6), `projectEvents(events, viewer)`(§4.7), `timeoutCommand(state, player)`(D4: 응답 Pass / 공개·상실 첫 미공개 카드 / 교환 현재 손패 유지 / 행동 수입 또는 강제 쿠의 첫 대상), `determinize(view, assignment, seed)`(§4.3).
+   - 마스킹 필수: 타인의 미공개 카드 역할·CardId, 덱 내용, RNG, `CardReplaced.newCard`, `ExchangeDrawn.cards`, `Phase.AwaitingExchange.candidates`, `CardsDealt`(도입 시).
+   - 정보 누출 테스트(§12.4): 뷰를 JSON으로 직렬화해 타인 미공개 CardId/역할이 없음을 검사. 히든 정보만 다른 두 상태의 뷰가 같은지 검사.
+2. 11단계: 하우스룰 3종(`no_steal_from_broke`, 파라미터 오버라이드 확인, `last_stand` 훅 — RuleModifier 도입), 속성 기반 테스트 확장, 골든 파일.
 
-## 이번 단계 메모 (8단계)
-- 교환은 `Primitive.Exchange` 해결 시 덱 위 `drawCount`장을 **엿본다**: 선택이 끝날 때까지 카드는 덱에 그대로 있어 카드 총량 불변식이 항상 성립한다. 후보 = 내 미공개 카드 + 엿본 카드, `keepCount` = 내 미공개 장수.
-- `ChooseExchange` 검증: 장수 일치, 중복 없음, 후보 안의 카드만 → 아니면 `INVALID_EXCHANGE_SELECTION`.
-- 선택 완료: 엿본 카드를 덱에서 빼고 돌려보낼 카드를 넣는다. `exchangeReturnShuffles`면 덱 전체 셔플, 아니면 맨 아래에 후보 순서대로. 남긴 카드는 미공개 자리에 `keep` 순서대로 채운다(공개된 카드는 그대로).
-- 덱이 비었거나 미공개 카드가 없으면 교환을 건너뛴다. 덱이 모자라면 가능한 만큼만 엿본다.
-- 새 이벤트: `ExchangeDrawn`(비공개), `ExchangeCompleted`. `DecisionRequest.ChooseExchange`.
-- 무작위 완주 테스트가 이제 모든 행동·응답을 포함한다.
+## 이번 단계 메모 (9단계)
+- `Command.Concede`: 생존자는 결정권과 무관하게 언제든 가능(`pendingDeciders` 검사 예외). 남은 카드 전부 공개(`LossReason.Concede`) → 탈락. 생존자 1명이면 즉시 종료.
+- **기권은 일반 해결 루프(`resolve`)를 무조건 돌리지 않는다.** 다른 사람의 결정을 기다리는 중이면 아무것도 진행하지 않아야 그 결정을 건너뛰지 않는다. 기권 직전 페이즈가 기권자를 기다렸던 경우에만 정리 후 진행:
+  - 자기 턴 → `EndTurn`.
+  - 응답 창: 행위자 기권 → 행동 취소(`ActionOutcome.CANCELLED` 신설). 막기 도전 창에서 막은 사람 기권 → 막기 무효, 행동 해결. 응답자 기권 → 창에서 제외, 대기자 0명이면 전원 통과 처리.
+  - 공개 대기: 도전받은 사람 기권 → 주장 불성립(행동 도전이면 취소, 막기 도전이면 막기 무효·행동 해결), 도전자는 잃지 않음. 도전자 기권 → 공개는 계속.
+  - 상실/교환 대기 중 본인 기권 → 이어서 진행(교환은 엿보기 방식이라 덱 그대로).
+- 안전장치: 행위자가 탈락한 상태로 응답 창이 열리려 하면 열지 않고, `ApplyEffect`는 행위자가 탈락했으면 `CANCELLED` 처리. (예: 증명에 진 도전자가 고르는 동안 행위자가 기권 → 도전자는 그대로 잃고 행동은 취소)
+- 새 이벤트: `PlayerConceded`. 무작위 완주 테스트에 매 단계 약 3% 기권 추가.
 
 ## 알려진 사항
 - 클라우드 샌드박스는 기본 로케일이 UTF-8이 아니라 한글 테스트명 컴파일이 실패한다 → `LC_ALL=C.UTF-8`로 실행. (CI/Windows는 영향 없음)
@@ -54,4 +51,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, 엔진 7단계 완료_
+_마지막 갱신: 2026-10-04, 엔진 9단계 완료_

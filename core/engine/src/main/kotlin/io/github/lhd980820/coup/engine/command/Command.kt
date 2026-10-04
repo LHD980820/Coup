@@ -59,6 +59,11 @@ public sealed interface Command {
         override val expectedVersion: Long? = null,
     ) : Command
 
+    /** 기권. 생존자는 결정권과 무관하게 언제든 할 수 있다. 남은 영향력을 모두 잃고 탈락한다. */
+    @Serializable
+    @SerialName("concede")
+    public data class Concede(override val actor: PlayerId, override val expectedVersion: Long? = null) : Command
+
     @Serializable
     @SerialName("choose_exchange")
     public data class ChooseExchange(

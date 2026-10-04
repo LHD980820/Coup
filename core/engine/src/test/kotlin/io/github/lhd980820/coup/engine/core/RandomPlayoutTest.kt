@@ -18,7 +18,7 @@ import kotlin.random.Random
 
 /**
  * 무작위 합법 수로 끝까지 진행하며 불변식을 검사하는 초기 안전망.
- * 응답은 Pass / (가능하면) 25% 도전 / 25% 막기. (Phase 1 11단계에서 확장)
+ * 응답은 Pass / (가능하면) 25% 도전 / 25% 막기. 매 단계 약 3% 확률로 무작위 생존자가 기권한다. (Phase 1 11단계에서 확장)
  */
 class RandomPlayoutTest {
 
@@ -38,6 +38,15 @@ class RandomPlayoutTest {
                 val deciders = testEngine.pendingDeciders(state).toList()
                 assertThat(deciders.isNotEmpty()).isTrue()
                 deciders.forEach { assertThat(testEngine.legalOptions(state, it)).isNotNull() }
+
+                if (rnd.nextInt(33) == 0) {
+                    val quitter = state.seats.filter { state.players.getValue(it).isAlive }.random(rnd)
+                    val result = testEngine.apply(state, Command.Concede(quitter, state.version)) as? ApplyResult.Accepted
+                        ?: error("seed $seed: concede by $quitter was rejected")
+                    state = result.state
+                    assertInvariants(state, initialCards)
+                    continue
+                }
 
                 val who = deciders.random(rnd)
                 val command = when (val request = testEngine.legalOptions(state, who)!!) {

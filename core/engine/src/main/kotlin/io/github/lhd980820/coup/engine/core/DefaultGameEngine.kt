@@ -89,10 +89,15 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Command.RevealCard -> revealCard(tx, command)
             is Command.Block -> block(tx, command)
             is Command.ChooseExchange -> chooseExchange(tx, command)
+            is Command.Concede -> {
+                tx.concede(command.actor)
+                null
+            }
         }
         if (rejection != null) return ApplyResult.Rejected(rejection)
 
-        tx.resolve()
+        // 기권은 스스로 필요한 만큼만 진행한다(다른 사람의 대기 중인 결정을 건너뛰면 안 된다).
+        if (command !is Command.Concede) tx.resolve()
         return ApplyResult.Accepted(tx.state.copy(version = state.version + 1), tx.events.toList())
     }
 
