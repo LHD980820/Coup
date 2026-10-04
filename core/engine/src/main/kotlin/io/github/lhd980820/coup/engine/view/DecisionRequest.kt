@@ -3,8 +3,10 @@ package io.github.lhd980820.coup.engine.view
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.engine.model.Card
 import io.github.lhd980820.coup.engine.model.LossReason
+import io.github.lhd980820.coup.engine.model.PendingAction
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.RoleId
+import io.github.lhd980820.coup.engine.model.WindowKind
 import kotlinx.serialization.Serializable
 
 /**
@@ -29,11 +31,28 @@ public data class ActionOption(
     public val selectable: Boolean get() = affordable && (validTargets == null || validTargets.isNotEmpty())
 }
 
-/** 플레이어가 지금 내려야 하는 결정. 응답/공개/교환 타입은 5단계 이후 추가된다. */
+/** 막기 선택지 1개. [iHoldRole]이 false면 블러핑 막기다. */
+@Serializable
+public data class BlockOption(public val role: RoleId, public val iHoldRole: Boolean)
+
+/** 플레이어가 지금 내려야 하는 결정. 공개/교환 타입은 6단계 이후 추가된다. */
 @Serializable
 public sealed interface DecisionRequest {
     @Serializable
     public data class ChooseAction(public val options: List<ActionOption>) : DecisionRequest
+
+    /**
+     * 다른 플레이어의 행동에 대한 응답. 허용(Pass)은 항상 가능하다.
+     * [pending]은 모두에게 공개된 정보(누가 어떤 역할을 주장했는지)만 담고 있다.
+     */
+    @Serializable
+    public data class Respond(
+        public val windowKind: WindowKind,
+        public val pending: PendingAction,
+        public val canChallenge: Boolean,
+        public val blockOptions: List<BlockOption>,
+        public val canPass: Boolean = true,
+    ) : DecisionRequest
 
     @Serializable
     public data class ChooseInfluenceToLose(public val cards: List<Card>, public val reason: LossReason) : DecisionRequest

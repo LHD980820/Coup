@@ -37,6 +37,10 @@ public sealed interface GameEvent {
     ) : GameEvent
 
     @Serializable
+    @SerialName("passed")
+    public data class Passed(public val player: PlayerId) : GameEvent
+
+    @Serializable
     @SerialName("coins_changed")
     public data class CoinsChanged(
         public val player: PlayerId,

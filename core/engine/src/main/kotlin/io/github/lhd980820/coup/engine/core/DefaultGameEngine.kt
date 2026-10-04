@@ -83,7 +83,8 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         val rejection = when (command) {
             is Command.DeclareAction -> declareAction(tx, command)
             is Command.LoseInfluence -> loseInfluence(tx, command)
-            is Command.Pass,
+            is Command.Pass -> pass(tx, command)
+            // 6~7단계에서 구현. 그 전까지는 응답 창에서도 WRONG_PHASE로 거절된다.
             is Command.Challenge,
             is Command.Block,
             is Command.RevealCard,
@@ -110,8 +111,9 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         return when (val phase = state.phase) {
             is Phase.AwaitingAction -> DecisionRequest.ChooseAction(LegalMoves.actionOptions(state, rulesOf(state), player))
             is Phase.AwaitingInfluenceLoss -> DecisionRequest.ChooseInfluenceToLose(state.player(player).hiddenCards, phase.reason)
-            // 응답/공개/교환 결정은 5~8단계에서 추가된다.
-            is Phase.AwaitingResponses, is Phase.AwaitingReveal, is Phase.AwaitingExchange, is Phase.GameOver -> null
+            is Phase.AwaitingResponses -> LegalMoves.respondRequest(state, player, phase.window)
+            // 공개/교환 결정은 6~8단계에서 추가된다.
+            is Phase.AwaitingReveal, is Phase.AwaitingExchange, is Phase.GameOver -> null
         }
     }
 
@@ -145,6 +147,17 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
         } else {
             tx.push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
         }
+        return null
+    }
+
+    private fun pass(tx: Transition, cmd: Command.Pass): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        val updated = window.copy(passed = window.passed + cmd.actor)
+        tx.state = tx.state.copy(phase = Phase.AwaitingResponses(updated))
+        tx.emit(GameEvent.Passed(cmd.actor))
+        if (updated.waitingOn.isEmpty()) tx.closeAllPassed(window.kind)
         return null
     }
 

@@ -4,12 +4,16 @@ import io.github.lhd980820.coup.engine.event.ActionOutcome
 import io.github.lhd980820.coup.engine.event.GameEvent
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.engine.model.CardId
+import io.github.lhd980820.coup.engine.model.AllowedResponses
 import io.github.lhd980820.coup.engine.model.GameState
 import io.github.lhd980820.coup.engine.model.LossReason
 import io.github.lhd980820.coup.engine.model.Phase
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.PlayerState
+import io.github.lhd980820.coup.engine.model.ResponseWindow
 import io.github.lhd980820.coup.engine.model.TurnInfo
+import io.github.lhd980820.coup.engine.model.WindowKind
+import io.github.lhd980820.coup.engine.rules.BlockPolicy
 import io.github.lhd980820.coup.engine.rules.RuleSet
 import io.github.lhd980820.coup.engine.rules.effect.EffectContext
 import io.github.lhd980820.coup.engine.rules.effect.Primitive
@@ -59,10 +63,47 @@ internal class Transition(var state: GameState, val rules: RuleSet) {
         ResolutionStep.ApplyEffect -> applyEffect().let { false }
         is ResolutionStep.Effect -> applyPrimitive(step.primitive).let { false }
         ResolutionStep.EndTurn -> endTurn().let { false }
-        is ResolutionStep.OpenResponseWindow -> TODO("Phase 1 step 5: response windows")
+        is ResolutionStep.OpenResponseWindow -> openResponseWindow(step.kind)
         is ResolutionStep.ReplaceProvenCard -> TODO("Phase 1 step 6: challenges")
         ResolutionStep.ContinueAfterActionChallengeFailed -> TODO("Phase 1 step 6: challenges")
         ResolutionStep.RefundCost -> TODO("Phase 1 step 6: challenges")
+    }
+
+    /**
+     * 응답 창을 연다. 응답할 수 있는 사람이 아무도 없으면 열지 않고 곧바로 "전원 통과"로 처리한다.
+     * @return 입력을 기다려야 하면 true
+     */
+    private fun openResponseWindow(kind: WindowKind): Boolean {
+        val pending = checkNotNull(state.currentAction) { "response window without a pending action" }
+        val action = checkNotNull(rules.action(pending.actionId))
+        val allowed: Map<PlayerId, AllowedResponses> = when (kind) {
+            WindowKind.ACTION, WindowKind.BLOCK_ONLY ->
+                state.alivePlayers.filter { it != pending.actor }.mapNotNull { p ->
+                    val canChallenge = kind == WindowKind.ACTION && pending.claimedRoles.isNotEmpty()
+                    val canBlock = when (action.blockPolicy) {
+                        BlockPolicy.NONE -> false
+                        BlockPolicy.TARGET_ONLY -> p == pending.target
+                        BlockPolicy.ANY_OTHER_PLAYER -> true
+                    }
+                    val blockRoles = if (canBlock) rules.rolesBlocking(action.id) else emptySet()
+                    if (!canChallenge && blockRoles.isEmpty()) null else p to AllowedResponses(canChallenge, blockRoles)
+                }.toMap()
+            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+        }
+        if (allowed.isEmpty()) {
+            closeAllPassed(kind)
+            return false
+        }
+        state = state.copy(phase = Phase.AwaitingResponses(ResponseWindow(kind, allowed.keys, emptySet(), allowed)))
+        return true
+    }
+
+    /** 응답 창의 모든 사람이 허용(Pass)했을 때 이어질 단계를 스택에 넣는다. */
+    fun closeAllPassed(kind: WindowKind) {
+        when (kind) {
+            WindowKind.ACTION, WindowKind.BLOCK_ONLY -> push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+            WindowKind.BLOCK_CHALLENGE -> TODO("Phase 1 step 7: blocks")
+        }
     }
 
     private fun requireInfluenceLoss(player: PlayerId, reason: LossReason): Boolean {

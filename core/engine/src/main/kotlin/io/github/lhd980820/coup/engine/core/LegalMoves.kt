@@ -2,11 +2,14 @@ package io.github.lhd980820.coup.engine.core
 
 import io.github.lhd980820.coup.engine.model.GameState
 import io.github.lhd980820.coup.engine.model.PlayerId
+import io.github.lhd980820.coup.engine.model.ResponseWindow
 import io.github.lhd980820.coup.engine.rules.ActionDefinition
 import io.github.lhd980820.coup.engine.rules.RuleSet
 import io.github.lhd980820.coup.engine.rules.TargetContext
 import io.github.lhd980820.coup.engine.rules.Targeting
 import io.github.lhd980820.coup.engine.view.ActionOption
+import io.github.lhd980820.coup.engine.view.BlockOption
+import io.github.lhd980820.coup.engine.view.DecisionRequest
 
 /** 합법 수 계산. 명령 검증과 [io.github.lhd980820.coup.engine.view.DecisionRequest] 생성이 같은 규칙을 쓰도록 한 곳에 둔다. */
 internal object LegalMoves {
@@ -45,5 +48,18 @@ internal object LegalMoves {
                     forcedOnly = forced,
                 )
             }
+    }
+
+    /** 응답 창에서 [player]가 받는 결정. 응답 권한이 없으면 null. */
+    fun respondRequest(state: GameState, player: PlayerId, window: ResponseWindow): DecisionRequest.Respond? {
+        val allowed = window.allowed[player] ?: return null
+        val pending = checkNotNull(state.currentAction) { "response window without a pending action" }
+        val handRoles = state.player(player).hiddenCards.map { it.role }.toSet()
+        return DecisionRequest.Respond(
+            windowKind = window.kind,
+            pending = pending,
+            canChallenge = allowed.canChallenge,
+            blockOptions = allowed.blockRoles.map { BlockOption(it, iHoldRole = it in handRoles) },
+        )
     }
 }
