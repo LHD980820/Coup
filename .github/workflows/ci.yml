@@ -23,6 +23,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # 순수 Kotlin 엔진/AI/런타임 (독립 빌드, docs/adr/0001)
+      - name: Core tests
+        working-directory: core
+        run: ./gradlew test
+
+      - name: Upload core test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-reports
+          path: core/*/build/reports/tests/
+
       - name: Unit tests and lint
         run: ./gradlew test lint
 

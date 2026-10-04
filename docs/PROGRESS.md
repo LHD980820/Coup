@@ -17,8 +17,8 @@
 | 1 | 식별자/카드/플레이어/RNG + 직렬화 | ✅ |
 | 2 | RuleSet 정의 타입 + Classic + 검증기 | ✅ |
 | 3 | GameState / Phase / ResolutionStep + newGame (+ RuleSetConfig/Registry) | ✅ |
-| 4 | legalOptions(ChooseAction) + DeclareAction + 응답 없는 행동 | ⬜ ← 다음 |
-| 5 | 응답 창 + Pass + 효과 해결 + EndTurn | ⬜ |
+| 4 | legalOptions(ChooseAction) + DeclareAction + 응답 없는 행동 (+ 영향력 상실 선택, 탈락/게임 종료 기본 판정) | ✅ |
+| 5 | 응답 창 + Pass + 효과 해결 + EndTurn | ⬜ ← 다음 |
 | 6 | 도전 / 공개 / 영향력 상실 / 카드 교체 | ⬜ 🧠 Opus 권장 |
 | 7 | 막기 / 막기 도전 / BLOCK_ONLY | ⬜ 🧠 Opus 권장 |
 | 8 | 교환 | ⬜ |
@@ -27,9 +27,15 @@
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ⬜ |
 
 ## 다음 할 일
-1. 4단계: `Command`/`ApplyResult`/`Rejection`, `DecisionRequest.ChooseAction`, `DeclareAction` 처리(비용 지불, 강제 쿠, 대상 검증), 수입/쿠 해결 경로.
-2. 테스트 픽스처 `ScenarioBuilder`(설계 §12.2) 도입 — 손패/덱 순서를 지정해 상태 생성.
-3. CI에 `core` 테스트 단계 추가.
+1. 5단계: `ResolutionStep.OpenResponseWindow` 구현(eligible/allowed 계산: 주장 있으면 생존 타인 전원 도전 가능, BlockPolicy에 따라 막기 역할), `Command.Pass`, `DecisionRequest.Respond`, 전원 Pass 시 `ApplyEffect`+`EndTurn` push. 세금/해외원조/강탈/암살이 응답 없이 통과되는 경로까지.
+2. `Transition.execute`의 `TODO(...)`는 단계별 미구현 표시다. 해당 단계 완료 시 제거.
+
+## 이번 단계 메모 (4단계)
+- 비용은 선언 시 지불(설계 §5.6 결정). 응답이 필요한 행동(주장 있음 또는 막기 가능)은 `OpenResponseWindow`를 push하고, 아니면 `ApplyEffect`→`EndTurn`.
+- 강제 쿠: 코인 ≥ 임계값이면 선택지가 강제 행동 하나뿐(`forcedOnly=true`), 다른 행동은 `FORCED_ACTION_REQUIRED`.
+- 영향력 상실: 미공개 1장이면 자동, 2장 이상이면 `AwaitingInfluenceLoss` + `Command.LoseInfluence`. 탈락 시 `eliminationOrder` 기록, 생존자 1명이면 즉시 `GameOver`(순위 = 승자 + 늦게 탈락한 순).
+- 테스트 픽스처: `core/engine/src/test/.../testing/Scenario.kt` (`scenario { player(...); deckTop(...) }`, `declare/accept/reject` 헬퍼).
+- CI: `core` 테스트 단계 추가.
 
 ## 알려진 사항
 - 클라우드 샌드박스는 기본 로케일이 UTF-8이 아니라 한글 테스트명 컴파일이 실패한다 → `LC_ALL=C.UTF-8`로 실행. (CI/Windows는 영향 없음)
@@ -40,4 +46,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, 엔진 3단계 완료_
+_마지막 갱신: 2026-10-04, 엔진 4단계 완료_
