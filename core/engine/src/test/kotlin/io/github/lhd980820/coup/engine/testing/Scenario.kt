@@ -56,7 +56,7 @@ class ScenarioBuilder(private val config: RuleSetConfig) {
     }
 
     fun build(): GameState {
-        val rules = BuiltinRules.registry().build(config)
+        val rules = TestRules.registry().build(config)
         val remaining = rules.roles.associate { it.id to it.copies }.toMutableMap()
         var nextId = 0
         fun take(role: RoleId): Card {
@@ -97,7 +97,7 @@ class ScenarioBuilder(private val config: RuleSetConfig) {
 fun scenario(config: RuleSetConfig = BuiltinRules.classicConfig(), block: ScenarioBuilder.() -> Unit): GameState =
     ScenarioBuilder(config).apply(block).build()
 
-val testEngine: GameEngine = GameEngines.create()
+val testEngine: GameEngine = GameEngines.create(TestRules.registry())
 
 fun id(value: String): PlayerId = PlayerId(value)
 

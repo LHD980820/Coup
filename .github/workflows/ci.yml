@@ -24,9 +24,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # 순수 Kotlin 엔진/AI/런타임 (독립 빌드, docs/adr/0001)
-      - name: Core tests
+      - name: Core tests and coverage gate
         working-directory: core
-        run: ./gradlew test
+        run: ./gradlew test koverVerify
 
       - name: Upload core test reports
         if: failure()

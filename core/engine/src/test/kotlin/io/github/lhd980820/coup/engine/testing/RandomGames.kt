@@ -7,17 +7,33 @@ import io.github.lhd980820.coup.engine.core.HiddenAssignment
 import io.github.lhd980820.coup.engine.model.GameState
 import io.github.lhd980820.coup.engine.model.Phase
 import io.github.lhd980820.coup.engine.model.PlayerId
+import io.github.lhd980820.coup.engine.rules.RuleSetConfig
 import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
 import io.github.lhd980820.coup.engine.view.DecisionRequest
 import io.github.lhd980820.coup.engine.view.Viewer
 import kotlin.random.Random
 
 /** 무작위 합법 수(가끔 도전·막기·기권)로 한 게임을 끝까지 진행하며 모든 중간 상태를 [onState]에 넘긴다. */
-fun randomGame(seed: Long, players: Int, onState: (GameState) -> Unit = {}): GameState {
+fun randomGame(
+    seed: Long,
+    players: Int,
+    config: RuleSetConfig = BuiltinRules.classicConfig(),
+    onState: (GameState) -> Unit = {},
+): GameState = playRandom(seed, players, config, onState).final
+
+/** 한 판의 기록: 시작 설정, 적용된 명령 전체, 최종 상태. 리플레이·백업 복원 테스트용. */
+class GameLog(val setup: GameSetup, val commands: List<Command>, val final: GameState)
+
+fun playRandom(
+    seed: Long,
+    players: Int,
+    config: RuleSetConfig = BuiltinRules.classicConfig(),
+    onState: (GameState) -> Unit = {},
+): GameLog {
     val rnd = Random(seed)
-    var state = testEngine.newGame(
-        GameSetup("rand-$seed", List(players) { PlayerId("p$it") }, BuiltinRules.classicConfig(), seed),
-    )
+    val setup = GameSetup("rand-$seed", List(players) { PlayerId("p$it") }, config, seed)
+    var state = testEngine.newGame(setup)
+    val commands = mutableListOf<Command>()
     onState(state)
     var steps = 0
     while (!state.isOver) {
@@ -29,9 +45,10 @@ fun randomGame(seed: Long, players: Int, onState: (GameState) -> Unit = {}): Gam
             randomCommand(state, who, rnd)
         }
         state = (testEngine.apply(state, command) as? ApplyResult.Accepted ?: error("seed $seed: rejected $command")).state
+        commands += command
         onState(state)
     }
-    return state
+    return GameLog(setup, commands, state)
 }
 
 fun randomCommand(state: GameState, who: PlayerId, rnd: Random): Command =

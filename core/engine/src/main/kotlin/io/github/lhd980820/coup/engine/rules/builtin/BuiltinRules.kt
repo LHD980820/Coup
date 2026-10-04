@@ -7,6 +7,8 @@ import io.github.lhd980820.coup.engine.rules.RuleSetRegistry
 public object BuiltinRules {
     public fun registry(): RuleSetRegistry = RuleSetRegistry().apply {
         registerBase(ClassicRuleSet.ID, ClassicRuleSet.VERSION, ClassicRuleSet::create)
+        registerHouseRule(ClassicHouseRules.NO_STEAL_FROM_BROKE)
+        registerHouseRule(ClassicHouseRules.LAST_STAND)
     }
 
     public fun classicConfig(): RuleSetConfig = RuleSetConfig(ClassicRuleSet.ID, ClassicRuleSet.VERSION)
