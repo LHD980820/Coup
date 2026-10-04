@@ -1,0 +1,266 @@
+package io.github.lhd980820.coup.engine.core
+
+import io.github.lhd980820.coup.engine.command.ApplyResult
+import io.github.lhd980820.coup.engine.command.Command
+import io.github.lhd980820.coup.engine.command.Rejection
+import io.github.lhd980820.coup.engine.event.GameEvent
+import io.github.lhd980820.coup.engine.model.Card
+import io.github.lhd980820.coup.engine.model.CardId
+import io.github.lhd980820.coup.engine.model.ChallengeContext
+import io.github.lhd980820.coup.engine.model.GameState
+import io.github.lhd980820.coup.engine.model.Influence
+import io.github.lhd980820.coup.engine.model.PendingAction
+import io.github.lhd980820.coup.engine.model.Phase
+import io.github.lhd980820.coup.engine.model.PlayerId
+import io.github.lhd980820.coup.engine.model.PlayerState
+import io.github.lhd980820.coup.engine.model.TurnInfo
+import io.github.lhd980820.coup.engine.model.WindowKind
+import io.github.lhd980820.coup.engine.rng.DeterministicRng
+import io.github.lhd980820.coup.engine.rules.BlockPolicy
+import io.github.lhd980820.coup.engine.rules.RuleSet
+import io.github.lhd980820.coup.engine.rules.RuleSetRegistry
+import io.github.lhd980820.coup.engine.rules.Targeting
+import io.github.lhd980820.coup.engine.serialization.ENGINE_SCHEMA_VERSION
+import io.github.lhd980820.coup.engine.view.DecisionRequest
+import io.github.lhd980820.coup.engine.view.PlayerView
+import io.github.lhd980820.coup.engine.view.Viewer
+import io.github.lhd980820.coup.engine.view.VisibleEvent
+
+internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEngine {
+
+    override fun newGame(setup: GameSetup): GameState {
+        val rules = registry.build(setup.ruleSetConfig)
+        val params = rules.params
+        val seats = setup.seats
+
+        require(seats.size in params.minPlayers..params.maxPlayers) {
+            "player count ${seats.size} is outside ${params.minPlayers}..${params.maxPlayers}"
+        }
+        require(seats.toSet().size == seats.size) { "duplicate seats: $seats" }
+        require(setup.firstPlayer == null || setup.firstPlayer in seats) { "first player is not seated: ${setup.firstPlayer}" }
+
+        // 덱 생성: 역할 정의 순서대로 CardId를 0부터 부여한 뒤 셔플한다.
+        var nextId = 0
+        val ordered = rules.roles.flatMap { role -> List(role.copies) { Card(CardId(nextId++), role.id) } }
+        var rng = DeterministicRng.ofSeed(setup.seed)
+        val (shuffled, afterShuffle) = rng.shuffled(ordered)
+        rng = afterShuffle
+
+        // 분배: 좌석 순서대로 덱 위에서 handSize장씩.
+        var deck = shuffled
+        val players = seats.associateWith { id ->
+            val hand = deck.take(params.handSize)
+            deck = deck.drop(params.handSize)
+            PlayerState(id, coins = params.startingCoins, influences = hand.map { Influence(it) })
+        }
+
+        val first = setup.firstPlayer ?: rng.nextInt(seats.size).let { (index, next) ->
+            rng = next
+            seats[index]
+        }
+
+        return GameState(
+            schemaVersion = ENGINE_SCHEMA_VERSION,
+            gameId = setup.gameId,
+            version = 0,
+            ruleSetConfig = setup.ruleSetConfig,
+            seats = seats,
+            turn = TurnInfo(number = 1, activePlayer = first),
+            eliminationOrder = emptyList(),
+            players = players,
+            deck = deck,
+            phase = Phase.AwaitingAction(first),
+            currentAction = null,
+            stack = emptyList(),
+            rng = rng,
+        )
+    }
+
+    override fun apply(state: GameState, command: Command): ApplyResult {
+        if (state.isOver) return ApplyResult.Rejected(Rejection.GAME_OVER)
+        val expected = command.expectedVersion
+        if (expected != null && expected != state.version) return ApplyResult.Rejected(Rejection.STALE_VERSION)
+        val actor = state.players[command.actor] ?: return ApplyResult.Rejected(Rejection.NOT_YOUR_DECISION)
+        if (!actor.isAlive) return ApplyResult.Rejected(Rejection.PLAYER_ELIMINATED)
+
+        val tx = Transition(state, rulesOf(state))
+        val rejection = when (command) {
+            is Command.DeclareAction -> declareAction(tx, command)
+            is Command.LoseInfluence -> loseInfluence(tx, command)
+            is Command.Pass -> pass(tx, command)
+            is Command.Challenge -> challenge(tx, command)
+            is Command.RevealCard -> revealCard(tx, command)
+            is Command.Block -> block(tx, command)
+            is Command.ChooseExchange -> chooseExchange(tx, command)
+            is Command.Concede -> {
+                tx.concede(command.actor)
+                null
+            }
+        }
+        if (rejection != null) return ApplyResult.Rejected(rejection)
+
+        // 기권은 스스로 필요한 만큼만 진행한다(다른 사람의 대기 중인 결정을 건너뛰면 안 된다).
+        if (command !is Command.Concede) tx.resolve()
+        return ApplyResult.Accepted(tx.state.copy(version = state.version + 1), tx.events.toList())
+    }
+
+    override fun pendingDeciders(state: GameState): Set<PlayerId> = when (val phase = state.phase) {
+        is Phase.AwaitingAction -> setOf(phase.actor)
+        is Phase.AwaitingResponses -> phase.window.waitingOn
+        is Phase.AwaitingReveal -> setOf(phase.challenged)
+        is Phase.AwaitingInfluenceLoss -> setOf(phase.player)
+        is Phase.AwaitingExchange -> setOf(phase.player)
+        is Phase.GameOver -> emptySet()
+    }
+
+    override fun legalOptions(state: GameState, player: PlayerId): DecisionRequest? {
+        if (player !in pendingDeciders(state)) return null
+        return when (val phase = state.phase) {
+            is Phase.AwaitingAction -> DecisionRequest.ChooseAction(LegalMoves.actionOptions(state, rulesOf(state), player))
+            is Phase.AwaitingInfluenceLoss -> DecisionRequest.ChooseInfluenceToLose(state.player(player).hiddenCards, phase.reason)
+            is Phase.AwaitingResponses -> LegalMoves.respondRequest(state, player, phase.window)
+            is Phase.AwaitingReveal -> DecisionRequest.ChooseRevealCard(state.player(player).hiddenCards, phase.claimedRoles)
+            is Phase.AwaitingExchange -> DecisionRequest.ChooseExchange(phase.candidates, phase.keepCount)
+            is Phase.GameOver -> null
+        }
+    }
+
+    override fun view(state: GameState, viewer: Viewer): PlayerView {
+        val decision = (viewer as? Viewer.Player)?.let { legalOptions(state, it.id) }
+        return ViewProjector.view(state, rulesOf(state), viewer, decision)
+    }
+
+    override fun projectEvents(events: List<GameEvent>, viewer: Viewer): List<VisibleEvent> =
+        ViewProjector.projectEvents(events, viewer)
+
+    override fun timeoutCommand(state: GameState, player: PlayerId): Command {
+        val decision = requireNotNull(legalOptions(state, player)) { "${player.value} has no pending decision" }
+        val v = state.version
+        return when (decision) {
+            is DecisionRequest.Respond -> Command.Pass(player, v)
+            is DecisionRequest.ChooseRevealCard -> Command.RevealCard(player, decision.cards.first().id, v)
+            is DecisionRequest.ChooseInfluenceToLose -> Command.LoseInfluence(player, decision.cards.first().id, v)
+            is DecisionRequest.ChooseExchange ->
+                Command.ChooseExchange(player, decision.candidates.take(decision.keepCount).map { it.id }, v)
+            is DecisionRequest.ChooseAction -> {
+                val forced = decision.options.firstOrNull { it.forcedOnly && it.selectable }
+                val safe = decision.options.firstOrNull {
+                    it.selectable && it.cost == 0 && it.validTargets == null && it.claimedRoles.isEmpty()
+                }
+                val option = forced ?: safe ?: decision.options.first { it.selectable }
+                val target = option.validTargets?.let { targets -> state.seats.first { it in targets } }
+                Command.DeclareAction(player, option.actionId, target, v)
+            }
+        }
+    }
+
+    override fun determinize(view: PlayerView, assignment: HiddenAssignment, seed: Long): GameState =
+        ViewProjector.determinize(view, registry.build(view.ruleSet.config), assignment, seed)
+
+    private fun declareAction(tx: Transition, cmd: Command.DeclareAction): Rejection? {
+        val state = tx.state
+        val phase = state.phase as? Phase.AwaitingAction ?: return wrongPhaseOrNotYours(state, cmd.actor)
+        if (phase.actor != cmd.actor) return Rejection.NOT_YOUR_DECISION
+
+        val rules = tx.rules
+        val action = rules.action(cmd.actionId) ?: return Rejection.UNKNOWN_ACTION
+        if (LegalMoves.isForced(state, rules, cmd.actor) && !action.isForcedWhenRich) return Rejection.FORCED_ACTION_REQUIRED
+        if (state.player(cmd.actor).coins < action.cost) return Rejection.INSUFFICIENT_COINS
+        val targets = LegalMoves.validTargets(state, cmd.actor, action)
+        when (action.targeting) {
+            Targeting.None -> if (cmd.target != null) return Rejection.INVALID_TARGET
+            is Targeting.OtherAlivePlayer -> if (cmd.target == null || targets == null || cmd.target !in targets) {
+                return Rejection.INVALID_TARGET
+            }
+        }
+
+        val claimed = rules.rolesGranting(action.id)
+        tx.state = tx.state.copy(
+            currentAction = PendingAction(cmd.actor, action.id, cmd.target, claimed, costPaid = action.cost),
+        )
+        tx.emit(GameEvent.ActionDeclared(cmd.actor, action.id, cmd.target, claimed))
+        tx.changeCoins(cmd.actor, -action.cost, action.id)
+
+        val needsResponses = claimed.isNotEmpty() || action.blockPolicy != BlockPolicy.NONE
+        if (needsResponses) {
+            tx.push(ResolutionStep.OpenResponseWindow(WindowKind.ACTION))
+        } else {
+            tx.push(ResolutionStep.ApplyEffect, ResolutionStep.EndTurn)
+        }
+        return null
+    }
+
+    private fun pass(tx: Transition, cmd: Command.Pass): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        val updated = window.copy(passed = window.passed + cmd.actor)
+        tx.state = tx.state.copy(phase = Phase.AwaitingResponses(updated))
+        tx.emit(GameEvent.Passed(cmd.actor))
+        if (updated.waitingOn.isEmpty()) tx.closeAllPassed(window.kind)
+        return null
+    }
+
+    private fun challenge(tx: Transition, cmd: Command.Challenge): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        if (window.allowed[cmd.actor]?.canChallenge != true) return Rejection.CHALLENGE_NOT_ALLOWED
+        val pending = checkNotNull(tx.state.currentAction)
+        when (window.kind) {
+            WindowKind.ACTION -> tx.startChallenge(cmd.actor, pending.actor, pending.claimedRoles, ChallengeContext.ACTION)
+            WindowKind.BLOCK_ONLY -> return Rejection.CHALLENGE_NOT_ALLOWED
+            WindowKind.BLOCK_CHALLENGE -> {
+                val block = checkNotNull(pending.blockedBy)
+                tx.startChallenge(cmd.actor, block.blocker, setOf(block.role), ChallengeContext.BLOCK)
+            }
+        }
+        return null
+    }
+
+    private fun block(tx: Transition, cmd: Command.Block): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingResponses ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        val window = phase.window
+        if (cmd.actor !in window.waitingOn) return Rejection.NOT_YOUR_DECISION
+        if (cmd.asRole !in window.allowed[cmd.actor]?.blockRoles.orEmpty()) return Rejection.ROLE_CANNOT_BLOCK
+        tx.declareBlock(cmd.actor, cmd.asRole)
+        return null
+    }
+
+    private fun chooseExchange(tx: Transition, cmd: Command.ChooseExchange): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingExchange ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        if (phase.player != cmd.actor) return Rejection.NOT_YOUR_DECISION
+        val valid = cmd.keep.size == phase.keepCount &&
+            cmd.keep.toSet().size == cmd.keep.size &&
+            cmd.keep.all { keep -> phase.candidates.any { it.id == keep } }
+        if (!valid) return Rejection.INVALID_EXCHANGE_SELECTION
+        tx.completeExchange(cmd.keep)
+        return null
+    }
+
+    private fun revealCard(tx: Transition, cmd: Command.RevealCard): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingReveal ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        if (phase.challenged != cmd.actor) return Rejection.NOT_YOUR_DECISION
+        val influence = tx.state.player(cmd.actor).influences.firstOrNull { it.card.id == cmd.cardId }
+            ?: return Rejection.CARD_NOT_OWNED
+        if (influence.revealed) return Rejection.CARD_ALREADY_REVEALED
+        tx.resolveReveal(cmd.cardId)
+        return null
+    }
+
+    private fun loseInfluence(tx: Transition, cmd: Command.LoseInfluence): Rejection? {
+        val phase = tx.state.phase as? Phase.AwaitingInfluenceLoss ?: return wrongPhaseOrNotYours(tx.state, cmd.actor)
+        if (phase.player != cmd.actor) return Rejection.NOT_YOUR_DECISION
+        val influence = tx.state.player(cmd.actor).influences.firstOrNull { it.card.id == cmd.cardId }
+            ?: return Rejection.CARD_NOT_OWNED
+        if (influence.revealed) return Rejection.CARD_ALREADY_REVEALED
+        tx.reveal(cmd.actor, cmd.cardId, phase.reason)
+        return null
+    }
+
+    /** 현재 페이즈에서 이 플레이어가 결정권자가 아니면 NOT_YOUR_DECISION, 결정권자지만 명령 종류가 틀리면 WRONG_PHASE. */
+    private fun wrongPhaseOrNotYours(state: GameState, actor: PlayerId): Rejection =
+        if (actor in pendingDeciders(state)) Rejection.WRONG_PHASE else Rejection.NOT_YOUR_DECISION
+
+    private fun rulesOf(state: GameState): RuleSet = registry.build(state.ruleSetConfig)
+}
