@@ -23,24 +23,28 @@
 | 7 | 막기 / 막기 도전 / BLOCK_ONLY | ✅ |
 | 8 | 교환 | ✅ |
 | 9 | 탈락 / 게임 종료 / 기권 | ✅ |
-| 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ⬜ ← 다음 🧠 정보 은닉 검증은 Opus 권장 |
-| 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ⬜ |
+| 10 | 뷰·이벤트 투영, timeoutCommand, determinize | ✅ |
+| 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ⬜ ← 다음 |
 
 ## 다음 할 일
-1. 10단계: `view(state, viewer)` → `PlayerView`(설계 §4.6), `projectEvents(events, viewer)`(§4.7), `timeoutCommand(state, player)`(D4: 응답 Pass / 공개·상실 첫 미공개 카드 / 교환 현재 손패 유지 / 행동 수입 또는 강제 쿠의 첫 대상), `determinize(view, assignment, seed)`(§4.3).
-   - 마스킹 필수: 타인의 미공개 카드 역할·CardId, 덱 내용, RNG, `CardReplaced.newCard`, `ExchangeDrawn.cards`, `Phase.AwaitingExchange.candidates`, `CardsDealt`(도입 시).
-   - 정보 누출 테스트(§12.4): 뷰를 JSON으로 직렬화해 타인 미공개 CardId/역할이 없음을 검사. 히든 정보만 다른 두 상태의 뷰가 같은지 검사.
-2. 11단계: 하우스룰 3종(`no_steal_from_broke`, 파라미터 오버라이드 확인, `last_stand` 훅 — RuleModifier 도입), 속성 기반 테스트 확장, 골든 파일.
+1. 11단계(Phase 1 마지막): 
+   - `RuleModifier`(설계 §5.1, 훅 4개) 도입 + `RuleSetBuilder` + `HouseRule` 등록(`RuleSetRegistry.registerHouseRule`, `availableHouseRules`). 현재 `build()`는 하우스룰이 있으면 거절한다.
+   - 하우스룰 3종: `no_steal_from_broke`(대상 필터), 파라미터 오버라이드(이미 동작 — 테스트만), `last_stand`(transformEffect 훅).
+   - 속성 기반 테스트 확장: 모든 하우스룰 ON/OFF 조합에서 무작위 완주 1천 판, 같은 seed+명령 로그 → 같은 최종 상태(리플레이 결정성).
+   - 골든 파일: `GameState`/`PlayerView`/`Command` JSON 샘플을 `src/test/resources/golden/v1/`에 저장하고 디코딩 호환성 검사.
+   - 테스트 전용 확장 룰셋(은행가)으로 엔진 코어 무수정 확장 시나리오 테스트(이미 검증기 수준은 있음 — 실제 플레이까지).
+2. Phase 1 완료 후: 엔진 커버리지 측정(설계 DoD 90%+, Kover 등), 설계 문서 §4 시그니처와 실제 구현의 차이 정리(ADR 또는 문서 갱신). 그다음 Phase 2(`:runtime`, `:ai`).
 
-## 이번 단계 메모 (9단계)
-- `Command.Concede`: 생존자는 결정권과 무관하게 언제든 가능(`pendingDeciders` 검사 예외). 남은 카드 전부 공개(`LossReason.Concede`) → 탈락. 생존자 1명이면 즉시 종료.
-- **기권은 일반 해결 루프(`resolve`)를 무조건 돌리지 않는다.** 다른 사람의 결정을 기다리는 중이면 아무것도 진행하지 않아야 그 결정을 건너뛰지 않는다. 기권 직전 페이즈가 기권자를 기다렸던 경우에만 정리 후 진행:
-  - 자기 턴 → `EndTurn`.
-  - 응답 창: 행위자 기권 → 행동 취소(`ActionOutcome.CANCELLED` 신설). 막기 도전 창에서 막은 사람 기권 → 막기 무효, 행동 해결. 응답자 기권 → 창에서 제외, 대기자 0명이면 전원 통과 처리.
-  - 공개 대기: 도전받은 사람 기권 → 주장 불성립(행동 도전이면 취소, 막기 도전이면 막기 무효·행동 해결), 도전자는 잃지 않음. 도전자 기권 → 공개는 계속.
-  - 상실/교환 대기 중 본인 기권 → 이어서 진행(교환은 엿보기 방식이라 덱 그대로).
-- 안전장치: 행위자가 탈락한 상태로 응답 창이 열리려 하면 열지 않고, `ApplyEffect`는 행위자가 탈락했으면 `CANCELLED` 처리. (예: 증명에 진 도전자가 고르는 동안 행위자가 기권 → 도전자는 그대로 잃고 행동은 취소)
-- 새 이벤트: `PlayerConceded`. 무작위 완주 테스트에 매 단계 약 3% 기권 추가.
+## 이번 단계 메모 (10단계)
+- `GameEngine`에 `view` / `projectEvents` / `timeoutCommand` / `determinize` 추가 — 설계 §4.3 인터페이스 완성.
+- `PlayerView`·`VisibleEvent`는 생성자가 `internal`(엔진만 생성). 상대는 `OpponentView`(코인, 미공개 장수, 공개 역할, 생존)만 — **카드 ID도 노출하지 않는다**. 덱은 장수만, RNG 없음.
+- `PublicPhase`: 교환 중이면 후보 대신 `candidateCount`/`keepCount`만. 당사자는 `myDecision`(ChooseExchange)으로 후보를 본다.
+- 해결 스택은 비밀이 아니므로 `PlayerView.pendingSteps`(internal)에 실어 `determinize`가 정확히 재개 가능한 상태를 만든다.
+- 이벤트 투영: `CardReplaced`→타인에게 `CardReplacedHidden`, `ExchangeDrawn`→`ExchangeDrawnHidden(count)`. 나머지는 원래 공개 정보.
+- `determinize`: 내가 아는 카드(내 손패, 내 교환 후보)는 실제 ID 유지, 나머지는 새 ID. 가정이 공개 정보와 모순되면(장수, 덱 크기, 역할 구성, 모르는 플레이어) `IllegalArgumentException`.
+- `timeoutCommand`(D4): 응답 Pass / 공개·상실 첫 미공개 카드 / 교환 현재 손패 / 행동은 강제면 좌석 순서 첫 대상에게, 아니면 무료·무주장·무대상 행동(수입).
+- 검증: 무작위 게임 모든 상태·모든 시점에서 (1) 뷰 JSON에 알 수 없는 카드 ID와 `deck`/`rng` 키 없음 (2) `view(determinize(view, 정답 가정)) == view` 왕복 (3) 기본 명령 항상 수락 (4) 비공개 이벤트 당사자 외 전달 없음. 누출 검사기 자체도 실제 누출을 잡는지 테스트.
+- `RuleParams`를 `@Serializable`로 변경(뷰의 룰 요약에 포함).
 
 ## 알려진 사항
 - 클라우드 샌드박스는 기본 로케일이 UTF-8이 아니라 한글 테스트명 컴파일이 실패한다 → `LC_ALL=C.UTF-8`로 실행. (CI/Windows는 영향 없음)
@@ -51,4 +55,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, 엔진 9단계 완료_
+_마지막 갱신: 2026-10-04, 엔진 10단계 완료_

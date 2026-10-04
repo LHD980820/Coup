@@ -22,6 +22,9 @@ import io.github.lhd980820.coup.engine.rules.RuleSetRegistry
 import io.github.lhd980820.coup.engine.rules.Targeting
 import io.github.lhd980820.coup.engine.serialization.ENGINE_SCHEMA_VERSION
 import io.github.lhd980820.coup.engine.view.DecisionRequest
+import io.github.lhd980820.coup.engine.view.PlayerView
+import io.github.lhd980820.coup.engine.view.Viewer
+import io.github.lhd980820.coup.engine.view.VisibleEvent
 
 internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEngine {
 
@@ -121,6 +124,38 @@ internal class DefaultGameEngine(private val registry: RuleSetRegistry) : GameEn
             is Phase.GameOver -> null
         }
     }
+
+    override fun view(state: GameState, viewer: Viewer): PlayerView {
+        val decision = (viewer as? Viewer.Player)?.let { legalOptions(state, it.id) }
+        return ViewProjector.view(state, rulesOf(state), viewer, decision)
+    }
+
+    override fun projectEvents(events: List<GameEvent>, viewer: Viewer): List<VisibleEvent> =
+        ViewProjector.projectEvents(events, viewer)
+
+    override fun timeoutCommand(state: GameState, player: PlayerId): Command {
+        val decision = requireNotNull(legalOptions(state, player)) { "${player.value} has no pending decision" }
+        val v = state.version
+        return when (decision) {
+            is DecisionRequest.Respond -> Command.Pass(player, v)
+            is DecisionRequest.ChooseRevealCard -> Command.RevealCard(player, decision.cards.first().id, v)
+            is DecisionRequest.ChooseInfluenceToLose -> Command.LoseInfluence(player, decision.cards.first().id, v)
+            is DecisionRequest.ChooseExchange ->
+                Command.ChooseExchange(player, decision.candidates.take(decision.keepCount).map { it.id }, v)
+            is DecisionRequest.ChooseAction -> {
+                val forced = decision.options.firstOrNull { it.forcedOnly && it.selectable }
+                val safe = decision.options.firstOrNull {
+                    it.selectable && it.cost == 0 && it.validTargets == null && it.claimedRoles.isEmpty()
+                }
+                val option = forced ?: safe ?: decision.options.first { it.selectable }
+                val target = option.validTargets?.let { targets -> state.seats.first { it in targets } }
+                Command.DeclareAction(player, option.actionId, target, v)
+            }
+        }
+    }
+
+    override fun determinize(view: PlayerView, assignment: HiddenAssignment, seed: Long): GameState =
+        ViewProjector.determinize(view, registry.build(view.ruleSet.config), assignment, seed)
 
     private fun declareAction(tx: Transition, cmd: Command.DeclareAction): Rejection? {
         val state = tx.state

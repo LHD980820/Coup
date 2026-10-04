@@ -1,5 +1,8 @@
 package io.github.lhd980820.coup.engine.rules
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 public data class RuleParams(
     public val startingCoins: Int = 2,
     public val handSize: Int = 2,

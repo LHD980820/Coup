@@ -70,6 +70,16 @@ public sealed interface GameEvent {
     @SerialName("exchange_drawn")
     public data class ExchangeDrawn(public val player: PlayerId, public val cards: List<Card>) : GameEvent
 
+    /** [CardReplaced]의 타인용 투영: 증명에 쓴 카드는 공개, 새로 받은 카드는 비공개. */
+    @Serializable
+    @SerialName("card_replaced_hidden")
+    public data class CardReplacedHidden(public val player: PlayerId, public val returned: Card) : GameEvent
+
+    /** [ExchangeDrawn]의 타인용 투영: 장수만 공개. */
+    @Serializable
+    @SerialName("exchange_drawn_hidden")
+    public data class ExchangeDrawnHidden(public val player: PlayerId, public val count: Int) : GameEvent
+
     @Serializable
     @SerialName("exchange_completed")
     public data class ExchangeCompleted(public val player: PlayerId) : GameEvent
