@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 ⬜ / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅ / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -32,11 +32,18 @@
 계획 변경(오너, 2026-10-04): **C -> A안(Android 빌드가 가능한 새 클라우드 세션/환경에서 UI 작업) -> 현재 세션 복귀**. 아래 "A안 전제 조건" 참고.
 1. **(C) 남은 순수 Kotlin 부분**:
    - ~~방/로비 도메인~~ ✅ 완료(아래 메모). 남은 후속: Firestore `RoomStore`(DocumentStore 트랜잭션 필요) + 방 접근 규칙.
-   - 튜토리얼 시나리오(조작된 덱 + `ScriptedAgent`, `determinize` 기반).
+   - ~~튜토리얼 시나리오~~ ✅ 완료(아래 메모).
    - 사용자/랭킹 도메인(레이팅 반영: `results/{id}`를 읽어 본인 rating 1회 갱신 — 설계 §8.4) — 규칙과 함께.
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (C) — 튜토리얼)
+- `core/presentation/tutorial`: `TutorialLesson`(고정 seed·손패·선 플레이어·선생 대본·사용자 단계), `ScriptedAgent`(대본대로 두는 `AiAgent`, 어긋나면 합법적 기본 수), `GuidedSession`(어떤 `GameSession`이든 감싸 단계에 맞는 수만 통과, 기권은 항상 허용, `progress` 흐름 제공), `TutorialSessionFactory`, 내장 4과정 `TutorialLessons`(기본 행동 / 역할 주장 / 도전 / 막기).
+- 조작된 덱은 `determinize` 대신 **손패가 맞는 seed를 찾아 고정**하는 방식으로 했다(엔진·세션을 건드리지 않고 `LocalGameSession` 그대로 사용). 테스트가 과정별 손패·선 플레이어를 검증하므로 엔진 변경으로 어긋나면 바로 실패한다.
+- 문구는 `messageKey`만 갖는다(앱 리소스가 번역). 지시와 다른 수는 `Rejected(NOT_YOUR_DECISION)` + `offScript` 증가. `GameController`는 변경 없이 그대로 사용.
+- 테스트 7개(손패 검증, 4과정 완주, 도전 시 선생 영향력 상실, 오프스크립트 거절, 기권, 컨트롤러 버튼 흐름, 대본 이탈 시 진행) + 가드 해제 변이 검증.
+- 앱 쪽(Android 세션) 할 일: 과정 선택 화면, 안내 말풍선(`progress.messageKey`), 기존 이미지 9장은 소개용으로 재사용.
 
 ## 이번 단계 메모 (Phase 3 (C) — 방/로비, ADR 0006)
 - 새 모듈 `core/lobby`: `Room`/`RoomSeat`/`RoomError`, `RoomRules`(순수 함수: 생성·입장·퇴장·강퇴·준비·봇·규칙 변경·시작·종료), `RoomStore`(원자적 `update`) + `InMemoryRoomStore`, `RoomService`, `GameStartPlan`(`setup()`·`hostSeats()`), `JoinCodes`(6자리, 헷갈리는 글자 제외).
@@ -95,4 +102,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-09, Phase 3 (C) 방/로비 완료_
+_마지막 갱신: 2026-10-09, Phase 3 (C) 튜토리얼 완료_
