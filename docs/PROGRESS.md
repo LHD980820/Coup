@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비·튜토리얼 ⬜ / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 ⬜ / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -31,12 +31,18 @@
 ## 다음 할 일
 계획 변경(오너, 2026-10-04): **C -> A안(Android 빌드가 가능한 새 클라우드 세션/환경에서 UI 작업) -> 현재 세션 복귀**. 아래 "A안 전제 조건" 참고.
 1. **(C) 남은 순수 Kotlin 부분**:
-   - 방/로비 도메인(`RoomRepository` 인터페이스, 좌석 배치·준비·시작 규칙, 하우스룰 선택 -> `RuleSetConfig`, 방장이 게임 시작 시 `createGame` + `HostGameSession` 구성).
+   - ~~방/로비 도메인~~ ✅ 완료(아래 메모). 남은 후속: Firestore `RoomStore`(DocumentStore 트랜잭션 필요) + 방 접근 규칙.
    - 튜토리얼 시나리오(조작된 덱 + `ScriptedAgent`, `determinize` 기반).
    - 사용자/랭킹 도메인(레이팅 반영: `results/{id}`를 읽어 본인 rating 1회 갱신 — 설계 §8.4) — 규칙과 함께.
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (C) — 방/로비, ADR 0006)
+- 새 모듈 `core/lobby`: `Room`/`RoomSeat`/`RoomError`, `RoomRules`(순수 함수: 생성·입장·퇴장·강퇴·준비·봇·규칙 변경·시작·종료), `RoomStore`(원자적 `update`) + `InMemoryRoomStore`, `RoomService`, `GameStartPlan`(`setup()`·`hostSeats()`), `JoinCodes`(6자리, 헷갈리는 글자 제외).
+- 규칙: 방장 퇴장=방 닫힘, 강퇴자 재입장 불가, 비공개 방은 코드(대소문자/공백 무시), 앱 버전·룰셋 지원 게이트, 규칙/봇 변경 시 게스트 준비 초기화, 봇만 있어도 시작 가능, 종료 후 WAITING 복귀.
+- 공개 목록: WAITING + PUBLIC만 최신순, 요약에 봇/커스텀 룰/레이팅 여부.
+- 테스트 32개(마지막 자리 동시 입장 20라운드 x 8명 -> 항상 정확히 1명 성공, 시드 결정성, 레이팅 플래그 등). 전체 `core` 341개 통과, kover 게이트 통과.
 
 ## 이번 단계 메모 (Phase 3 (C) — Firestore 전송, ADR 0005)
 - 새 모듈 `core/remote`: `DocumentStore`(write 배치/observe/observeWhere), `FirestoreSchema`(경로·필드 상수), `FirestoreGameTransport`(host/guest). 게시는 좌석별 뷰 + 관전 뷰 + 권한자 백업 + 메타를 **한 배치**로 쓴다. 방장 본인 뷰는 문서로 나가지 않는다.
@@ -89,4 +95,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-04, Phase 3 (C) Firestore 전송 완료_
+_마지막 갱신: 2026-10-09, Phase 3 (C) 방/로비 완료_
