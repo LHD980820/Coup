@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -35,11 +35,20 @@
    - ~~튜토리얼 시나리오~~ ✅ 완료(아래 메모).
    - ~~사용자/랭킹 도메인~~ ✅ 완료(아래 메모).
    - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
-   - **다음**: Firestore `RoomStore`(+ `DocumentStore` 트랜잭션) + 방 접근 규칙. 반드시 포함: (1) 방 입장·rated 게임 생성에 `isSettled(uid)`,
-     (2) **게임 좌석 = 방에 스스로 들어온 사람**(지금은 방장이 아무 uid나 좌석에 넣을 수 있어 가짜 패배를 씌울 수 있다 — 배포 전 필수).
+   - ~~Firestore `RoomStore` + 방 규칙(정산 게이트 연결, 게임 좌석 동의)~~ ✅ 완료(아래 메모).
+   - **(C)의 순수 Kotlin 부분은 여기서 일단락.** 남은 것: 에뮬레이터 규칙 검증(Node 필요 — 가능한 환경에서), Android(A안) 작업.
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (C) — Firestore 방, ADR 0008)
+- `DocumentStore.transaction`(읽기 -> 쓰기, 바뀌면 재실행) 추가. `FakeFirestore`는 낙관적 트랜잭션 + 커밋 직전 끼어들기 훅.
+- `FirestoreRoomStore`(`RoomStore` 구현): 방 문서를 구조화된 필드로(`members`/`memberOrder`/`bots`/`ruleSet`/`configVersion`). 게스트 준비 = `readyVersion == configVersion` — 룰셋·봇 변경 시 방장이 게스트 항목을 건드리지 않고도 준비가 풀린다. 바뀐 필드만 바꿔 쓴다.
+- 규칙: 게스트는 자기 항목만, 방장은 사람을 빼기만, 룰셋·봇 변경 시 configVersion +1(되돌리기 불가), 시작은 전원 준비 시. **게임 생성은 방에 묶임**: 좌석 = 방 사람 전원, rated = 방 구성, 좌석 전원 정산 완료. 레이팅 결과는 rated 게임만.
+- 정산 게이트 연결 완료: 방 만들기·입장(`RoomError.UNSETTLED_GAME`)·게임 생성.
+- `createGame`에 `roomId` 추가(+ `createGame(plan)`). 기존 전송/사용자 테스트는 관리자 권한으로 시작된 방을 심는 `seedStartedRoom`을 쓴다.
+- 테스트: 방 22개(+ 사용자 3개 추가). 접근 모델 검사 89개 변이 검증 -> 79개 검출, 10개는 중복 방어(ADR 0008 "검증").
+- 변이 검증이 찾은 위험: 방장이 configVersion을 되돌려 게스트의 옛 준비를 되살리기 -> "+1만" 규칙과 테스트.
 
 ## 이번 단계 메모 (Phase 3 (C) — 사용자·레이팅·랭킹, ADR 0007)
 - 새 모듈 `core/account`(순수): `UserProfile`(시작 1000), `Nicknames`, `RatingLedger`(변동량을 **레이팅 표에서 다시 계산**, 결과 문서와 다르면 반영 안 함), `Rankings`(동점 공동 순위), `LegacyMigration`(옛 `user/{email}` -> `users/{uid}`, 이메일 선점 `legacyClaims/{email}`).
@@ -116,4 +125,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-17, Phase 3 (C) 사용자·레이팅·랭킹 완료_
+_마지막 갱신: 2026-10-17, Phase 3 (C) Firestore 방 완료_

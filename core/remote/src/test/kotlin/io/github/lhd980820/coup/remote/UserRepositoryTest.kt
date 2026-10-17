@@ -33,10 +33,22 @@ class UserRepositoryTest {
 
     private suspend fun profileOf(uid: String) = repo(uid).observeProfile().first()
 
-    /** 방장 기기가 FirestoreGameTransport로 게임을 만들고 끝낸 것처럼 결과 문서를 쓴다. */
-    private suspend fun finishGame(gameId: String, ranking: List<String>, rated: Boolean = true, deltas: Map<String, Int>? = null) {
+    /** 방이 시작되어 게임 문서가 생긴 상태로 만든다(방장 = 순위 첫 사람). */
+    private suspend fun startGame(gameId: String, ranking: List<String>, rated: Boolean = true) {
+        FirestoreGameTransport(fs.storeFor(ranking.first()), clock)
+            .createGame(gameId, fs.seedStartedRoom(gameId, ranking.first(), ranking, rated), ranking.first(), ranking, BuiltinRules.classicConfig(), rated)
+    }
+
+    /** 방장 기기가 FirestoreGameTransport로 게임을 만들고 끝낸 것처럼 결과 문서를 쓴다. [started]면 게임 문서는 이미 있다. */
+    private suspend fun finishGame(
+        gameId: String,
+        ranking: List<String>,
+        rated: Boolean = true,
+        deltas: Map<String, Int>? = null,
+        started: Boolean = false,
+    ) {
         val host = FirestoreGameTransport(fs.storeFor(ranking.first()), clock)
-        host.createGame(gameId, ranking.first(), ranking, BuiltinRules.classicConfig(), rated)
+        if (!started) startGame(gameId, ranking, rated)
         val computed = TableRatingPolicy.ratingDeltas(ranking.map(::PlayerId))
         host.host.finish(
             gameId,
@@ -51,7 +63,8 @@ class UserRepositoryTest {
 
     /** 규칙을 우회해 손상된(표와 다른) 결과 문서를 만든다. 실제로는 규칙이 방장의 이런 쓰기를 거절한다. */
     private suspend fun corruptResult(gameId: String, ranking: List<String>, deltas: Map<String, Int>) {
-        FirestoreGameTransport(fs.storeFor(ranking.first()), clock).createGame(gameId, ranking.first(), ranking, BuiltinRules.classicConfig(), rated = true)
+        FirestoreGameTransport(fs.storeFor(ranking.first()), clock)
+            .createGame(gameId, fs.seedStartedRoom(gameId, ranking.first(), ranking, rated = true), ranking.first(), ranking, BuiltinRules.classicConfig(), rated = true)
         fs.admin().write(
             listOf(
                 WriteOp.Set(
@@ -120,6 +133,60 @@ class UserRepositoryTest {
     }
 
     @Test
+    fun `규칙 - 새 프로필의 모양과 옛 문서 쓰기`(): Unit = runBlocking {
+        val store = fs.storeFor("a", "a@x.com")
+        fun deny(data: JsonObject) = assertFailure { runBlocking { store.write(listOf(WriteOp.Set("users/a", data))) } }.isInstanceOf(PermissionDenied::class)
+        val fresh = UserProfile.fresh("a", "에이", 0).toJson()
+        deny(JsonObject(fresh + ("admin" to JsonPrimitive(true))))
+        deny(JsonObject(fresh + ("nickname" to JsonPrimitive("x"))))
+        deny(JsonObject(fresh + ("wins" to JsonPrimitive(5))))
+        deny(JsonObject(fresh + ("migratedFromLegacy" to JsonPrimitive("no"))))
+        fs.admin().write(listOf(WriteOp.Set("user/a@x.com", buildJsonObject { put("rating", 1000) })))
+        assertFailure { store.write(listOf(WriteOp.Merge("user/a@x.com", buildJsonObject { put("rating", 9999) }))) }.isInstanceOf(PermissionDenied::class)
+        store.write(listOf(WriteOp.Set("users/a", fresh)))
+    }
+
+    @Test
+    fun `규칙 - 전적 문서는 본인 것만, 순위·레이팅은 정확히`(): Unit = runBlocking {
+        signUp("a", "b")
+        finishGame("g", listOf("a", "b"))
+        // 레이팅을 표보다 많이 올리기(전적 변동량은 정상)
+        assertFailure { fs.storeFor("a").write(applyOps("a", "g", 2000, 1, 1, 0, 30)) }.isInstanceOf(PermissionDenied::class)
+        // 전적의 순위를 다르게
+        val wrongRank = applyOps("a", "g", 1030, 1, 1, 0, 30).let { ops ->
+            listOf(ops[0], WriteOp.Set("users/a/appliedResults/g", JsonObject((ops[1] as WriteOp.Set).data + ("rank" to JsonPrimitive(1)))))
+        }
+        assertFailure { fs.storeFor("a").write(wrongRank) }.isInstanceOf(PermissionDenied::class)
+        // b가 자기 반영과 함께 a의 전적 경로에 표시를 쓰기
+        val bOps = applyOps("b", "g", 980, 1, 0, 1, -20)
+        assertFailure { fs.storeFor("b").write(listOf(bOps[0], WriteOp.Set("users/a/appliedResults/g", (bOps[1] as WriteOp.Set).data))) }
+            .isInstanceOf(PermissionDenied::class)
+        repo("a").applyResult("g")
+        assertFailure { fs.storeFor("b").observe("users/a/appliedResults/g").first() }.isInstanceOf(PermissionDenied::class)
+    }
+
+    @Test
+    fun `규칙 - 비레이팅 결과에 변동량이 적혀 있어도 반영할 수 없다`(): Unit = runBlocking {
+        signUp("a", "b")
+        startGame("c", listOf("a", "b"), rated = false)
+        fs.storeFor("a").write(
+            listOf(
+                WriteOp.Set(
+                    "results/c",
+                    buildJsonObject {
+                        put(FirestoreSchema.Result.RANKING, buildJsonArray { add(JsonPrimitive("a")); add(JsonPrimitive("b")) })
+                        put(FirestoreSchema.Result.PLAYER_COUNT, 2)
+                        put(FirestoreSchema.Result.RATED, false)
+                        put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { put("a", 30); put("b", -20) })
+                    },
+                ),
+            ),
+        )
+        assertThat(repo("a").applyResult("c")).isEqualTo(ApplyOutcome.Skipped(SkipReason.NOT_RATED))
+        assertFailure { fs.storeFor("a").write(applyOps("a", "c", 1030, 1, 1, 0, 30)) }.isInstanceOf(PermissionDenied::class)
+    }
+
+    @Test
     fun `닉네임 변경 - 규칙 위반은 쓰지 않고, 레이팅은 직접 바꿀 수 없다`(): Unit = runBlocking {
         signUp("a")
         assertThat(repo("a").updateNickname("x")).isEqualTo(NicknameError.TOO_SHORT)
@@ -180,8 +247,11 @@ class UserRepositoryTest {
     @Test
     fun `규칙 - 레이팅 반영을 위조할 수 없다`(): Unit = runBlocking {
         signUp("a", "b", "z")
-        finishGame("g", listOf("a", "b"))
-        finishGame("casual", listOf("a", "b"), rated = false)
+        startGame("g", listOf("a", "b"))
+        startGame("casual", listOf("a", "b"), rated = false)
+        startGame("g3", listOf("a", "b"))
+        finishGame("g", listOf("a", "b"), started = true)
+        finishGame("casual", listOf("a", "b"), rated = false, started = true)
         val a = fs.storeFor("a")
         fun deny(ops: List<WriteOp>, store: DocumentStore = a) = assertFailure { runBlocking { store.write(ops) } }.isInstanceOf(PermissionDenied::class)
         // 표시 문서 없이
@@ -199,7 +269,7 @@ class UserRepositoryTest {
         a.write(applyOps("a", "g", 1030, 1, 1, 0, 30))
         deny(applyOps("a", "g", 1060, 2, 2, 0, 30))
         // 표시 문서에 다른 필드를 끼워 넣을 수 없다
-        finishGame("g3", listOf("a", "b"))
+        finishGame("g3", listOf("a", "b"), started = true)
         val padded = applyOps("a", "g3", 1060, 2, 2, 0, 30).let { ops ->
             listOf(ops[0], WriteOp.Set("users/a/appliedResults/g3", JsonObject((ops[1] as WriteOp.Set).data + ("note" to JsonPrimitive("x")))))
         }
@@ -216,6 +286,7 @@ class UserRepositoryTest {
         signUp("a", "b")
         finishGame("win", listOf("a", "b"))
         repo("a").applyResult("win") // lastAppliedRank = 0
+        repo("b").applyResult("win")
         finishGame("loss", listOf("b", "a"))
         val markerOnly = applyOps("a", "loss", 0, 0, 0, rank = 0, delta = -20).drop(1)
         assertFailure { fs.storeFor("a").write(markerOnly) }.isInstanceOf(PermissionDenied::class)
@@ -248,8 +319,10 @@ class UserRepositoryTest {
     @Test
     fun `다른 게임을 동시에 반영하면 늦은 쪽이 다시 읽어 둘 다 반영된다`(): Unit = runBlocking {
         signUp("a", "b", "c")
-        finishGame("g1", listOf("a", "b"))
-        finishGame("g2", listOf("c", "b", "a"))
+        startGame("g1", listOf("a", "b"))
+        startGame("g2", listOf("c", "b", "a"))
+        finishGame("g1", listOf("a", "b"), started = true)
+        finishGame("g2", listOf("c", "b", "a"), started = true)
         val device1 = repo("a", store = BeforeFirstWrite(fs.storeFor("a")) { repo("a").applyResult("g2") })
         assertThat(device1.applyResult("g1")).isInstanceOf(ApplyOutcome.Applied::class)
         assertThat(profileOf("a")!!.let { Triple(it.rating, it.plays, it.wins) }).isEqualTo(Triple(1000 + 30 - 40, 2, 1))
@@ -259,7 +332,7 @@ class UserRepositoryTest {
     @Test
     fun `규칙 - 레이팅 게임의 순위는 사람 좌석 전원이어야 한다`(): Unit = runBlocking {
         val host = FirestoreGameTransport(fs.storeFor("a"), clock)
-        host.createGame("g", "a", listOf("a", "b"), BuiltinRules.classicConfig(), rated = true)
+        host.createGame("g", fs.seedStartedRoom("g", "a", listOf("a", "b"), rated = true), "a", listOf("a", "b"), BuiltinRules.classicConfig(), rated = true)
         fun result(ranking: List<String>, count: Int = ranking.size) = WriteOp.Set(
             "results/g",
             buildJsonObject {
@@ -362,7 +435,8 @@ class UserRepositoryTest {
             },
         )
         val host = fs.storeFor("a")
-        FirestoreGameTransport(host, clock).createGame("new", "a", listOf("a", "b"), BuiltinRules.classicConfig(), rated = true)
+        FirestoreGameTransport(host, clock)
+            .createGame("new", fs.seedStartedRoom("new", "a", listOf("a", "b"), rated = true), "a", listOf("a", "b"), BuiltinRules.classicConfig(), rated = true)
         // 정산을 끝낸 b에게 옛 게임 대기를 다시 씌우기(결과 배치 밖)
         finishGame("old", listOf("a", "b"))
         repo("b").applyResult("old")
@@ -392,9 +466,11 @@ class UserRepositoryTest {
     @Test
     fun `이미 대기 표시가 있는 참가자는 건너뛰고 결과는 기록된다`(): Unit = runBlocking {
         signUp("a", "b", "c")
-        finishGame("g1", listOf("a", "b"))
-        // b는 g1을 정산하지 않은 채(게이트가 생기기 전 등) 다른 게임을 끝냈다
-        finishGame("g2", listOf("c", "b"))
+        // b는 두 게임을 동시에 진행했다(둘 다 정산이 끝난 상태에서 시작) -> g1이 먼저 끝나 대기 중일 때 g2가 끝난다
+        startGame("g1", listOf("a", "b"))
+        startGame("g2", listOf("c", "b"))
+        finishGame("g1", listOf("a", "b"), started = true)
+        finishGame("g2", listOf("c", "b"), started = true)
         assertThat(pendingOf("b")).isEqualTo("g1")
         assertThat(pendingOf("c")).isEqualTo("g2")
         assertThat(repo("b").applyResult("g2")).isInstanceOf(ApplyOutcome.Applied::class)

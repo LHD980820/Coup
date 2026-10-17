@@ -79,7 +79,7 @@ class FirestoreTransportTest {
                 // 이미 있는 게임 문서면(호스트 재시작) 만들지 않는다
                 if (!backend.docs.containsKey(FirestoreSchema.game(gameId))) {
                     kotlinx.coroutines.runBlocking {
-                        hostTransport.createGame(gameId, uid(0), ids.map { it.value }, state.ruleSetConfig, rated = true)
+                        hostTransport.createGame(gameId, backend.seedStartedRoom(gameId, uid(0), ids.map { it.value }, rated = true), uid(0), ids.map { it.value }, state.ruleSetConfig, rated = true)
                     }
                 }
             }.getOrThrow()
@@ -142,7 +142,7 @@ class FirestoreTransportTest {
     fun `게시는 좌석별 뷰 + 관전 뷰 + 권한자 백업 + 메타를 한 번에 쓰고 백업으로 복구할 수 있다`() = runTest {
         val t = table(humans = 3)
         runCurrent()
-        assertThat(t.backend.docs.keys.sorted()).isEqualTo(
+        assertThat(t.backend.docs.keys.filter { it.startsWith("games/") }.sorted()).isEqualTo(
             listOf(
                 FirestoreSchema.authority(gameId),
                 FirestoreSchema.game(gameId),
@@ -339,7 +339,7 @@ class FirestoreTransportTest {
         assertThrows<PermissionDenied> { outsider.observe(FirestoreSchema.view(gameId, FirestoreSchema.SPECTATOR_VIEW)).first() }
         val forged = FirestoreGameTransport(t.backend.storeFor(uid(1)), clock())
         assertThrows<TransportException> {
-            forged.createGame("g2", hostUid = uid(0), seats = listOf(uid(0), uid(1)), ruleSetConfig = BuiltinRules.classicConfig(), rated = true)
+            forged.createGame("g2", roomId = t.backend.seedStartedRoom("g2", uid(0), listOf(uid(0), uid(1)), rated = true), hostUid = uid(0), seats = listOf(uid(0), uid(1)), ruleSetConfig = BuiltinRules.classicConfig(), rated = true)
         }
     }
 

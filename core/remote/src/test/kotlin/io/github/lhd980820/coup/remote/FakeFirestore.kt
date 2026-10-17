@@ -12,7 +12,9 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 import java.util.concurrent.ConcurrentHashMap
 
 class PermissionDenied(message: String) : TransportException(message)
@@ -33,6 +35,10 @@ class FakeFirestore {
     private val changes = MutableStateFlow(0L)
     private val lock = Any()
 
+    /** 테스트 훅: 트랜잭션이 커밋을 확인하기 직전에 한 번 실행된다(경쟁 상황 재현). 실행 뒤 지워진다. */
+    @Volatile
+    var beforeNextCommit: (suspend () -> Unit)? = null
+
     /** 테스트가 규칙을 건너뛰고 직접 문서를 넣거나 읽는 통로(관리자 권한). */
     fun admin(): DocumentStore = Store(auth = null)
 
@@ -42,7 +48,44 @@ class FakeFirestore {
 
     private inner class Store(val auth: Auth?) : DocumentStore {
         override suspend fun write(ops: List<WriteOp>) {
-            synchronized(lock) {
+            synchronized(lock) { commit(ops) }
+        }
+
+        override suspend fun <T> transaction(block: suspend (DocumentTransaction) -> T): T {
+            repeat(MAX_TRANSACTION_ATTEMPTS) {
+                val reads = mutableMapOf<String, JsonObject?>()
+                val ops = mutableListOf<WriteOp>()
+                val tx = object : DocumentTransaction {
+                    override suspend fun get(path: String): JsonObject? {
+                        if (auth != null) AccessPolicy.check(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
+                        return docs[path].also { reads[path] = it }
+                    }
+
+                    override fun write(op: WriteOp) {
+                        ops += op
+                    }
+                }
+                val value = block(tx)
+                beforeNextCommit?.let { hook ->
+                    beforeNextCommit = null
+                    hook()
+                }
+                // 낙관적 동시성: 읽은 문서가 그대로일 때만 커밋, 아니면 처음부터 다시
+                val committed = synchronized(lock) {
+                    if (reads.all { (path, seen) -> docs[path] == seen }) {
+                        if (ops.isNotEmpty()) commit(ops)
+                        true
+                    } else {
+                        false
+                    }
+                }
+                if (committed) return value
+            }
+            throw TransportException("transaction failed after $MAX_TRANSACTION_ATTEMPTS attempts")
+        }
+
+        private fun commit(ops: List<WriteOp>) {
+            run {
                 val before = docs.toMap()
                 val after = before.toMutableMap()
                 ops.forEach { op ->
@@ -74,7 +117,7 @@ class FakeFirestore {
         }.distinctUntilChanged()
 
         override fun observeWhere(collectionPath: String, field: String, value: String): Flow<List<StoredDocument>> = changes.map {
-            if (auth != null) AccessPolicy.check(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] })
+            if (auth != null) AccessPolicy.check(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = field to value)
             docs.filterKeys { parentOf(it) == collectionPath }
                 .filterValues { (it[field] as? JsonPrimitive)?.contentOrNull == value }
                 .map { (path, data) -> StoredDocument(path.substringAfterLast('/'), data) }
@@ -94,6 +137,8 @@ class FakeFirestore {
     }
 }
 
+private const val MAX_TRANSACTION_ATTEMPTS = 5
+
 enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
 
 /**
@@ -110,6 +155,11 @@ enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
  * - users/{uid}/appliedResults/{gid}: 읽기·조회 = 본인. 생성 = 본인, 같은 배치에서 사용자 문서가 이 게임을 반영할 때만. 수정 불가
  * - legacyClaims/{email}: 생성 = 토큰 이메일이 같고 uid가 본인. 읽기 = 토큰 이메일이 같을 때. 수정 불가
  * - user/{email}(옛 앱): 읽기 = 토큰 이메일이 같을 때. 쓰기 불가
+ * - rooms/{id} (ADR 0008): 읽기 = 로그인한 누구나(목록 조회는 공개 방만). 생성 = 방장 본인만 앉은 새 방, 정산 완료.
+ *   게스트 수정 = 자기 항목만(입장·준비·퇴장), 대기 중에만, 입장은 강퇴되지 않았고 자리가 있고 정산 완료일 때.
+ *   방장 수정 = 사람은 뺄 수만 있다(넣을 수 없다), 룰셋·봇을 바꾸면 configVersion +1, 시작은 모든 게스트가 지금 설정에 준비했을 때.
+ * - joinCodes/{code}: 읽기 = 로그인한 누구나. 생성 = 그 방을 같은 배치에서 만드는 방장. 삭제 = 방이 닫힐 때 방장.
+ * - games/{id} 생성: 방이 시작 상태이고 gameId가 같고, 좌석 = 방의 사람 전원, rated = 방 구성(봇·하우스룰 없음), 좌석 전원 정산 완료.
  */
 object AccessPolicy {
     /** 레이팅 표(= TableRatingPolicy). 규칙 파일에도 같은 표가 있다. */
@@ -135,6 +185,7 @@ object AccessPolicy {
         existing: JsonObject?,
         get: (String) -> JsonObject?,
         getAfter: (String) -> JsonObject?,
+        query: Pair<String, String>? = null,
     ) {
         val uid = auth.uid
         val segments = path.split('/')
@@ -152,6 +203,7 @@ object AccessPolicy {
                     if (uid != hostOf(id)) deny("only the host may write results")
                     val data = incoming ?: deny("no data")
                     if (data.bool(FirestoreSchema.Result.RATED) == true) {
+                        if (game(id).bool(FirestoreSchema.Game.RATED) != true) deny("an unrated game cannot have a rated result")
                         val ranking = data.strings(FirestoreSchema.Result.RANKING) ?: deny("ranking missing")
                         val seats = seatsOf(id)
                         if (ranking.toSet() != seats.toSet() || ranking.size != seats.size) deny("rated ranking must be exactly the human seats")
@@ -170,9 +222,24 @@ object AccessPolicy {
             segments.size == 2 && segments[0] == "games" -> when (kind) {
                 Access.READ -> if (uid !in seatsOf(segments[1])) deny("not a seat")
                 Access.CREATE -> {
+                    val gameId = segments[1]
+                    val data = incoming ?: deny("no data")
                     // 게임 문서를 만드는 사람이 곧 방장이어야 한다
-                    val host = (incoming?.get(FirestoreSchema.Game.HOST_UID) as? JsonPrimitive)?.content
-                    if (host != uid) deny("creator must be the host")
+                    if (data.str(FirestoreSchema.Game.HOST_UID) != uid) deny("creator must be the host")
+                    // 게임은 방에 묶인다: 좌석 = 방에 스스로 들어온 사람 전원(남을 끼워 넣을 수 없다)
+                    val roomId = data.str(FirestoreSchema.Game.ROOM_ID) ?: deny("roomId missing")
+                    val room = getAfter("rooms/$roomId") ?: deny("no such room")
+                    if (room.str(R.HOST_UID) != uid) deny("not the host of the room")
+                    if (room.str(R.STATUS) != "PLAYING" || room.str(R.GAME_ID) != gameId) deny("room has not started this game")
+                    val seats = data.strings(FirestoreSchema.Game.SEATS) ?: deny("seats missing")
+                    val members = room.strings(R.MEMBER_ORDER) ?: deny("memberOrder missing")
+                    if (seats.toSet() != members.toSet() || seats.size != members.size) deny("seats must be exactly the room members")
+                    if (seats.any { !isSettled(it, get) }) deny("every seat must have settled their last rated game")
+                    val ruleSet = room[R.RULE_SET] as? JsonObject ?: deny("ruleSet missing")
+                    val roomRated = (room[R.BOTS] as? JsonArray)?.isEmpty() == true &&
+                        (ruleSet[FirestoreSchema.RuleSet.HOUSE_RULES] as? JsonArray)?.isEmpty() == true &&
+                        (ruleSet[FirestoreSchema.RuleSet.PARAM_OVERRIDES] as? JsonObject)?.isEmpty() == true
+                    if (data.bool(FirestoreSchema.Game.RATED) != roomRated) deny("rated must match the room setup")
                 }
                 Access.UPDATE -> if (uid != hostOf(segments[1])) deny("only the host may update the game")
                 else -> deny("not allowed")
@@ -289,6 +356,32 @@ object AccessPolicy {
                     else -> deny("claims are immutable")
                 }
             }
+            // rooms (목록 조회): 공개 방만
+            segments.size == 1 && segments[0] == "rooms" ->
+                if (kind != Access.QUERY || query != (R.VISIBILITY to "PUBLIC")) deny("only public rooms can be listed")
+            // rooms/{id}
+            segments.size == 2 && segments[0] == "rooms" -> when (kind) {
+                Access.READ -> Unit
+                Access.CREATE -> checkRoomCreate(uid, segments[1], incoming ?: deny("no data"), get, getAfter, ::deny)
+                Access.UPDATE -> checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), get, ::deny)
+                else -> deny("rooms cannot be deleted")
+            }
+            // joinCodes/{code}
+            segments.size == 2 && segments[0] == "joinCodes" -> when (kind) {
+                Access.READ -> Unit
+                Access.CREATE -> {
+                    val roomId = incoming?.str(FirestoreSchema.JoinCodeDoc.ROOM_ID) ?: deny("roomId missing")
+                    if (get("rooms/$roomId") != null) deny("codes are claimed when the room is created")
+                    val room = getAfter("rooms/$roomId") ?: deny("room must be created in the same batch")
+                    if (room.str(R.HOST_UID) != uid || room.str(R.JOIN_CODE) != segments[1]) deny("not your room's code")
+                }
+                Access.DELETE -> {
+                    val roomId = existing?.str(FirestoreSchema.JoinCodeDoc.ROOM_ID) ?: deny("roomId missing")
+                    val room = getAfter("rooms/$roomId")
+                    if (room == null || room.str(R.HOST_UID) != uid || room.str(R.STATUS) != "CLOSED") deny("codes are released when the host closes the room")
+                }
+                else -> deny("codes are immutable")
+            }
             // pendingRatings/{uid}
             segments.size == 2 && segments[0] == "pendingRatings" -> {
                 val owner = segments[1]
@@ -317,6 +410,115 @@ object AccessPolicy {
                 if (auth.email == null || auth.email != segments[1]) deny("not your email")
             }
             else -> deny("unknown path")
+        }
+    }
+
+    private val R = FirestoreSchema.Room
+    private val ROOM_IMMUTABLE = setOf(R.HOST_UID, R.CREATED_AT, R.MIN_APP_VERSION, R.VISIBILITY, R.JOIN_CODE)
+    private val GUEST_KEYS = setOf(R.MEMBERS, R.MEMBER_ORDER, R.VERSION)
+    private val HOST_KEYS = setOf(
+        R.TITLE, R.MAX_PLAYERS, R.RULE_SET, R.BOTS, R.CONFIG_VERSION, R.STATUS, R.GAME_ID, R.BANNED, R.MEMBERS, R.MEMBER_ORDER, R.VERSION,
+    )
+    private const val MAX_SEATS = 6
+
+    private fun checkRoomCreate(
+        uid: String,
+        roomId: String,
+        d: JsonObject,
+        get: (String) -> JsonObject?,
+        getAfter: (String) -> JsonObject?,
+        deny: (String) -> Nothing,
+    ) {
+        if (d.str(R.HOST_UID) != uid) deny("creator must be the host")
+        if (!isSettled(uid, get)) deny("settle your last rated game first")
+        val members = d[R.MEMBERS] as? JsonObject ?: deny("members missing")
+        if (members.keys != setOf(uid) || d.strings(R.MEMBER_ORDER) != listOf(uid)) deny("a new room holds only its host")
+        if ((d[R.BOTS] as? JsonArray)?.isEmpty() != true) deny("a new room has no bots")
+        if (d.str(R.STATUS) != "WAITING" || d[R.GAME_ID] !is JsonNull) deny("a new room is waiting")
+        if ((d[R.BANNED] as? JsonArray)?.isEmpty() != true) deny("a new room bans nobody")
+        if (d.long(R.VERSION) != 1L || d.long(R.CONFIG_VERSION) != 0L) deny("a new room starts at version 1")
+        if (d.long(R.MAX_PLAYERS) !in 2L..MAX_SEATS.toLong()) deny("maxPlayers out of range")
+        val code = d.str(R.JOIN_CODE)
+        when (d.str(R.VISIBILITY)) {
+            "PUBLIC" -> if (code != null) deny("public rooms have no code")
+            "PRIVATE" -> if (code == null || getAfter("joinCodes/$code")?.str(FirestoreSchema.JoinCodeDoc.ROOM_ID) != roomId) deny("claim the join code in the same batch")
+            else -> deny("bad visibility")
+        }
+    }
+
+    private fun checkRoomUpdate(uid: String, before: JsonObject, after: JsonObject, get: (String) -> JsonObject?, deny: (String) -> Nothing) {
+        val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+        if (before.str(R.STATUS) == "CLOSED") deny("closed rooms are frozen")
+        if (after.long(R.VERSION) != before.long(R.VERSION)!! + 1) deny("version must increase by one")
+        if (changed.any { it in ROOM_IMMUTABLE }) deny("immutable room fields changed: ${changed intersect ROOM_IMMUTABLE}")
+        val mBefore = before[R.MEMBERS] as JsonObject
+        val mAfter = after[R.MEMBERS] as? JsonObject ?: deny("members missing")
+        val orderBefore = before.strings(R.MEMBER_ORDER)!!
+        val orderAfter = after.strings(R.MEMBER_ORDER) ?: deny("memberOrder missing")
+        val bots = (after[R.BOTS] as? JsonArray) ?: deny("bots missing")
+        val max = after.long(R.MAX_PLAYERS) ?: deny("maxPlayers missing")
+        if (max !in 2L..MAX_SEATS.toLong() || orderAfter.size + bots.size > max) deny("room is over capacity")
+        if (orderAfter.toSet() != mAfter.keys || orderAfter.size != mAfter.size) deny("memberOrder must list the members")
+
+        if (before.str(R.HOST_UID) == uid) {
+            // ---- 방장 ----
+            if (!HOST_KEYS.containsAll(changed)) deny("host cannot change $changed")
+            if (!mBefore.keys.containsAll(mAfter.keys)) deny("the host cannot add people, only remove them")
+            if (mAfter.any { (k, v) -> mBefore[k] != v }) deny("the host cannot edit members")
+            if (uid !in mAfter) deny("the host stays in the room (close it instead)")
+            val cBefore = before.long(R.CONFIG_VERSION)!!
+            val cAfter = after.long(R.CONFIG_VERSION) ?: deny("configVersion missing")
+            if (cAfter != cBefore && cAfter != cBefore + 1) deny("configVersion moves by one")
+            val configChanged = R.RULE_SET in changed || R.BOTS in changed
+            if (configChanged && cAfter != cBefore + 1) deny("changing rules or bots must reset readiness (configVersion + 1)")
+            val sBefore = before.str(R.STATUS)
+            val sAfter = after.str(R.STATUS)
+            if (sBefore != "WAITING" && changed.any { it !in setOf(R.STATUS, R.GAME_ID, R.CONFIG_VERSION, R.VERSION) }) deny("only status changes while playing")
+            when {
+                sAfter == "CLOSED" -> Unit
+                sBefore == "WAITING" && sAfter == "WAITING" -> if (R.GAME_ID in changed) deny("gameId is set by starting")
+                sBefore == "WAITING" && sAfter == "PLAYING" -> {
+                    if (after.str(R.GAME_ID) == null) deny("starting needs a gameId")
+                    if (configChanged) deny("cannot change rules while starting")
+                    val guests = orderAfter.filter { it != uid }
+                    if (guests.any { (mAfter[it] as JsonObject).long(FirestoreSchema.Member.READY_VERSION) != cAfter }) deny("every guest must be ready for the current setup")
+                }
+                sBefore == "PLAYING" && sAfter == "WAITING" -> if (after[R.GAME_ID] !is JsonNull) deny("ending clears gameId")
+                sBefore == "PLAYING" && sAfter == "PLAYING" -> if (R.GAME_ID in changed) deny("cannot swap the game")
+                else -> deny("bad status change $sBefore -> $sAfter")
+            }
+        } else {
+            // ---- 게스트: 자기 항목만 ----
+            if (!GUEST_KEYS.containsAll(changed)) deny("guests can only change their own seat")
+            if (before.str(R.STATUS) != "WAITING") deny("seats are fixed once the game starts")
+            val touched = (mBefore.keys + mAfter.keys).filter { mBefore[it] != mAfter[it] }.toSet()
+            if (touched != setOf(uid)) deny("guests can only change their own seat")
+            val entry = mAfter[uid] as? JsonObject
+            val configVersion = before.long(R.CONFIG_VERSION)!!
+            when {
+                uid !in mBefore -> { // 입장
+                    if (uid in (before.strings(R.BANNED) ?: emptyList())) deny("kicked from this room")
+                    if (!isSettled(uid, get)) deny("settle your last rated game first")
+                    if (orderAfter != orderBefore + uid) deny("joiners go to the end of memberOrder")
+                    val name = entry?.str(FirestoreSchema.Member.NAME) ?: deny("name missing")
+                    if (name.codePointCount(0, name.length) !in 1..20) deny("bad name")
+                    if (entry.long(FirestoreSchema.Member.READY_VERSION) != -1L) deny("joiners start not ready")
+                    if (entry.long(FirestoreSchema.Member.SEQ) == null || entry.keys != setOf(FirestoreSchema.Member.NAME, FirestoreSchema.Member.READY_VERSION, FirestoreSchema.Member.SEQ)) {
+                        deny("bad member entry")
+                    }
+                }
+                entry == null -> { // 퇴장
+                    if (orderAfter != orderBefore - uid) deny("leaving removes only yourself")
+                }
+                else -> { // 준비/해제
+                    val old = mBefore[uid] as JsonObject
+                    if (orderAfter != orderBefore) deny("memberOrder unchanged")
+                    if (entry.keys != old.keys || entry.str(FirestoreSchema.Member.NAME) != old.str(FirestoreSchema.Member.NAME) || entry.long(FirestoreSchema.Member.SEQ) != old.long(FirestoreSchema.Member.SEQ)) {
+                        deny("only readiness can change")
+                    }
+                    if (entry.long(FirestoreSchema.Member.READY_VERSION) !in setOf(-1L, configVersion)) deny("ready only for the current setup")
+                }
+            }
         }
     }
 
@@ -355,6 +557,7 @@ object AccessPolicy {
     }
 
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+    private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull
     private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
     private fun JsonObject.strings(key: String): List<String>? =

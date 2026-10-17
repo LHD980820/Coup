@@ -13,6 +13,8 @@ package io.github.lhd980820.coup.remote
  * users/{uid}                           공개 프로필(닉네임·레이팅·판수·승수) — 로그인한 누구나 읽는다
  * users/{uid}/appliedResults/{gameId}   내 프로필에 반영된 결과(1회 반영 표시 + 전적) — 본인만
  * legacyClaims/{email}                  옛 계정 이관 선점 표시(한 이메일은 한 번만 옮긴다) — 본인만
+ * rooms/{roomId}                       대기실(구조화된 필드 — 규칙이 행위자별 변경을 검사한다). 공개 방만 목록 조회
+ * joinCodes/{code}                      비공개 방 참가 코드 -> roomId
  * pendingRatings/{uid}                  아직 정산하지 않은 rated 게임(방장이 결과와 함께 쓰고 본인이 정산하며 지운다) — 로그인한 누구나 읽는다
  * user/{email}                          옛 앱의 사용자 문서(읽기 전용, 본인 이메일만)
  * ```
@@ -32,6 +34,9 @@ public object FirestoreSchema {
     public fun appliedResult(uid: String, gameId: String): String = "users/$uid/appliedResults/$gameId"
     public fun legacyClaim(email: String): String = "legacyClaims/$email"
     public fun pendingRating(uid: String): String = "pendingRatings/$uid"
+    public const val ROOMS: String = "rooms"
+    public fun room(roomId: String): String = "rooms/$roomId"
+    public fun joinCode(code: String): String = "joinCodes/$code"
     public fun legacyUser(email: String): String = "user/$email"
 
     /** games/{id} 문서 필드. */
@@ -43,6 +48,7 @@ public object FirestoreSchema {
         public const val HOST_HEARTBEAT_AT: String = "hostHeartbeatAt"
         public const val RULE_SET_CONFIG_JSON: String = "ruleSetConfigJson"
         public const val RATED: String = "rated"
+        public const val ROOM_ID: String = "roomId"
     }
 
     public object GameStatus {
@@ -125,5 +131,57 @@ public object FirestoreSchema {
     /** pendingRatings/{uid} 문서 필드. */
     public object Pending {
         public const val GAME_ID: String = "gameId"
+    }
+
+    /**
+     * rooms/{id} 문서 필드. 사람 좌석은 [MEMBERS](uid -> {name, readyVersion, seq})와 [MEMBER_ORDER](입장 순서),
+     * 봇은 [BOTS](목록). 게스트의 준비는 `readyVersion == configVersion`으로 판단한다 — 방장이 룰셋·봇을 바꾸면
+     * [CONFIG_VERSION]이 올라가 게스트의 준비가 저절로 풀린다(방장이 게스트 항목을 고칠 필요가 없다).
+     */
+    public object Room {
+        public const val TITLE: String = "title"
+        public const val HOST_UID: String = "hostUid"
+        public const val VISIBILITY: String = "visibility"
+        public const val JOIN_CODE: String = "joinCode"
+        public const val MAX_PLAYERS: String = "maxPlayers"
+        public const val STATUS: String = "status"
+        public const val RULE_SET: String = "ruleSet"
+        public const val MIN_APP_VERSION: String = "minAppVersion"
+        public const val CREATED_AT: String = "createdAt"
+        public const val GAME_ID: String = "gameId"
+        public const val BANNED: String = "banned"
+        public const val BOTS: String = "bots"
+        public const val MEMBERS: String = "members"
+        public const val MEMBER_ORDER: String = "memberOrder"
+        public const val CONFIG_VERSION: String = "configVersion"
+        public const val VERSION: String = "version"
+    }
+
+    /** members.{uid} 항목. */
+    public object Member {
+        public const val NAME: String = "name"
+        public const val READY_VERSION: String = "readyVersion"
+        public const val SEQ: String = "seq"
+    }
+
+    /** bots[] 항목. */
+    public object Bot {
+        public const val ID: String = "id"
+        public const val NAME: String = "name"
+        public const val LEVEL: String = "level"
+        public const val STYLE: String = "style"
+        public const val SEQ: String = "seq"
+    }
+
+    /** ruleSet 맵(룰 설정을 규칙이 읽을 수 있게 JSON 문자열이 아닌 맵으로 둔다). */
+    public object RuleSet {
+        public const val BASE_ID: String = "baseId"
+        public const val BASE_VERSION: String = "baseVersion"
+        public const val HOUSE_RULES: String = "houseRules"
+        public const val PARAM_OVERRIDES: String = "paramOverrides"
+    }
+
+    public object JoinCodeDoc {
+        public const val ROOM_ID: String = "roomId"
     }
 }

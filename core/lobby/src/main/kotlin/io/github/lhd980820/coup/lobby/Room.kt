@@ -111,6 +111,9 @@ public enum class RoomError {
     TARGET_NOT_FOUND,
     JOIN_CODE_REQUIRED,
     JOIN_CODE_TAKEN,
+
+    /** 정산하지 않은 rated 게임이 있다(ADR 0007). 정산은 자동이므로 보통 잠시 뒤 다시 시도하면 된다. */
+    UNSETTLED_GAME,
 }
 
 /** 규칙 위반은 예외가 아니라 값으로 돌려준다(엔진과 같은 방식). */

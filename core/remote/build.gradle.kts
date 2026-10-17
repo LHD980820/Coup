@@ -13,6 +13,7 @@ dependencies {
     api(project(":runtime"))
     api(project(":engine"))
     api(project(":account"))
+    api(project(":lobby"))
     api(libs.kotlinx.coroutines.core)
 
     testImplementation(platform(libs.junit.bom))

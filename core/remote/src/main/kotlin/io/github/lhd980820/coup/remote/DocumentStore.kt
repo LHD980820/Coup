@@ -20,6 +20,12 @@ public sealed interface WriteOp {
     public class Delete(override val path: String) : WriteOp
 }
 
+/** [DocumentStore.transaction] 안에서 쓰는 읽기/쓰기. 읽기를 모두 마친 뒤 쓴다(Firestore 트랜잭션의 제약). */
+public interface DocumentTransaction {
+    public suspend fun get(path: String): JsonObject?
+    public fun write(op: WriteOp)
+}
+
 /**
  * Firestore 모양의 문서 저장소 추상화. 이 모듈은 Firebase SDK를 모르고, Android 쪽 어댑터가 이 인터페이스를 구현한다.
  * 문서는 JSON 객체다(Firestore의 맵 <-> [JsonObject] 변환은 어댑터가 맡는다). 실패는 [io.github.lhd980820.coup.runtime.transport.TransportException]으로 던진다.
@@ -38,4 +44,10 @@ public interface DocumentStore {
 
     /** [collectionPath] 컬렉션을 숫자 필드 [orderBy] 순으로 최대 [limit]개 구독한다(랭킹, 전적). 같은 값은 문서 ID 순. */
     public fun observeOrdered(collectionPath: String, orderBy: String, descending: Boolean, limit: Int): Flow<List<StoredDocument>>
+
+    /**
+     * 읽기-수정-쓰기를 원자적으로 한다(Firestore 트랜잭션). 읽은 문서가 커밋 전에 바뀌면 [block]을 처음부터 다시 실행하므로
+     * [block]에는 부수 효과가 없어야 한다. 쓰기는 커밋 때 [write]와 같은 규칙 검사를 받는다.
+     */
+    public suspend fun <T> transaction(block: suspend (DocumentTransaction) -> T): T
 }

@@ -57,10 +57,18 @@ public class FirestoreGameTransport(
     // ---- 게임 시작 ----------------------------------------------------------------------------
 
     /**
-     * 게임 문서를 만든다(방장이 게임을 시작할 때 한 번). [seats]는 모든 좌석의 uid(방장 포함, 봇 제외)다.
-     * 보안 규칙은 이 목록으로 "누가 이 게임에 접근할 수 있는가"를 판단한다.
+     * 게임 문서를 만든다(방장이 방을 시작한 뒤 한 번). [seats]는 모든 사람 좌석의 uid(방장 포함, 봇 제외)다.
+     * 보안 규칙은 이 목록으로 "누가 이 게임에 접근할 수 있는가"를 판단하고, 이 목록이 [roomId] 방에 스스로 들어온 사람과 같은지,
+     * [rated]가 방 구성과 맞는지, 모두 정산을 마쳤는지 검사한다(ADR 0008).
      */
-    public suspend fun createGame(gameId: String, hostUid: String, seats: List<String>, ruleSetConfig: RuleSetConfig, rated: Boolean) {
+    public suspend fun createGame(
+        gameId: String,
+        roomId: String,
+        hostUid: String,
+        seats: List<String>,
+        ruleSetConfig: RuleSetConfig,
+        rated: Boolean,
+    ) {
         require(hostUid in seats) { "the host must be one of the seats" }
         guarded {
             store.write(
@@ -75,11 +83,24 @@ public class FirestoreGameTransport(
                             put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis())
                             put(FirestoreSchema.Game.RULE_SET_CONFIG_JSON, json.encodeToString(RuleSetConfig.serializer(), ruleSetConfig))
                             put(FirestoreSchema.Game.RATED, rated)
+                            put(FirestoreSchema.Game.ROOM_ID, roomId)
                         },
                     ),
                 ),
             )
         }
+    }
+
+    /** 방 시작 계획([io.github.lhd980820.coup.lobby.GameStartPlan])으로 게임 문서를 만든다. 좌석은 사람만. */
+    public suspend fun createGame(plan: io.github.lhd980820.coup.lobby.GameStartPlan) {
+        createGame(
+            gameId = plan.gameId,
+            roomId = plan.roomId,
+            hostUid = plan.hostUid,
+            seats = plan.seats.filter { it.kind == io.github.lhd980820.coup.lobby.SeatKind.HUMAN }.map { it.playerId.value },
+            ruleSetConfig = plan.ruleSetConfig,
+            rated = plan.rated,
+        )
     }
 
     // ---- 방장 ---------------------------------------------------------------------------------
