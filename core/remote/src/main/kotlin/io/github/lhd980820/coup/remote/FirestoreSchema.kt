@@ -10,6 +10,10 @@ package io.github.lhd980820.coup.remote
  * games/{gameId}/authority/state        권한자 상태 백업 — 방장만 읽고 쓴다
  * games/{gameId}/commands/{commandId}   게스트 명령 — 보낸 사람과 방장만 읽는다
  * results/{gameId}                      종료 결과
+ * users/{uid}                           공개 프로필(닉네임·레이팅·판수·승수) — 로그인한 누구나 읽는다
+ * users/{uid}/appliedResults/{gameId}   내 프로필에 반영된 결과(1회 반영 표시 + 전적) — 본인만
+ * legacyClaims/{email}                  옛 계정 이관 선점 표시(한 이메일은 한 번만 옮긴다) — 본인만
+ * user/{email}                          옛 앱의 사용자 문서(읽기 전용, 본인 이메일만)
  * ```
  */
 public object FirestoreSchema {
@@ -21,6 +25,12 @@ public object FirestoreSchema {
     public fun commands(gameId: String): String = "games/$gameId/commands"
     public fun command(gameId: String, commandId: String): String = "games/$gameId/commands/$commandId"
     public fun result(gameId: String): String = "results/$gameId"
+    public const val USERS: String = "users"
+    public fun user(uid: String): String = "users/$uid"
+    public fun appliedResults(uid: String): String = "users/$uid/appliedResults"
+    public fun appliedResult(uid: String, gameId: String): String = "users/$uid/appliedResults/$gameId"
+    public fun legacyClaim(email: String): String = "legacyClaims/$email"
+    public fun legacyUser(email: String): String = "user/$email"
 
     /** games/{id} 문서 필드. */
     public object Game {
@@ -75,5 +85,38 @@ public object FirestoreSchema {
         public const val RATED: String = "rated"
         public const val RATING_DELTAS: String = "ratingDeltas"
         public const val FINISHED_AT: String = "finishedAt"
+    }
+
+    /** users/{uid} 문서 필드. [LAST_APPLIED_RESULT]/[LAST_APPLIED_RANK]는 보안 규칙이 레이팅 변경을 검증하는 데 쓴다. */
+    public object User {
+        public const val NICKNAME: String = "nickname"
+        public const val RATING: String = "rating"
+        public const val PLAYS: String = "plays"
+        public const val WINS: String = "wins"
+        public const val CREATED_AT: String = "createdAt"
+        public const val MIGRATED_FROM_LEGACY: String = "migratedFromLegacy"
+        public const val LAST_APPLIED_RESULT: String = "lastAppliedResult"
+        public const val LAST_APPLIED_RANK: String = "lastAppliedRank"
+    }
+
+    /** users/{uid}/appliedResults/{gameId} 문서 필드. */
+    public object Applied {
+        public const val RANK: String = "rank"
+        public const val DELTA: String = "delta"
+        public const val PLAYER_COUNT: String = "playerCount"
+        public const val FINISHED_AT: String = "finishedAt"
+        public const val APPLIED_AT: String = "appliedAt"
+    }
+
+    /** legacyClaims/{email} 문서 필드. */
+    public object LegacyClaim {
+        public const val UID: String = "uid"
+    }
+
+    /** 옛 앱 user/{email} 문서 필드(옛 앱이 쓰던 이름 그대로). */
+    public object Legacy {
+        public const val NICKNAME: String = "nickname"
+        public const val RATING: String = "rating"
+        public const val PLAYS: String = "plays"
     }
 }

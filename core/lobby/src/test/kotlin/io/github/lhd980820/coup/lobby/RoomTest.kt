@@ -259,7 +259,7 @@ class RoomTest {
     // ---- 서비스 + 저장소 ---------------------------------------------------------------------
 
     @Test
-    fun `마지막 자리에 동시에 들어오면 정확히 한 명만 성공한다`() = runBlocking {
+    fun `마지막 자리에 동시에 들어오면 정확히 한 명만 성공한다`(): Unit = runBlocking {
         repeat(20) { round ->
             val svc = service(seed = round)
             val room = svc.createRoom(host, "방", Visibility.PUBLIC, 2, classic).ok()
@@ -270,13 +270,13 @@ class RoomTest {
     }
 
     @Test
-    fun `존재하지 않는 방은 ROOM_NOT_FOUND`() = runBlocking {
+    fun `존재하지 않는 방은 ROOM_NOT_FOUND`(): Unit = runBlocking {
         assertThat(service().join("nope", user(1)).err()).isEqualTo(RoomError.ROOM_NOT_FOUND)
         assertThat(service().startBlockers("nope")).containsExactly(RoomError.ROOM_NOT_FOUND)
     }
 
     @Test
-    fun `비공개 방은 목록에 없고 코드로만 들어간다`() = runBlocking {
+    fun `비공개 방은 목록에 없고 코드로만 들어간다`(): Unit = runBlocking {
         val svc = service()
         val priv = svc.createRoom(host, "비밀", Visibility.PRIVATE, 4, classic).ok()
         assertThat(JoinCodes.isWellFormed(priv.joinCode!!)).isTrue()
@@ -287,7 +287,7 @@ class RoomTest {
     }
 
     @Test
-    fun `공개 목록은 대기 중인 공개 방만 최신순으로 보여주고 요약을 담는다`() = runBlocking {
+    fun `공개 목록은 대기 중인 공개 방만 최신순으로 보여주고 요약을 담는다`(): Unit = runBlocking {
         var now = 0L
         val store = InMemoryRoomStore()
         val svc = RoomService(store, registry, client, Clock { now }, Random(9))
@@ -308,7 +308,7 @@ class RoomTest {
     }
 
     @Test
-    fun `봇 ID는 겹치지 않는다`() = runBlocking {
+    fun `봇 ID는 겹치지 않는다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 5, classic).ok()
         svc.addBot(room.id, "host").ok()
@@ -319,7 +319,7 @@ class RoomTest {
     }
 
     @Test
-    fun `저장소는 변경마다 version을 올리고 변화가 없으면 올리지 않는다`() = runBlocking {
+    fun `저장소는 변경마다 version을 올리고 변화가 없으면 올리지 않는다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 4, classic).ok()
         assertThat(room.version).isEqualTo(1)
@@ -329,7 +329,7 @@ class RoomTest {
     }
 
     @Test
-    fun `같은 참가 코드를 가진 방은 만들 수 없다`() = runBlocking {
+    fun `같은 참가 코드를 가진 방은 만들 수 없다`(): Unit = runBlocking {
         val store = InMemoryRoomStore()
         val a = RoomRules.create("a", "A", host, Visibility.PRIVATE, "ABC234", 4, classic, client, registry, 0).ok()
         val b = RoomRules.create("b", "B", host, Visibility.PRIVATE, "abc234", 4, classic, client, registry, 0).ok()
@@ -339,7 +339,7 @@ class RoomTest {
     }
 
     @Test
-    fun `방 구독 - 변경이 흘러나오고 방장이 나가면 닫힘이 보인다`() = runBlocking {
+    fun `방 구독 - 변경이 흘러나오고 방장이 나가면 닫힘이 보인다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 4, classic).ok()
         val seen = mutableListOf<RoomStatus?>()
@@ -353,7 +353,7 @@ class RoomTest {
     // ---- 게임 시작 계획 ----------------------------------------------------------------------
 
     @Test
-    fun `시작 계획 - 같은 seed면 같은 좌석 순서이고 모든 좌석이 한 번씩 들어간다`() = runBlocking {
+    fun `시작 계획 - 같은 seed면 같은 좌석 순서이고 모든 좌석이 한 번씩 들어간다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 5, classic).ok()
         svc.join(room.id, user(1)).ok()
@@ -370,7 +370,7 @@ class RoomTest {
     }
 
     @Test
-    fun `시작 계획 - 엔진에서 게임이 만들어지고 방장만 Local 좌석이며 봇은 에이전트를 갖는다`() = runBlocking {
+    fun `시작 계획 - 엔진에서 게임이 만들어지고 방장만 Local 좌석이며 봇은 에이전트를 갖는다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 4, classic).ok()
         svc.join(room.id, user(1)).ok()
@@ -389,7 +389,7 @@ class RoomTest {
     }
 
     @Test
-    fun `게임이 끝나면 같은 방에서 다시 시작할 수 있다`() = runBlocking {
+    fun `게임이 끝나면 같은 방에서 다시 시작할 수 있다`(): Unit = runBlocking {
         val svc = service()
         val room = svc.createRoom(host, "방", Visibility.PUBLIC, 3, classic).ok()
         svc.addBot(room.id, "host").ok()

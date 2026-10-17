@@ -19,6 +19,10 @@ subprojects {
             }
         }
         tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
-        tasks.withType<Test>().configureEach { useJUnitPlatform() }
+        tasks.withType<Test>().configureEach {
+            useJUnitPlatform()
+            // 반환형이 Unit이 아닌 @Test(예: `= runBlocking { assertThat(..) }`)는 JUnit이 조용히 건너뛴다 -> 발견 경고도 실패로 처리한다
+            systemProperty("junit.platform.discovery.issue.severity.critical", "WARNING")
+        }
     }
 }

@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "coup-core"
 
-include(":engine", ":ai", ":runtime", ":presentation", ":remote", ":lobby")
+include(":engine", ":ai", ":runtime", ":presentation", ":remote", ":lobby", ":account")

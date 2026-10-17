@@ -12,6 +12,7 @@ dependencies {
     // DocumentStore를 구현한다(docs/adr/0005).
     api(project(":runtime"))
     api(project(":engine"))
+    api(project(":account"))
     api(libs.kotlinx.coroutines.core)
 
     testImplementation(platform(libs.junit.bom))

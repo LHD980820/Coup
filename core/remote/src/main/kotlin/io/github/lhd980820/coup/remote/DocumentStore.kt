@@ -32,4 +32,7 @@ public interface DocumentStore {
 
     /** [collectionPath] 컬렉션에서 [field] 값이 [value]인 문서들을 구독한다(현재 일치 목록이 바뀔 때마다 전체 목록을 내보낸다). */
     public fun observeWhere(collectionPath: String, field: String, value: String): Flow<List<StoredDocument>>
+
+    /** [collectionPath] 컬렉션을 숫자 필드 [orderBy] 순으로 최대 [limit]개 구독한다(랭킹, 전적). 같은 값은 문서 ID 순. */
+    public fun observeOrdered(collectionPath: String, orderBy: String, descending: Boolean, limit: Int): Flow<List<StoredDocument>>
 }

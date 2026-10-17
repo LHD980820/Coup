@@ -19,17 +19,29 @@
 | `games/{id}/views/spectator` | 좌석 uid | 방장 |
 | `games/{id}/authority/state` | 방장 | 방장 |
 | `games/{id}/commands/{cid}` | 방장(목록 포함), 보낸 사람(개별) | 만들기: 방장이 아닌 좌석이 자기 uid + PENDING으로 / 수정: 방장 |
-| `results/{id}` | 로그인한 누구나 | 방장이 1회 |
+| `results/{id}` | 로그인한 누구나 | 방장이 1회. 레이팅 게임이면 순위 = 사람 좌석 전원 |
+| `users/{uid}` | 로그인한 누구나(랭킹 조회 포함) | 만들기: 본인, 시작값(레이팅 1000·0판) 또는 옛 문서 값 + 같은 배치의 이메일 선점 / 수정: 본인, 닉네임만 또는 레이팅 반영(아래) |
+| `users/{uid}/appliedResults/{gid}` | 본인 | 만들기: 본인, 같은 배치에서 프로필이 이 게임을 반영할 때만 / 수정·삭제 불가 |
+| `legacyClaims/{email}` | 토큰 이메일이 같을 때 | 만들기: 토큰 이메일이 같고 uid가 본인 / 수정·삭제 불가 |
+| `user/{email}` (옛 앱) | 토큰 이메일이 같을 때 | 불가 |
+
+레이팅 반영 수정은 `rating`·`plays`·`wins`·`lastAppliedResult`·`lastAppliedRank`만 바꿀 수 있고, 변동량은 결과 문서의 순위·인원수로
+**레이팅 표에서 다시 계산**하며(결과 문서의 값과도 같아야 함), 반영 표시 문서가 전에는 없고 배치 뒤에는 있어야 한다(ADR 0007).
 
 ## 배포 전 검증 절차 (아직 안 함)
 1. `npm i -D @firebase/rules-unit-testing` 와 Firebase CLI 설치, `firebase emulators:start --only firestore`.
 2. `FakeFirestore.kt` 의 매트릭스를 그대로 옮긴 규칙 테스트(Node)를 작성: 각 경로 x 역할(방장/게스트/외부인) x 동작(get/list/create/update/delete)에 대해 허용·거부를 단언.
 3. 특히 확인할 것: (a) `get(...)`으로 게임 문서를 읽는 규칙 함수의 비용(문서 읽기 한도), (b) `commands`의 `list`가 방장에게만 열리는지, (c) 아직 없는 명령 문서를 구독(`get`)할 때 보낸 직후 자기 문서가 거부되지 않는지 — 모델은 "존재하지 않는 문서의 구독은 허용"으로 단순화했고, 실제 Firestore는 `resource`가 null이면 `resource.data` 접근이 실패해 **거부될 수 있다**(아래 참고).
+   (d) `getAfter`/`existsAfter`를 쓰는 레이팅 반영·이관 규칙이 배치 하나로 통과하는지, (e) `string.size()`가 이모지·한글을 몇 글자로 세는지(앱은 코드 포인트), (f) `ratingTable()[string(n)][rank]`의 범위 밖 접근이 거부로 끝나는지.
 4. 통과하면 이 README의 상태를 ✅로 바꾼다.
 
 ## 알려진 위험 (검증 시 우선 확인)
 - **보낸 직후 자기 명령 문서 구독**: 게스트는 명령 문서를 만든 뒤 그 문서를 `get` 구독해 승인/거절을 기다린다.
   규칙 `allow get: ... resource.data.senderUid == request.auth.uid` 는 문서가 생성된 뒤에는 통과하지만, 구독 시작 시점에 문서가 아직 로컬 캐시에만 있으면 일시적으로 `resource == null`이 될 수 있다.
   거부되면 게스트는 `TransportException`을 받는다 → 필요하면 문서 ID를 예측 불가능한 값으로 쓰고 `allow get`을 보낸 사람 또는 방장 + 문서 ID 추측 불가에 의존하도록 완화하거나, 승인 결과를 `views/{uid}` 문서의 최근 ack 필드로 돌려주는 방식으로 바꾼다.
+- **레이팅은 클라이언트가 반영한다(Phase 7 전까지)**: 규칙은 "잘못 반영"(부풀리기, 두 번 반영, 남의 순위)은 막지만
+  **"반영하지 않기"는 막지 못한다** — 수정된 앱은 진 게임을 반영하지 않을 수 있다. 방장이 순위 자체를 조작하는 것도 막지 못한다.
+  둘 다 서버 판정(Cloud Function이 `results` 생성 시 모든 참가자 레이팅을 갱신)으로만 해결된다. ADR 0007 참고.
+- **배포하면 옛 앱이 멈춘다**: `user/{email}`을 읽기 전용으로 막으므로 옛 앱은 로그인·전적 기록을 할 수 없다. 새 앱 출시와 같은 시점에 배포할 것.
 - **방장 단일 장애점**: 방장이 사라지면 게임이 멈춘다(설계 R6). 하트비트로 게스트에게 `HOST_LOST`를 알릴 뿐 방장 이전(host migration)은 없다.
 - **비용**: 명령 1건당 쓰기 ≈ 좌석 수 + 관전 1 + 백업 1 + 메타 1 + 명령 상태 1 (설계 R7).
