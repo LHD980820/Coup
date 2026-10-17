@@ -150,8 +150,17 @@ public class FirestoreGameTransport(
                 put(FirestoreSchema.Result.FINISHED_AT, clock.nowMillis())
             }
             guarded {
+                // rated 게임이면 참가자마다 "정산 대기" 표시를 같은 배치로 남긴다(ADR 0007). 정산하기 전에는 다음 rated 게임에 들어갈 수 없다.
+                // 이미 대기 표시가 있는 사람은 건너뛴다(만들기만 허용되므로, 있으면 배치 전체가 거절된다).
+                val pendings = if (!result.rated) {
+                    emptyList()
+                } else {
+                    result.ranking.map { it.value }
+                        .filter { uid -> store.observe(FirestoreSchema.pendingRating(uid)).first() == null }
+                        .map { uid -> WriteOp.Set(FirestoreSchema.pendingRating(uid), buildJsonObject { put(FirestoreSchema.Pending.GAME_ID, gameId) }) }
+                }
                 store.write(
-                    listOf(
+                    pendings + listOf(
                         WriteOp.Set(FirestoreSchema.result(gameId), doc),
                         WriteOp.Merge(
                             FirestoreSchema.game(gameId),

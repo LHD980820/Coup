@@ -64,13 +64,15 @@ service cloud.firestore {
 
     // 종료 결과: 방장이 한 번 만들고 수정 불가. 순위는 공개 정보.
     // 레이팅 게임이면 순위는 정확히 사람 좌석 전원이어야 한다(가짜 uid를 끼워 넣거나 빼지 못하게).
+    // 변동량도 레이팅 표와 같아야 한다 — 다르면 아무도 정산할 수 없어 참가자들의 다음 rated 게임이 막힌다.
     match /results/{gameId} {
       allow read: if signedIn();
       allow create: if isHost(gameId)
                     && (request.resource.data.rated != true
                         || (request.resource.data.ranking.toSet() == gameData(gameId).seats.toSet()
                             && request.resource.data.ranking.size() == gameData(gameId).seats.size()
-                            && request.resource.data.playerCount == request.resource.data.ranking.size()));
+                            && request.resource.data.playerCount == request.resource.data.ranking.size()
+                            && deltasFollowTable(request.resource.data)));
       allow update, delete: if false;
     }
 
@@ -94,6 +96,18 @@ service cloud.firestore {
         '5': [100, 60, 30, -40, -70],
         '6': [130, 70, 40, -30, -60, -90]
       };
+    }
+
+    // 규칙 언어에는 반복문이 없어서 최대 인원(6)만큼 펼쳐 쓴다.
+    function deltaAt(d, i) {
+      return i >= d.ranking.size()
+        || d.ratingDeltas[d.ranking[i]] == ratingTable()[string(d.ranking.size())][i];
+    }
+
+    function deltasFollowTable(d) {
+      return d.ratingDeltas.keys().toSet() == d.ranking.toSet()
+        && deltaAt(d, 0) && deltaAt(d, 1) && deltaAt(d, 2)
+        && deltaAt(d, 3) && deltaAt(d, 4) && deltaAt(d, 5);
     }
 
     function profileKeys() {
@@ -173,6 +187,33 @@ service cloud.firestore {
         allow create: if isOwner(uid) && validMarker(uid, gameId);
         allow update, delete: if false;
       }
+    }
+
+    // ---- 정산 대기 (ADR 0007: "진 게임 반영 안 하기" 방지) -----------------------------------------
+    // 방장이 rated 결과를 만드는 같은 배치에서 참가자마다 남기고, 본인이 그 게임을 반영하는 배치에서 지운다.
+    // 방 입장·rated 게임 생성 규칙은 isSettled(uid)를 요구한다(Firestore 방 규칙을 만들 때 연결).
+
+    function isSettled(uid) {
+      return !exists(/databases/$(database)/documents/pendingRatings/$(uid));
+    }
+
+    function validPendingCreate(uid) {
+      let gameId = request.resource.data.gameId;
+      let result = /databases/$(database)/documents/results/$(gameId);
+      return request.resource.data.keys().hasOnly(['gameId'])
+        && isHost(gameId)
+        && !exists(result)
+        && existsAfter(result)
+        && getAfter(result).data.rated == true
+        && uid in getAfter(result).data.ranking;
+    }
+
+    match /pendingRatings/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validPendingCreate(uid);
+      allow delete: if isOwner(uid)
+                    && existsAfter(/databases/$(database)/documents/users/$(uid)/appliedResults/$(resource.data.gameId));
+      allow update: if false;
     }
 
     // 옛 계정 이관 선점: 한 이메일은 한 번만 옮긴다.

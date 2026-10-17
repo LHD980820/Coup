@@ -46,14 +46,19 @@ class FakeFirestore {
                 val before = docs.toMap()
                 val after = before.toMutableMap()
                 ops.forEach { op ->
-                    after[op.path] = when (op) {
-                        is WriteOp.Set -> op.data
-                        is WriteOp.Merge -> JsonObject((after[op.path] ?: JsonObject(emptyMap())) + op.fields)
+                    when (op) {
+                        is WriteOp.Set -> after[op.path] = op.data
+                        is WriteOp.Merge -> after[op.path] = JsonObject((after[op.path] ?: JsonObject(emptyMap())) + op.fields)
+                        is WriteOp.Delete -> after.remove(op.path)
                     }
                 }
                 if (auth != null) {
                     ops.map { it.path }.distinct().forEach { path ->
-                        val kind = if (before.containsKey(path)) Access.UPDATE else Access.CREATE
+                        val kind = when {
+                            !after.containsKey(path) -> if (before.containsKey(path)) Access.DELETE else return@forEach
+                            before.containsKey(path) -> Access.UPDATE
+                            else -> Access.CREATE
+                        }
                         AccessPolicy.check(auth, kind, path, after[path], before[path], { before[it] }, { after[it] })
                     }
                 }
@@ -89,7 +94,7 @@ class FakeFirestore {
     }
 }
 
-enum class Access { READ, QUERY, CREATE, UPDATE }
+enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
 
 /**
  * 접근 매트릭스(설계 §8.3, ADR 0005·0007). `get` = 요청 전 상태, `getAfter` = 배치 적용 후 상태.
@@ -97,7 +102,9 @@ enum class Access { READ, QUERY, CREATE, UPDATE }
  * - games/{id}/views/{viewerId}: 읽기 = viewerId == uid (관전 뷰는 좌석 uid), 쓰기 = 방장
  * - games/{id}/authority/state: 읽기·쓰기 = 방장만
  * - games/{id}/commands/{cid}: 생성 = senderUid == uid 이고 방장이 아닌 좌석, 읽기 = 방장 또는 보낸 사람, 수정 = 방장, 컬렉션 조회 = 방장
- * - results/{id}: 생성 = 방장(rated면 순위 = 사람 좌석 전원), 읽기 = 로그인한 누구나, 수정 불가
+ * - results/{id}: 생성 = 방장(rated면 순위 = 사람 좌석 전원, 변동량 = 레이팅 표), 읽기 = 로그인한 누구나, 수정 불가
+ * - pendingRatings/{uid}: 읽기 = 로그인한 누구나. 생성 = 그 게임의 방장이 rated 결과를 만드는 같은 배치에서, 순위에 있는 uid만.
+ *   삭제 = 본인, 그 게임의 반영 표시가 배치 뒤에 있을 때(= 정산). 수정 불가. 방 입장 규칙은 [isSettled]를 요구한다.
  * - users/{uid}: 읽기·조회 = 로그인한 누구나. 생성 = 본인(새 프로필은 시작값, 이관은 옛 문서 값 + 같은 배치의 선점 표시).
  *   수정 = 본인, (a) 닉네임만 또는 (b) 레이팅 반영: 표에서 계산한 변동량 + 표시 문서가 전에는 없고 배치 뒤에는 있음
  * - users/{uid}/appliedResults/{gid}: 읽기·조회 = 본인. 생성 = 본인, 같은 배치에서 사용자 문서가 이 게임을 반영할 때만. 수정 불가
@@ -149,6 +156,12 @@ object AccessPolicy {
                         val seats = seatsOf(id)
                         if (ranking.toSet() != seats.toSet() || ranking.size != seats.size) deny("rated ranking must be exactly the human seats")
                         if (data.int(FirestoreSchema.Result.PLAYER_COUNT) != ranking.size) deny("playerCount mismatch")
+                        // 변동량이 표와 다르면 아무도 정산할 수 없어 다음 게임이 막힌다 -> 쓰는 시점에 거절
+                        val deltas = data[FirestoreSchema.Result.RATING_DELTAS] as? JsonObject ?: deny("ratingDeltas missing")
+                        val table = RATING_TABLE[ranking.size] ?: deny("unsupported player count")
+                        if (deltas.keys != ranking.toSet() || ranking.withIndex().any { (i, u) -> deltas.int(u) != table[i] }) {
+                            deny("ratingDeltas must follow the rating table")
+                        }
                     }
                 }
                 else -> deny("results are immutable")
@@ -276,6 +289,28 @@ object AccessPolicy {
                     else -> deny("claims are immutable")
                 }
             }
+            // pendingRatings/{uid}
+            segments.size == 2 && segments[0] == "pendingRatings" -> {
+                val owner = segments[1]
+                when (kind) {
+                    Access.READ -> Unit
+                    Access.CREATE -> {
+                        val gameId = incoming?.str(FirestoreSchema.Pending.GAME_ID) ?: deny("gameId missing")
+                        if (incoming.keys != setOf(FirestoreSchema.Pending.GAME_ID)) deny("unexpected fields")
+                        if (uid != hostOf(gameId)) deny("only the host of that game")
+                        val resultAfter = getAfter("results/$gameId") ?: deny("result must be written in the same batch")
+                        if (get("results/$gameId") != null) deny("result must be written in the same batch")
+                        if (resultAfter.bool(FirestoreSchema.Result.RATED) != true) deny("only rated games are settled")
+                        if (owner !in (resultAfter.strings(FirestoreSchema.Result.RANKING) ?: emptyList())) deny("not a participant")
+                    }
+                    Access.DELETE -> {
+                        if (owner != uid) deny("only the owner settles")
+                        val gameId = existing?.str(FirestoreSchema.Pending.GAME_ID) ?: deny("no pending game")
+                        if (getAfter("users/$owner/appliedResults/$gameId") == null) deny("settle (apply) the game first")
+                    }
+                    else -> deny("pending ratings cannot be changed")
+                }
+            }
             // user/{email} (옛 앱)
             segments.size == 2 && segments[0] == "user" -> {
                 if (kind != Access.READ) deny("legacy documents are read-only")
@@ -284,6 +319,9 @@ object AccessPolicy {
             else -> deny("unknown path")
         }
     }
+
+    /** 방 입장·rated 게임 생성 규칙이 쓸 조건: 정산하지 않은 rated 게임이 없다. */
+    fun isSettled(uid: String, get: (String) -> JsonObject?): Boolean = get("pendingRatings/$uid") == null
 
     /** 레이팅 반영 수정: 변동량은 결과 문서의 순위·인원수로 표에서 다시 계산한다. 표시 문서가 전에는 없고 배치 뒤에는 있어야 한다. */
     private fun checkRatingUpdate(

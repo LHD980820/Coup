@@ -13,6 +13,7 @@ package io.github.lhd980820.coup.remote
  * users/{uid}                           공개 프로필(닉네임·레이팅·판수·승수) — 로그인한 누구나 읽는다
  * users/{uid}/appliedResults/{gameId}   내 프로필에 반영된 결과(1회 반영 표시 + 전적) — 본인만
  * legacyClaims/{email}                  옛 계정 이관 선점 표시(한 이메일은 한 번만 옮긴다) — 본인만
+ * pendingRatings/{uid}                  아직 정산하지 않은 rated 게임(방장이 결과와 함께 쓰고 본인이 정산하며 지운다) — 로그인한 누구나 읽는다
  * user/{email}                          옛 앱의 사용자 문서(읽기 전용, 본인 이메일만)
  * ```
  */
@@ -30,6 +31,7 @@ public object FirestoreSchema {
     public fun appliedResults(uid: String): String = "users/$uid/appliedResults"
     public fun appliedResult(uid: String, gameId: String): String = "users/$uid/appliedResults/$gameId"
     public fun legacyClaim(email: String): String = "legacyClaims/$email"
+    public fun pendingRating(uid: String): String = "pendingRatings/$uid"
     public fun legacyUser(email: String): String = "user/$email"
 
     /** games/{id} 문서 필드. */
@@ -118,5 +120,10 @@ public object FirestoreSchema {
         public const val NICKNAME: String = "nickname"
         public const val RATING: String = "rating"
         public const val PLAYS: String = "plays"
+    }
+
+    /** pendingRatings/{uid} 문서 필드. */
+    public object Pending {
+        public const val GAME_ID: String = "gameId"
     }
 }

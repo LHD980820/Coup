@@ -34,8 +34,9 @@
    - ~~방/로비 도메인~~ ✅ 완료(아래 메모). 남은 후속: Firestore `RoomStore`(DocumentStore 트랜잭션 필요) + 방 접근 규칙.
    - ~~튜토리얼 시나리오~~ ✅ 완료(아래 메모).
    - ~~사용자/랭킹 도메인~~ ✅ 완료(아래 메모).
-   - **오너 결정 필요**: "진 게임 반영 안 하기" 방지 게이트(ADR 0007 남는 위험) — Firestore 방 저장소와 함께 넣을지.
-   - Firestore `RoomStore`(+ `DocumentStore` 트랜잭션) + 방 접근 규칙.
+   - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
+   - **다음**: Firestore `RoomStore`(+ `DocumentStore` 트랜잭션) + 방 접근 규칙. 반드시 포함: (1) 방 입장·rated 게임 생성에 `isSettled(uid)`,
+     (2) **게임 좌석 = 방에 스스로 들어온 사람**(지금은 방장이 아무 uid나 좌석에 넣을 수 있어 가짜 패배를 씌울 수 있다 — 배포 전 필수).
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
@@ -47,7 +48,9 @@
 - `FakeFirestore` 배치 평가를 실제처럼 "배치 전(get)/배치 후(getAfter)"로 바꿈. `firestore.rules`에 사용자·레이팅·이관 규칙 추가(⚠ 미검증).
 - **테스트 인프라 결함 수정**: `= runBlocking { ... assertThat(..) }` 형태의 테스트는 반환형이 Unit이 아니어서 **JUnit이 조용히 건너뛰었다**(로비 테스트 32개 중 1개가 실행되지 않고 있었음). 모두 `: Unit`으로 고치고, 루트 빌드에 `junit.platform.discovery.issue.severity.critical=WARNING`을 넣어 다시 생기면 빌드가 실패하게 했다.
 - 테스트: account 9개, 사용자 저장소 15개(이관 1회, 조작된 생성/닉네임/레이팅 거절, 부풀린 결과, 두 기기 동시 반영, 다른 게임 동시 반영 재시도, 진 게임 표시 선점 거절, 전적 위조 거절, 레이팅 게임 순위=좌석, 랭킹). 규칙 모델의 각 검사를 하나씩 끄는 변이 검증으로 검사마다 잡는 테스트가 있음을 확인(중복 방어 2개 — 표시 문서·선점 문서 재생성 — 는 문서 불변 규칙이 먼저 막는다).
-- 남는 위험: 수정된 앱의 "진 게임 반영 안 하기", 방장의 순위 조작 -> Phase 7(서버) 또는 정산 게이트(오너 결정).
+- 남는 위험: 방장의 순위 조작 -> Phase 7(서버).
+- **정산 게이트**(후속 커밋, 오너 결정): rated 결과 배치에 `pendingRatings/{uid}`, 반영 배치에서 삭제, `settlePending()`(앱 시작 시). 정산 = 읽기 5 + 쓰기 1(테스트 고정).
+  결과 변동량이 표와 다르면 결과 쓰기를 거절(정산 불능 방지). 대기 표시 위조·남의 표시 삭제·정산 없이 삭제를 막는 테스트 + 검사별 변이 검증. `WriteOp.Delete` 추가.
 
 ## 이번 단계 메모 (Phase 3 (C) — 튜토리얼)
 - `core/presentation/tutorial`: `TutorialLesson`(고정 seed·손패·선 플레이어·선생 대본·사용자 단계), `ScriptedAgent`(대본대로 두는 `AiAgent`, 어긋나면 합법적 기본 수), `GuidedSession`(어떤 `GameSession`이든 감싸 단계에 맞는 수만 통과, 기권은 항상 허용, `progress` 흐름 제공), `TutorialSessionFactory`, 내장 4과정 `TutorialLessons`(기본 행동 / 역할 주장 / 도전 / 막기).

@@ -80,16 +80,33 @@ public class FirestoreUserRepository(
         return null
     }
 
-    /** 게임 결과를 내 프로필에 1회 반영한다. 이미 반영했거나 대상이 아니면 아무것도 쓰지 않는다. */
+    /** 아직 정산하지 않은 rated 게임의 ID(없으면 null). 있으면 다음 rated 게임에 들어갈 수 없다. */
+    public fun observePending(userId: String = uid): Flow<String?> =
+        store.observe(FirestoreSchema.pendingRating(userId)).map { it?.str(FirestoreSchema.Pending.GAME_ID) }
+
+    /** 앱 시작·로비 진입 때 부른다: 정산 대기 중인 게임이 있으면 반영한다. 없으면 null. */
+    public suspend fun settlePending(): ApplyOutcome? {
+        val gameId = observePending().first() ?: return null
+        return applyResult(gameId)
+    }
+
+    /**
+     * 게임 결과를 내 프로필에 1회 반영한다. 이미 반영했거나 대상이 아니면 레이팅은 쓰지 않는다.
+     * 이 게임의 정산 대기 표시가 있으면 같은 배치로 지운다(이미 반영된 게임이면 표시만 지운다).
+     */
     public suspend fun applyResult(gameId: String): ApplyOutcome {
         repeat(APPLY_ATTEMPTS) { attempt ->
             val result = store.observe(FirestoreSchema.result(gameId)).first()?.toResult(gameId) ?: return ApplyOutcome.NoResultYet
             val profile = store.observe(FirestoreSchema.user(uid)).first()?.toProfile(uid) ?: return ApplyOutcome.NoProfile
             val applied = store.observe(FirestoreSchema.appliedResult(uid, gameId)).first() != null
+            val clearPending = observePending().first() == gameId
             when (val decision = RatingLedger.decide(profile, result, applied, clock.nowMillis())) {
-                is RatingDecision.Skip -> return ApplyOutcome.Skipped(decision.reason)
+                is RatingDecision.Skip -> {
+                    if (applied && clearPending) store.write(listOf(WriteOp.Delete(FirestoreSchema.pendingRating(uid))))
+                    return ApplyOutcome.Skipped(decision.reason)
+                }
                 is RatingDecision.Apply -> try {
-                    store.write(applyOps(decision))
+                    store.write(applyOps(decision) + if (clearPending) listOf(WriteOp.Delete(FirestoreSchema.pendingRating(uid))) else emptyList())
                     return ApplyOutcome.Applied(decision.updated, decision.record)
                 } catch (e: TransportException) {
                     // 다른 기기가 먼저 반영했거나(표시 문서 존재) 그사이 레이팅이 바뀌었다 -> 다시 읽고 판단한다

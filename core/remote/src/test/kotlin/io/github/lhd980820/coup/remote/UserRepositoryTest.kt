@@ -5,6 +5,7 @@ import assertk.assertThat
 import assertk.assertions.containsExactly
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
 import io.github.lhd980820.coup.account.NicknameError
@@ -44,6 +45,24 @@ class UserRepositoryTest {
                 ruleSetConfig = BuiltinRules.classicConfig(),
                 rated = rated,
                 ratingDeltas = deltas?.mapKeys { PlayerId(it.key) } ?: if (rated) computed else emptyMap(),
+            ),
+        )
+    }
+
+    /** 규칙을 우회해 손상된(표와 다른) 결과 문서를 만든다. 실제로는 규칙이 방장의 이런 쓰기를 거절한다. */
+    private suspend fun corruptResult(gameId: String, ranking: List<String>, deltas: Map<String, Int>) {
+        FirestoreGameTransport(fs.storeFor(ranking.first()), clock).createGame(gameId, ranking.first(), ranking, BuiltinRules.classicConfig(), rated = true)
+        fs.admin().write(
+            listOf(
+                WriteOp.Set(
+                    "results/$gameId",
+                    buildJsonObject {
+                        put(FirestoreSchema.Result.RANKING, buildJsonArray { ranking.forEach { add(JsonPrimitive(it)) } })
+                        put(FirestoreSchema.Result.PLAYER_COUNT, ranking.size)
+                        put(FirestoreSchema.Result.RATED, true)
+                        put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { deltas.forEach { (k, v) -> put(k, v) } })
+                    },
+                ),
             ),
         )
     }
@@ -143,9 +162,10 @@ class UserRepositoryTest {
     }
 
     @Test
-    fun `방장이 변동량을 부풀린 결과는 클라이언트도 규칙도 반영하지 않는다`(): Unit = runBlocking {
+    fun `방장이 변동량을 부풀린 결과는 쓸 수 없고, 손상된 결과는 클라이언트도 규칙도 반영하지 않는다`(): Unit = runBlocking {
         signUp("a", "b")
-        finishGame("g", listOf("a", "b"), deltas = mapOf("a" to 500, "b" to -20))
+        assertFailure { finishGame("forged", listOf("a", "b"), deltas = mapOf("a" to 500, "b" to -20)) }.isInstanceOf(PermissionDenied::class)
+        corruptResult("g", listOf("a", "b"), mapOf("a" to 500, "b" to -20))
         assertThat(repo("a").applyResult("g")).isEqualTo(ApplyOutcome.Skipped(SkipReason.INCONSISTENT))
         // 클라이언트를 고쳐서 직접 써도 규칙이 거절한다
         assertFailure { fs.storeFor("a").write(applyOps("a", "g", rating = 1500, plays = 1, wins = 1, rank = 0, delta = 500)) }
@@ -206,8 +226,8 @@ class UserRepositoryTest {
     @Test
     fun `규칙 - 전적의 변동량과 남의 순위는 위조할 수 없다`(): Unit = runBlocking {
         signUp("a", "b")
-        // 방장이 b(2위)의 변동량을 1위 값으로 적었다 -> b가 1위 칸을 주장해도 거절
-        finishGame("g", listOf("a", "b"), deltas = mapOf("a" to 30, "b" to 30))
+        // 손상된 결과에서 b(2위)의 변동량이 1위 값이다 -> b가 1위 칸을 주장해도 거절
+        corruptResult("g", listOf("a", "b"), mapOf("a" to 30, "b" to 30))
         assertFailure { fs.storeFor("b").write(applyOps("b", "g", 1030, 1, 1, rank = 0, delta = 30)) }.isInstanceOf(PermissionDenied::class)
         // 정상 결과에서 레이팅은 맞게 올리고 전적에만 큰 값을 남기는 것도 거절
         finishGame("h", listOf("a", "b"))
@@ -246,6 +266,8 @@ class UserRepositoryTest {
                 put(FirestoreSchema.Result.RANKING, buildJsonArray { ranking.forEach { add(JsonPrimitive(it)) } })
                 put(FirestoreSchema.Result.PLAYER_COUNT, count)
                 put(FirestoreSchema.Result.RATED, true)
+                val table = AccessPolicy.RATING_TABLE[ranking.size]
+                put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { ranking.forEachIndexed { i, u -> table?.getOrNull(i)?.let { put(u, it) } } })
             },
         )
         val store = fs.storeFor("a")
@@ -254,6 +276,141 @@ class UserRepositoryTest {
         assertFailure { store.write(listOf(result(listOf("a", "b"), count = 3))) }.isInstanceOf(PermissionDenied::class)
         assertFailure { fs.storeFor("b").write(listOf(result(listOf("b", "a")))) }.isInstanceOf(PermissionDenied::class)
         store.write(listOf(result(listOf("b", "a"))))
+    }
+
+    // ---- 정산 대기(다음 rated 게임 게이트) ---------------------------------------------------
+
+    private suspend fun pendingOf(uid: String) = repo(uid).observePending().first()
+    private suspend fun settled(uid: String) = AccessPolicy.isSettled(uid) { fs.docs[it] }
+
+    @Test
+    fun `rated 게임이 끝나면 참가자마다 정산 대기가 생기고 반영하면 사라진다`(): Unit = runBlocking {
+        signUp("a", "b", "c")
+        finishGame("g", listOf("b", "a", "c"))
+        listOf("a", "b", "c").forEach { assertThat(pendingOf(it), it).isEqualTo("g") }
+        assertThat(settled("a")).isEqualTo(false)
+        repo("a").applyResult("g")
+        assertThat(pendingOf("a")).isNull()
+        assertThat(settled("a")).isTrue()
+        assertThat(pendingOf("b")).isEqualTo("g") // 남의 정산은 각자
+        finishGame("casual", listOf("x", "y"), rated = false)
+        assertThat(pendingOf("x")).isNull()
+    }
+
+    @Test
+    fun `앱이 꺼져 정산하지 못했으면 다음 실행에서 정산한다`(): Unit = runBlocking {
+        signUp("a", "b")
+        assertThat(repo("a").settlePending()).isNull()
+        finishGame("g", listOf("b", "a"))
+        val outcome = repo("a").settlePending()
+        assertThat(outcome).isNotNull().isInstanceOf(ApplyOutcome.Applied::class)
+        assertThat(profileOf("a")!!.rating).isEqualTo(980)
+        assertThat(pendingOf("a")).isNull()
+        assertThat(repo("a").settlePending()).isNull()
+    }
+
+    @Test
+    fun `정산은 문서 읽기 몇 번과 배치 쓰기 한 번이다`(): Unit = runBlocking {
+        signUp("a", "b")
+        finishGame("g", listOf("a", "b"))
+        val counting = Counting(fs.storeFor("a"))
+        repo("a", store = counting).settlePending()
+        assertThat(counting.reads to counting.writes).isEqualTo(5 to 1)
+    }
+
+    @Test
+    fun `규칙 - 정산하지 않고 대기 표시를 지울 수 없다`(): Unit = runBlocking {
+        signUp("a", "b")
+        finishGame("g", listOf("a", "b"))
+        assertFailure { fs.storeFor("a").write(listOf(WriteOp.Delete("pendingRatings/a"))) }.isInstanceOf(PermissionDenied::class)
+        assertFailure { fs.storeFor("b").write(listOf(WriteOp.Delete("pendingRatings/a"))) }.isInstanceOf(PermissionDenied::class)
+        assertFailure { fs.storeFor("a").write(listOf(WriteOp.Merge("pendingRatings/a", buildJsonObject { put("gameId", "other") }))) }
+            .isInstanceOf(PermissionDenied::class)
+        assertThat(pendingOf("a")).isEqualTo("g")
+    }
+
+    @Test
+    fun `규칙 - 방장은 결과와 함께, 참가자에게만 대기 표시를 만든다`(): Unit = runBlocking {
+        signUp("a", "b", "victim")
+        finishGame("g", listOf("a", "b"))
+        fun pending(uid: String, gameId: String) = WriteOp.Set("pendingRatings/$uid", buildJsonObject { put("gameId", gameId) })
+        // 결과 없이 단독으로
+        assertFailure { fs.storeFor("a").write(listOf(pending("victim", "g"))) }.isInstanceOf(PermissionDenied::class)
+        // 남의 게임으로
+        assertFailure { fs.storeFor("victim").write(listOf(pending("a", "g"))) }.isInstanceOf(PermissionDenied::class)
+        // 이미 있는 대기 표시 덮어쓰기
+        assertFailure { fs.storeFor("a").write(listOf(pending("b", "g"))) }.isInstanceOf(PermissionDenied::class)
+    }
+
+    @Test
+    fun `규칙 - 대기 표시 위조를 하나씩 막는다`(): Unit = runBlocking {
+        signUp("a", "b", "victim")
+        fun pending(uid: String, gameId: String, extra: Boolean = false) = WriteOp.Set(
+            "pendingRatings/$uid",
+            buildJsonObject {
+                put("gameId", gameId)
+                if (extra) put("note", "x")
+            },
+        )
+        fun resultDoc(ranking: List<String>, rated: Boolean) = WriteOp.Set(
+            "results/new",
+            buildJsonObject {
+                put(FirestoreSchema.Result.RANKING, buildJsonArray { ranking.forEach { add(JsonPrimitive(it)) } })
+                put(FirestoreSchema.Result.PLAYER_COUNT, ranking.size)
+                put(FirestoreSchema.Result.RATED, rated)
+                put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { if (rated) { put(ranking[0], 30); put(ranking[1], -20) } })
+            },
+        )
+        val host = fs.storeFor("a")
+        FirestoreGameTransport(host, clock).createGame("new", "a", listOf("a", "b"), BuiltinRules.classicConfig(), rated = true)
+        // 정산을 끝낸 b에게 옛 게임 대기를 다시 씌우기(결과 배치 밖)
+        finishGame("old", listOf("a", "b"))
+        repo("b").applyResult("old")
+        assertFailure { host.write(listOf(pending("b", "old"))) }.isInstanceOf(PermissionDenied::class)
+        // 비레이팅 결과와 함께
+        assertFailure { host.write(listOf(resultDoc(listOf("a", "b"), rated = false), pending("b", "new"))) }.isInstanceOf(PermissionDenied::class)
+        // 참가하지 않은 사람에게
+        assertFailure { host.write(listOf(resultDoc(listOf("a", "b"), rated = true), pending("victim", "new"))) }.isInstanceOf(PermissionDenied::class)
+        // 다른 필드를 끼워서
+        assertFailure { host.write(listOf(resultDoc(listOf("a", "b"), rated = true), pending("b", "new", extra = true))) }.isInstanceOf(PermissionDenied::class)
+        // 정상: 결과와 함께, 참가자에게
+        host.write(listOf(resultDoc(listOf("a", "b"), rated = true), pending("b", "new")))
+        assertThat(pendingOf("b")).isEqualTo("new")
+        assertThat(pendingOf("victim")).isNull()
+    }
+
+    @Test
+    fun `규칙 - 남의 대기 표시는 지울 수 없다(내가 그 게임을 정산했어도)`(): Unit = runBlocking {
+        signUp("a", "b")
+        finishGame("g", listOf("a", "b"))
+        fs.storeFor("a").write(applyOps("a", "g", 1030, 1, 1, 0, 30)) // a는 반영만 하고 대기 표시는 남김
+        repo("b").applyResult("g")
+        assertFailure { fs.storeFor("b").write(listOf(WriteOp.Delete("pendingRatings/a"))) }.isInstanceOf(PermissionDenied::class)
+        assertThat(pendingOf("a")).isEqualTo("g")
+    }
+
+    @Test
+    fun `이미 대기 표시가 있는 참가자는 건너뛰고 결과는 기록된다`(): Unit = runBlocking {
+        signUp("a", "b", "c")
+        finishGame("g1", listOf("a", "b"))
+        // b는 g1을 정산하지 않은 채(게이트가 생기기 전 등) 다른 게임을 끝냈다
+        finishGame("g2", listOf("c", "b"))
+        assertThat(pendingOf("b")).isEqualTo("g1")
+        assertThat(pendingOf("c")).isEqualTo("g2")
+        assertThat(repo("b").applyResult("g2")).isInstanceOf(ApplyOutcome.Applied::class)
+        assertThat(pendingOf("b")).isEqualTo("g1") // g1 대기는 g1을 정산해야 사라진다
+        repo("b").settlePending()
+        assertThat(pendingOf("b")).isNull()
+    }
+
+    @Test
+    fun `이미 반영한 게임의 대기 표시가 남아 있으면 지운다`(): Unit = runBlocking {
+        signUp("a", "b")
+        finishGame("g", listOf("a", "b"))
+        // 대기 표시를 지우지 않는 옛 클라이언트처럼 반영만 한다
+        fs.storeFor("a").write(applyOps("a", "g", 1030, 1, 1, 0, 30))
+        assertThat(repo("a").applyResult("g")).isEqualTo(ApplyOutcome.Skipped(SkipReason.ALREADY_APPLIED))
+        assertThat(pendingOf("a")).isNull()
     }
 
     // ---- 랭킹 -------------------------------------------------------------------------------
@@ -287,6 +444,20 @@ class UserRepositoryTest {
             buildJsonObject { put("rank", rank); put("delta", delta); put("playerCount", 2); put("finishedAt", 0); put("appliedAt", 0) },
         ),
     )
+
+    /** 읽기(문서 1회 조회)와 배치 쓰기 횟수를 센다. */
+    private class Counting(private val inner: DocumentStore) : DocumentStore by inner {
+        var reads = 0
+        var writes = 0
+        override fun observe(path: String): kotlinx.coroutines.flow.Flow<kotlinx.serialization.json.JsonObject?> {
+            reads++
+            return inner.observe(path)
+        }
+        override suspend fun write(ops: List<WriteOp>) {
+            writes++
+            inner.write(ops)
+        }
+    }
 
     /** 첫 쓰기 직전에 [action]을 끼워 넣는 저장소(경쟁 상황 재현). */
     private class BeforeFirstWrite(private val inner: DocumentStore, private val action: suspend () -> Unit) : DocumentStore by inner {

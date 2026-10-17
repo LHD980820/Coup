@@ -15,6 +15,9 @@ public sealed interface WriteOp {
 
     /** 문서의 [fields]만 갱신한다(나머지는 유지, 문서가 없으면 만든다). */
     public class Merge(override val path: String, public val fields: JsonObject) : WriteOp
+
+    /** 문서를 지운다(없으면 아무 일도 없다). */
+    public class Delete(override val path: String) : WriteOp
 }
 
 /**
