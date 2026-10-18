@@ -30,6 +30,7 @@ import io.github.lhd980820.coup.runtime.session.SubmitResult
 import io.github.lhd980820.coup.runtime.transport.AckResult
 import io.github.lhd980820.coup.runtime.transport.GameResultRecord
 import io.github.lhd980820.coup.runtime.transport.GameTransport
+import io.github.lhd980820.coup.runtime.transport.IncomingCommand
 import io.github.lhd980820.coup.runtime.transport.InMemoryTransport
 import io.github.lhd980820.coup.runtime.transport.Publication
 import io.github.lhd980820.coup.runtime.transport.TransportException
@@ -346,6 +347,50 @@ class MultiplayerTest {
         assertThat(host.connection.value).isEqualTo(ConnectionState.RECONNECTING)
         host.submit(Command.DeclareAction(pid(0), ActionId("income"))) // 아직 상대 차례 → 거절되어도 상관없다
         assertThat(host.snapshot.value).isNotNull()
+    }
+
+    /** 방장 [0]과 게스트 [1]이 있는 2인 방. 게스트가 먼저 행동한다. [host]는 전송 계층(실패를 끼워 넣을 수 있다)을 받는다. */
+    private fun TestScope.twoSeats(host: GameTransport.Host, inner: InMemoryTransport): RemoteGameSession {
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(1))
+        val seats = listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트"))
+        HostGameSession(engine, engine.newGame(setup), seats, host, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope)
+        val info = seats.associate { it.id to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
+        return RemoteGameSession("mp", pid(1), inner.guest(pid(1).value), info, backgroundScope)
+    }
+
+    @Test
+    fun `명령 확인 쓰기가 몇 번 실패해도 다시 시도해서 게스트가 결과를 받는다`() = runTest {
+        val inner = InMemoryTransport()
+        var failures = 2
+        val flaky = object : GameTransport.Host by inner.host {
+            override suspend fun acknowledge(gameId: String, commandId: String, ack: AckResult) {
+                if (failures > 0) { failures--; throw TransportException("ack failed") }
+                inner.host.acknowledge(gameId, commandId, ack)
+            }
+        }
+        val guest = twoSeats(flaky, inner)
+        runCurrent()
+        assertThat(guest.submit(Command.DeclareAction(pid(1), ActionId("income")))).isEqualTo(SubmitResult.Ok)
+        assertThat(failures).isEqualTo(0)
+    }
+
+    @Test
+    fun `명령 구독이 오류로 끊겨도 다시 구독해서 이후 명령을 처리한다`() = runTest {
+        val inner = InMemoryTransport()
+        var broken = 1
+        val flaky = object : GameTransport.Host by inner.host {
+            override fun incomingCommands(gameId: String): kotlinx.coroutines.flow.Flow<IncomingCommand> =
+                if (broken > 0) {
+                    broken--
+                    kotlinx.coroutines.flow.flow { throw TransportException("subscription lost") }
+                } else {
+                    inner.host.incomingCommands(gameId)
+                }
+        }
+        val guest = twoSeats(flaky, inner)
+        runCurrent()
+        assertThat(guest.submit(Command.DeclareAction(pid(1), ActionId("income")))).isEqualTo(SubmitResult.Ok)
+        assertThat(broken).isEqualTo(0)
     }
 
     @Test

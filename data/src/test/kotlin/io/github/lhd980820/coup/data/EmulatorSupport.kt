@@ -91,7 +91,8 @@ internal class TestUser(val uid: String, val email: String, val db: FirebaseFire
     val store = FirebaseDocumentStore(db)
 }
 
-internal suspend fun newUser(name: String): TestUser {
+/** 이름이 유일한 FirebaseApp 하나(Auth + Firestore가 에뮬레이터를 가리킨다). */
+internal fun newApp(name: String): Pair<FirebaseAuth, FirebaseFirestore> {
     val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
     val options = FirebaseOptions.Builder().setProjectId(Emulator.PROJECT).setApplicationId("1:1:android:1").setApiKey("fake-api-key").build()
     val app = FirebaseApp.initializeApp(ctx, options, "$name-${UUID.randomUUID()}")
@@ -101,6 +102,11 @@ internal suspend fun newUser(name: String): TestUser {
         // 앱과 같은 설정: 메모리 캐시(세션 밖의 오래된 캐시로 판단하지 않게)
         firestoreSettings = firestoreSettings { setLocalCacheSettings(memoryCacheSettings {}) }
     }
+    return auth to db
+}
+
+internal suspend fun newUser(name: String): TestUser {
+    val (auth, db) = newApp(name)
     val email = "$name-${UUID.randomUUID().toString().take(8)}@coup.test"
     val user = checkNotNull(auth.createUserWithEmailAndPassword(email, "secret-123").await().user)
     return TestUser(user.uid, email, db)

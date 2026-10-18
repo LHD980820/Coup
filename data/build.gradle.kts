@@ -28,7 +28,7 @@ android {
 
 dependencies {
     // Firebase 위의 DocumentStore 구현(:data, 설계 §3.1). 규칙·도메인은 코어(:remote)에 있다.
-    api("io.github.lhd980820.coup:remote")
+    api("io.github.lhd980820.coup:shell")
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)

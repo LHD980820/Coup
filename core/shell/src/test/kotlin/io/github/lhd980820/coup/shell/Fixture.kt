@@ -17,6 +17,7 @@ import io.github.lhd980820.coup.shell.account.AccountSession
 import io.github.lhd980820.coup.shell.lobby.FirestoreGameLauncher
 import io.github.lhd980820.coup.shell.lobby.GameLauncher
 import io.github.lhd980820.coup.shell.lobby.WaitingRoomModel
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,9 +85,13 @@ class FlakyStore(private val inner: DocumentStore) : DocumentStore by inner {
     override fun observeWhere(collectionPath: String, field: String, value: String) = inner.observeWhere(collectionPath, field, value)
 }
 
-/** 세션·구독 코루틴을 담을 범위를 만들어 주고, 본문이 끝나면 모두 취소한다. */
-fun fixture(timeoutMillis: Long = 30_000, body: suspend CoroutineScope.(Fixture) -> Unit) = runBlocking {
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+/**
+ * 세션·구독 코루틴을 담을 범위를 만들어 주고, 본문이 끝나면 모두 취소한다.
+ * 그 범위에서 처리되지 않은 예외가 나면(예: 방장의 명령 수신 코루틴이 조용히 죽는 경우) 테스트를 실패시킨다.
+ */
+fun fixture(timeoutMillis: Long = 30_000, body: suspend CoroutineScope.(Fixture) -> Unit) = runBlocking<Unit> {
+    val uncaught = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> uncaught += e })
     try {
         withTimeout(timeoutMillis) {
             coroutineScope {
@@ -97,4 +102,5 @@ fun fixture(timeoutMillis: Long = 30_000, body: suspend CoroutineScope.(Fixture)
     } finally {
         scope.cancel()
     }
+    uncaught.firstOrNull()?.let { throw AssertionError("범위 안에서 처리되지 않은 예외: $it", it) }
 }

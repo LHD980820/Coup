@@ -12,11 +12,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.pm.PackageInfoCompat
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.presentation.tutorial.TutorialLessons
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.lhd980820.coup.multiplayer.FirebaseBackend
+import io.github.lhd980820.coup.multiplayer.MultiplayerFlow
+import io.github.lhd980820.coup.multiplayer.MultiplayerGame
+import io.github.lhd980820.coup.multiplayer.ShellViewModel
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 
@@ -28,32 +33,53 @@ class SinglePlayerActivity : ComponentActivity() {
         viewModelFactory { initializer { GameViewModel(tutorialStore = PrefsTutorialStore(applicationContext)) } }
     }
 
+    private val shell: ShellViewModel by viewModels {
+        viewModelFactory { initializer { ShellViewModel(FirebaseBackend(appVersion()), viewModel) } }
+    }
+
+    private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CoupTheme {
-                SinglePlayerFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding())
+                SinglePlayerFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell)
             }
         }
     }
 }
 
-private enum class Screen { HOME, SETUP, TUTORIALS }
+private enum class Screen { HOME, SETUP, TUTORIALS, MULTI }
 
 /**
  * 새 UI 셸의 화면 흐름: 홈 -> (AI와 대전: 설정 -> 게임) | (튜토리얼: 목록 -> 과정). 게임 중이면(컨트롤러가 있으면) 게임 화면이 우선한다.
  * 정식 내비게이션(Navigation Compose)은 화면이 늘어나는 Phase 5에서 도입한다.
  */
 @Composable
-internal fun SinglePlayerFlow(viewModel: GameViewModel, onExit: () -> Unit, modifier: Modifier = Modifier) {
+internal fun SinglePlayerFlow(viewModel: GameViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, shell: ShellViewModel? = null) {
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val controller: GameController? = viewModel.controller
     val you = stringResource(R.string.game_you)
     val tutor = stringResource(R.string.game_tutor_name)
 
+    // 멀티플레이 게임 중이면 그 게임 화면이 우선한다(나가면 대기실로)
+    if (shell != null && shell.multiGame != null && controller != null) {
+        MultiplayerGame(shell, viewModel, modifier)
+        return
+    }
+
     if (controller == null) {
         when (screen) {
-            Screen.HOME -> HomeScreen(onSingle = { screen = Screen.SETUP }, onTutorial = { screen = Screen.TUTORIALS }, modifier = modifier)
+            Screen.HOME -> HomeScreen(
+                onSingle = { screen = Screen.SETUP },
+                onTutorial = { screen = Screen.TUTORIALS },
+                modifier = modifier,
+                onMultiplayer = shell?.let { { screen = Screen.MULTI } },
+                profile = shell?.profile,
+                onSaveNickname = { shell?.updateNickname(it) },
+                onSignOut = { shell?.signOut() },
+            )
+            Screen.MULTI -> if (shell != null) MultiplayerFlow(shell, onBack = { screen = Screen.HOME }, modifier = modifier) else screen = Screen.HOME
             Screen.SETUP -> SinglePlayerSetupScreen(onStart = viewModel::start, modifier = modifier)
             Screen.TUTORIALS -> TutorialListScreen(
                 lessons = TutorialLessons.all,

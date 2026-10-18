@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.game
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -112,6 +113,9 @@ internal fun GameScreen(
     onPlayAgain: () -> Unit,
     modifier: Modifier = Modifier,
     guide: GuideUi? = null,
+    /** 결과 대화상자 맨 아래에 덧붙일 내용(멀티플레이의 레이팅 변화). */
+    resultExtra: (@Composable () -> Unit)? = null,
+    @StringRes playAgainLabel: Int = R.string.game_result_again,
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -176,10 +180,11 @@ internal fun GameScreen(
                     result.myRank?.let { Text(stringResource(R.string.game_result_rank, it)) }
                     Text(stringResource(R.string.game_result_winner, texts.name(result.winner)))
                     result.ranking.forEachIndexed { i, id -> Text("${i + 1}. ${texts.name(id)}") }
+                    resultExtra?.invoke()
                 }
             },
             confirmButton = {
-                Button(onClick = onPlayAgain, modifier = Modifier.testTag(GameTags.RESULT_AGAIN)) { Text(stringResource(R.string.game_result_again)) }
+                Button(onClick = onPlayAgain, modifier = Modifier.testTag(GameTags.RESULT_AGAIN)) { Text(stringResource(playAgainLabel)) }
             },
             dismissButton = {
                 TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.RESULT_EXIT)) { Text(stringResource(R.string.game_result_exit)) }

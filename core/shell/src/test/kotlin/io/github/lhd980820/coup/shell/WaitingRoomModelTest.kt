@@ -216,6 +216,7 @@ class WaitingRoomModelTest {
         // 대기실로 돌아오면 방장이 방을 다시 대기 상태로 돌리고, 게스트는 다시 준비해야 한다
         sessions.values.forEach { it.close() }
         models.getValue("host").gameFinished()
+        assertThat(models.getValue("host").state.value?.problem, name = "대기실 복귀 중 문제").isNull()
         f.roomService("a").observe(room.id).await { it?.status == RoomStatus.WAITING }
         assertThat(models.getValue("a").state.await { it?.myReady == false }!!.myReady).isFalse()
     }

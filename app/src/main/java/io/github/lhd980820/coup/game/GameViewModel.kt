@@ -13,6 +13,7 @@ import io.github.lhd980820.coup.engine.model.RoleId
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerConfig
 import io.github.lhd980820.coup.presentation.tutorial.GuidedSession
+import io.github.lhd980820.coup.runtime.session.GameSession
 import io.github.lhd980820.coup.presentation.tutorial.TutorialLesson
 import io.github.lhd980820.coup.presentation.tutorial.TutorialSessionFactory
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerSessionFactory
@@ -65,6 +66,12 @@ internal class GameViewModel(
     fun start(config: SinglePlayerConfig) {
         controller?.close()
         val session = SinglePlayerSessionFactory.create(config, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher)
+        controller = GameController(session, gameScope)
+    }
+
+    /** 이미 열린 세션(멀티플레이)으로 게임 화면을 연다. 세션은 [quit]에서 닫힌다. */
+    fun startSession(session: GameSession) {
+        controller?.close()
         controller = GameController(session, gameScope)
     }
 

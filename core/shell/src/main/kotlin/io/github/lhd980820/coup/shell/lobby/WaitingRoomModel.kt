@@ -87,7 +87,7 @@ public sealed interface WaitingRoomEvent {
  * [WaitingRoomEvent.GameStarted]를 내보낸다. 게임이 끝나 대기실로 돌아오면 화면이 [gameFinished]를 부른다.
  */
 public class WaitingRoomModel(
-    private val roomId: String,
+    public val roomId: String,
     private val me: LobbyUser,
     private val service: RoomService,
     private val registry: RuleSetRegistry,
@@ -250,7 +250,8 @@ public class WaitingRoomModel(
         val s = _state.value ?: return
         if (!s.isHost) return
         try {
-            service.endGame(roomId, me.uid)
+            val result = service.endGame(roomId, me.uid)
+            if (result is RoomResult.Err) report(LobbyProblem.Room(result.error))
         } catch (e: CancellationException) {
             throw e
         } catch (e: TransportException) {

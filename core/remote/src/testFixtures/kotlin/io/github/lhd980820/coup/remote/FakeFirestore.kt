@@ -90,8 +90,10 @@ class FakeFirestore {
                 val ops = mutableListOf<WriteOp>()
                 val tx = object : DocumentTransaction {
                     override suspend fun get(path: String): JsonObject? {
-                        if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
-                        return docs[path].also { reads[path] = it }
+                        return synchronized(lock) {
+                            if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
+                            docs[path].also { reads[path] = it }
+                        }
                     }
 
                     override fun write(op: WriteOp) {
@@ -144,34 +146,44 @@ class FakeFirestore {
                     }
                 }
                 trace?.write(auth, ops, allowed = true)
-                docs.clear()
-                docs.putAll(after)
+                // 바뀐 문서만 갱신한다. 전부 지웠다가 다시 채우면 다른 스레드의 구독이 그 틈에 문서가 "없다"고 읽는다.
+                ops.map { it.path }.distinct().forEach { path ->
+                    val doc = after[path]
+                    if (doc != null) docs[path] = doc else docs.remove(path)
+                }
                 changes.value = changes.value + 1
             }
         }
 
+        // 읽기는 쓰기(배치 한 번)와 겹치지 않게 같은 자물쇠 아래에서 한다 — 구독자는 배치의 중간 상태를 볼 수 없다(실제 Firestore와 같다)
         override fun observe(path: String): Flow<JsonObject?> = changes.map {
-            if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
-            docs[path]
+            synchronized(lock) {
+                if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
+                docs[path]
+            }
         }.distinctUntilChanged()
 
         override fun observeWhere(collectionPath: String, field: String, value: String): Flow<List<StoredDocument>> = changes.map {
-            if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = field to value)
-            docs.filterKeys { parentOf(it) == collectionPath }
-                .filterValues { (it[field] as? JsonPrimitive)?.contentOrNull == value }
-                .map { (path, data) -> StoredDocument(path.substringAfterLast('/'), data) }
-                .sortedBy { it.id }
+            synchronized(lock) {
+                if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = field to value)
+                docs.filterKeys { parentOf(it) == collectionPath }
+                    .filterValues { (it[field] as? JsonPrimitive)?.contentOrNull == value }
+                    .map { (path, data) -> StoredDocument(path.substringAfterLast('/'), data) }
+                    .sortedBy { it.id }
+            }
         }.distinctUntilChanged { a, b -> a.map { it.id to it.data } == b.map { it.id to it.data } }
 
         override fun observeOrdered(collectionPath: String, orderBy: String, descending: Boolean, limit: Int): Flow<List<StoredDocument>> =
             changes.map {
-                if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = "orderBy:$orderBy" to "${if (descending) "desc" else "asc"}:$limit")
-                val matching = docs.filterKeys { parentOf(it) == collectionPath }
-                    .mapNotNull { (path, data) -> (data[orderBy] as? JsonPrimitive)?.doubleOrNull?.let { Triple(path.substringAfterLast('/'), data, it) } }
-                val byValue = compareBy<Triple<String, JsonObject, Double>> { it.third }
-                matching.sortedWith((if (descending) byValue.reversed() else byValue).thenBy { it.first })
-                    .take(limit)
-                    .map { StoredDocument(it.first, it.second) }
+                synchronized(lock) {
+                    if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = "orderBy:$orderBy" to "${if (descending) "desc" else "asc"}:$limit")
+                    val matching = docs.filterKeys { parentOf(it) == collectionPath }
+                        .mapNotNull { (path, data) -> (data[orderBy] as? JsonPrimitive)?.doubleOrNull?.let { Triple(path.substringAfterLast('/'), data, it) } }
+                    val byValue = compareBy<Triple<String, JsonObject, Double>> { it.third }
+                    matching.sortedWith((if (descending) byValue.reversed() else byValue).thenBy { it.first })
+                        .take(limit)
+                        .map { StoredDocument(it.first, it.second) }
+                }
             }.distinctUntilChanged { a, b -> a.map { it.id to it.data } == b.map { it.id to it.data } }
     }
 }

@@ -51,6 +51,9 @@ android {
 dependencies {
     // 게임 코어(includeBuild("core")): 화면 상태·컨트롤러 + 엔진/AI/런타임
     implementation("io.github.lhd980820.coup:presentation")
+    // 로그인·계정·로비·대기실의 화면 상태(코어)와 그 Firebase 어댑터(:data)
+    implementation("io.github.lhd980820.coup:shell")
+    implementation(project(":data"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -80,6 +83,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    // 규칙을 강제하는 메모리 속 Firestore: 로그인 -> 로비 -> 대기실 -> 게임 흐름을 에뮬레이터 없이 화면에서 확인한다
+    testImplementation(testFixtures("io.github.lhd980820.coup:remote"))
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)

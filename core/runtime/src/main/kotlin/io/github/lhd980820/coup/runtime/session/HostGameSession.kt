@@ -25,6 +25,7 @@ import io.github.lhd980820.coup.runtime.transport.AckResult
 import io.github.lhd980820.coup.runtime.transport.GameResultRecord
 import io.github.lhd980820.coup.runtime.transport.GameTransport
 import io.github.lhd980820.coup.runtime.transport.Publication
+import io.github.lhd980820.coup.runtime.transport.TransportException
 import io.github.lhd980820.coup.runtime.transport.ViewEnvelope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -77,6 +78,7 @@ public class HostGameSession(
     aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
     aiThinkTime: ClosedRange<Duration> = Duration.ZERO..Duration.ZERO,
     heartbeatInterval: Duration = DEFAULT_HEARTBEAT_INTERVAL,
+    private val retryInterval: Duration = DEFAULT_RETRY_INTERVAL,
 ) : GameSession {
     private val local: HostSeat.Local = seats.filterIsInstance<HostSeat.Local>().singleOrNull()
         ?: throw IllegalArgumentException("exactly one local (host) seat is required")
@@ -136,10 +138,37 @@ public class HostGameSession(
                 delay(heartbeatInterval)
             }
         }
+        // 명령 수신은 전송 오류로 멈추면 안 된다 — 멈추면 이후 모든 게스트 명령이 영영 처리되지 않는다. 오류가 나면 잠시 뒤 다시 구독한다.
         intake = scope.launch {
-            transport.incomingCommands(gameId).collect { incoming ->
-                val ack = handleRemoteCommand(incoming.senderUid, incoming.command)
-                transport.acknowledge(gameId, incoming.commandId, ack)
+            while (true) {
+                try {
+                    transport.incomingCommands(gameId).collect { incoming ->
+                        val ack = handleRemoteCommand(incoming.senderUid, incoming.command)
+                        acknowledge(incoming.commandId, ack)
+                    }
+                    return@launch
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: TransportException) {
+                    delay(retryInterval)
+                }
+            }
+        }
+    }
+
+    /**
+     * 처리 결과를 게스트에게 돌려준다. 쓰기가 실패해도 몇 번 다시 시도한다. 끝내 못 쓰면 포기한다 —
+     * 명령은 이미 적용됐고, 게스트는 응답 시간 초과로 [SubmitResult.NetworkError]를 받은 뒤 최신 뷰를 보고 다시 판단한다.
+     */
+    private suspend fun acknowledge(commandId: String, ack: AckResult) {
+        repeat(ACK_ATTEMPTS) { attempt ->
+            try {
+                transport.acknowledge(gameId, commandId, ack)
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: TransportException) {
+                if (attempt < ACK_ATTEMPTS - 1) delay(retryInterval)
             }
         }
     }
@@ -219,3 +248,8 @@ public class HostGameSession(
 
 /** 방장 생존 신호 주기(설계 §8.2: 10초). */
 public val DEFAULT_HEARTBEAT_INTERVAL: Duration = 10.seconds
+
+/** 명령 확인 쓰기·명령 구독이 실패했을 때 다시 시도하기까지의 간격. */
+public val DEFAULT_RETRY_INTERVAL: Duration = 1.seconds
+
+private const val ACK_ATTEMPTS = 5

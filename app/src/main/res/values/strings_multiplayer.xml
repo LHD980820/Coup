@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mp_home_multiplayer">멀티플레이</string>
+    <string name="mp_back">뒤로</string>
+    <string name="mp_retry">다시 시도</string>
+
+    <!-- 로그인 -->
+    <string name="mp_login_title">로그인</string>
+    <string name="mp_register_title">계정 만들기</string>
+    <string name="mp_reset_title">비밀번호 재설정</string>
+    <string name="mp_login_hint">멀티플레이와 랭킹은 계정이 필요해요. 기존 계정으로 로그인하면 전적이 이어져요.</string>
+    <string name="mp_email">이메일</string>
+    <string name="mp_password">비밀번호</string>
+    <string name="mp_password_confirm">비밀번호 확인</string>
+    <string name="mp_password_show">비밀번호 보기</string>
+    <string name="mp_password_hide">비밀번호 숨기기</string>
+    <string name="mp_action_sign_in">로그인</string>
+    <string name="mp_action_register">가입하기</string>
+    <string name="mp_action_reset">재설정 메일 보내기</string>
+    <string name="mp_go_register">계정이 없나요? 가입하기</string>
+    <string name="mp_go_sign_in">이미 계정이 있어요</string>
+    <string name="mp_go_reset">비밀번호를 잊었어요</string>
+    <string name="mp_reset_sent">재설정 메일을 보냈어요. 메일함을 확인해 주세요.</string>
+    <string name="mp_field_email_empty">이메일을 입력해 주세요.</string>
+    <string name="mp_field_email_malformed">이메일 형식이 올바르지 않아요.</string>
+    <string name="mp_field_password_too_short">비밀번호는 %1$d자 이상이어야 해요.</string>
+    <string name="mp_field_password_mismatch">비밀번호가 서로 달라요.</string>
+    <string name="mp_auth_invalid_email">이메일 형식이 올바르지 않아요.</string>
+    <string name="mp_auth_weak_password">비밀번호가 너무 약해요. 더 길게 만들어 주세요.</string>
+    <string name="mp_auth_wrong_credentials">이메일이나 비밀번호가 맞지 않아요.</string>
+    <string name="mp_auth_email_in_use">이미 가입된 이메일이에요.</string>
+    <string name="mp_auth_account_not_found">해당 계정을 찾을 수 없어요.</string>
+    <string name="mp_auth_too_many_requests">시도가 너무 많아요. 잠시 뒤에 다시 해 주세요.</string>
+    <string name="mp_auth_network">네트워크에 연결하지 못했어요.</string>
+    <string name="mp_auth_unknown">로그인하지 못했어요. 다시 시도해 주세요.</string>
+
+    <!-- 계정 -->
+    <string name="mp_account_loading">계정을 준비하는 중…</string>
+    <string name="mp_account_failed">계정을 불러오지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.</string>
+    <string name="mp_profile_line">%1$s · 레이팅 %2$d</string>
+    <string name="mp_profile_stats">%1$d판 %2$d승</string>
+    <string name="mp_profile_edit">닉네임 바꾸기</string>
+    <string name="mp_nickname">닉네임</string>
+    <string name="mp_nickname_too_short">닉네임은 2자 이상이어야 해요.</string>
+    <string name="mp_nickname_too_long">닉네임은 12자 이하여야 해요.</string>
+    <string name="mp_nickname_invalid">사용할 수 없는 문자가 들어 있어요.</string>
+    <string name="mp_nickname_save_failed">저장하지 못했어요. 다시 시도해 주세요.</string>
+    <string name="mp_save">저장</string>
+    <string name="mp_cancel">취소</string>
+    <string name="mp_sign_out">로그아웃</string>
+
+    <!-- 로비 -->
+    <string name="mp_lobby_title">멀티플레이</string>
+    <string name="mp_lobby_create">방 만들기</string>
+    <string name="mp_lobby_refresh">새로고침</string>
+    <string name="mp_lobby_empty">열린 방이 없어요. 새로 만들어 보세요.</string>
+    <string name="mp_lobby_loading">방 목록을 불러오는 중…</string>
+    <string name="mp_code_label">참가 코드</string>
+    <string name="mp_code_join">코드로 입장</string>
+    <string name="mp_room_players">%1$d/%2$d명</string>
+    <string name="mp_room_host_name">방장 %1$s</string>
+    <string name="mp_badge_rated">레이팅</string>
+    <string name="mp_badge_bots">봇 포함</string>
+    <string name="mp_badge_custom">바꾼 규칙</string>
+    <string name="mp_room_join">입장</string>
+    <string name="mp_notice_closed">방이 닫혔어요.</string>
+    <string name="mp_notice_kicked">방장이 나를 내보냈어요.</string>
+    <string name="mp_problem_network">서버에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요.</string>
+    <string name="mp_room_error_not_found">방을 찾을 수 없어요.</string>
+    <string name="mp_room_error_not_waiting">이미 게임이 시작된 방이에요.</string>
+    <string name="mp_room_error_full">방이 가득 찼어요.</string>
+    <string name="mp_room_error_wrong_code">참가 코드가 맞지 않아요.</string>
+    <string name="mp_room_error_kicked">이 방에서 내보내져서 다시 들어갈 수 없어요.</string>
+    <string name="mp_room_error_update_required">앱을 업데이트해야 이 방에 들어갈 수 있어요.</string>
+    <string name="mp_room_error_not_in_room">이 방에 앉아 있지 않아요.</string>
+    <string name="mp_room_error_not_host">방장만 할 수 있어요.</string>
+    <string name="mp_room_error_not_allowed">지금은 할 수 없어요.</string>
+    <string name="mp_room_error_invalid_title">방 제목은 1~30자여야 해요.</string>
+    <string name="mp_room_error_invalid_player_count">인원 수가 규칙에서 허용하는 범위를 벗어났어요.</string>
+    <string name="mp_room_error_invalid_rules">이 규칙으로는 방을 만들 수 없어요.</string>
+    <string name="mp_room_error_rules_conflict">지금 앉은 인원이 이 규칙의 인원 범위를 넘어요.</string>
+    <string name="mp_room_error_not_enough_players">플레이어가 더 필요해요.</string>
+    <string name="mp_room_error_not_all_ready">모두 준비해야 시작할 수 있어요.</string>
+    <string name="mp_room_error_target_not_found">대상을 찾을 수 없어요.</string>
+    <string name="mp_room_error_code_required">비공개 방에는 참가 코드가 필요해요.</string>
+    <string name="mp_room_error_code_taken">참가 코드가 겹쳤어요. 다시 시도해 주세요.</string>
+    <string name="mp_room_error_unsettled">직전 레이팅 게임을 아직 정산하는 중이에요. 잠시 뒤에 다시 시도해 주세요.</string>
+
+    <!-- 방 만들기 -->
+    <string name="mp_create_title">방 만들기</string>
+    <string name="mp_create_name">방 제목</string>
+    <string name="mp_create_default_name">%1$s의 방</string>
+    <string name="mp_create_public">공개</string>
+    <string name="mp_create_private">비공개 (참가 코드로만 입장)</string>
+    <string name="mp_create_max">최대 인원</string>
+    <string name="mp_create_submit">방 만들기</string>
+
+    <!-- 대기실 -->
+    <string name="mp_room_code">참가 코드: %1$s</string>
+    <string name="mp_seat_host">방장</string>
+    <string name="mp_seat_me">(나)</string>
+    <string name="mp_seat_ready">준비 완료</string>
+    <string name="mp_seat_not_ready">준비 안 함</string>
+    <string name="mp_seat_bot">봇 · %1$s · %2$s</string>
+    <string name="mp_bot_easy">쉬움</string>
+    <string name="mp_bot_normal">보통</string>
+    <string name="mp_bot_balanced">균형형</string>
+    <string name="mp_bot_cautious">신중형</string>
+    <string name="mp_bot_aggressive">공격형</string>
+    <string name="mp_seat_empty">빈 자리</string>
+    <string name="mp_ready">준비</string>
+    <string name="mp_unready">준비 취소</string>
+    <string name="mp_start">게임 시작</string>
+    <string name="mp_leave">나가기</string>
+    <string name="mp_add_bot_easy">쉬운 봇 추가</string>
+    <string name="mp_add_bot_normal">보통 봇 추가</string>
+    <string name="mp_kick_desc">%1$s 내보내기</string>
+    <string name="mp_remove_bot_desc">%1$s 빼기</string>
+    <string name="mp_max_players">최대 %1$d명</string>
+    <string name="mp_max_decrease">최대 인원 줄이기</string>
+    <string name="mp_max_increase">최대 인원 늘리기</string>
+    <string name="mp_room_rated">레이팅에 반영되는 게임</string>
+    <string name="mp_room_unrated">레이팅에 반영되지 않는 게임 (봇이나 바꾼 규칙이 있어요)</string>
+    <string name="mp_launching">게임을 여는 중…</string>
+    <string name="mp_waiting_host">방장이 시작하기를 기다리는 중…</string>
+    <string name="mp_rules_readonly">규칙: %1$s</string>
+
+    <!-- 게임 결과 -->
+    <string name="mp_result_rating">레이팅 %1$d (%2$+d)</string>
+    <string name="mp_result_rating_pending">레이팅을 반영하는 중…</string>
+    <string name="mp_result_rating_unrated">이 판은 레이팅에 반영되지 않아요.</string>
+    <string name="mp_result_rating_failed">레이팅 반영이 늦어지고 있어요. 다음에 접속할 때 반영돼요.</string>
+    <string name="mp_result_to_room">대기실로</string>
+</resources>

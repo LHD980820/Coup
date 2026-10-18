@@ -30,6 +30,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
+import io.github.lhd980820.coup.account.NicknameError
+import io.github.lhd980820.coup.account.UserProfile
+import io.github.lhd980820.coup.multiplayer.ProfileCard
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.presentation.tutorial.GuidedSession
 import io.github.lhd980820.coup.presentation.tutorial.TutorialLesson
@@ -38,6 +41,7 @@ import io.github.lhd980820.coup.presentation.tutorial.TutorialLessons
 internal object ShellTags {
     const val HOME_SINGLE = "home_single"
     const val HOME_TUTORIAL = "home_tutorial"
+    const val HOME_MULTI = "home_multi"
     const val TUTORIAL_BACK = "tutorial_list_back"
     const val COACH_DONE = "coach_done"
     const val COACH_NEXT = "coach_next"
@@ -47,11 +51,25 @@ internal object ShellTags {
 }
 
 @Composable
-internal fun HomeScreen(onSingle: () -> Unit, onTutorial: () -> Unit, modifier: Modifier = Modifier) {
+internal fun HomeScreen(
+    onSingle: () -> Unit,
+    onTutorial: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** 멀티플레이 진입. null이면 버튼을 보이지 않는다(서버 연결이 없는 구성). */
+    onMultiplayer: (() -> Unit)? = null,
+    /** 로그인한 사용자의 프로필(없으면 카드를 보이지 않는다). */
+    profile: UserProfile? = null,
+    onSaveNickname: suspend (String) -> NicknameError? = { null },
+    onSignOut: () -> Unit = {},
+) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(R.string.game_home_title), style = MaterialTheme.typography.displayMedium)
+            profile?.let { ProfileCard(it, onSaveNickname = onSaveNickname, onSignOut = onSignOut) }
             Button(onClick = onSingle, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_SINGLE)) { Text(stringResource(R.string.game_home_single)) }
+            onMultiplayer?.let {
+                Button(onClick = it, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_MULTI)) { Text(stringResource(R.string.mp_home_multiplayer)) }
+            }
             OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_TUTORIAL)) {
                 Text(stringResource(R.string.game_home_tutorial))
             }
