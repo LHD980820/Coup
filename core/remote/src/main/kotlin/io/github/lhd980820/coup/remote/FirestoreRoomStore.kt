@@ -39,7 +39,7 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
         }
     }
 
-    override suspend fun get(id: String): Room? = store.observe(FirestoreSchema.room(id)).first()?.let { RoomDocuments.decode(id, it) }
+    override suspend fun get(id: String): Room? = store.get(FirestoreSchema.room(id))?.let { RoomDocuments.decode(id, it) }
 
     override suspend fun update(id: String, transform: (Room) -> RoomResult<Room>): RoomResult<Room> = store.transaction { tx ->
         val doc = tx.get(FirestoreSchema.room(id)) ?: return@transaction RoomResult.Err(RoomError.ROOM_NOT_FOUND)
@@ -68,12 +68,12 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
             .sortedWith(compareByDescending<Room> { it.createdAt }.thenBy { it.id })
 
     override suspend fun findByJoinCode(code: String): Room? {
-        val doc = store.observe(FirestoreSchema.joinCode(JoinCodes.normalize(code))).first() ?: return null
+        val doc = store.get(FirestoreSchema.joinCode(JoinCodes.normalize(code))) ?: return null
         val roomId = (doc[FirestoreSchema.JoinCodeDoc.ROOM_ID] as? JsonPrimitive)?.contentOrNull ?: return null
         return get(roomId)?.takeIf { it.status != RoomStatus.CLOSED }
     }
 
     override fun observe(id: String): Flow<Room?> = store.observe(FirestoreSchema.room(id)).map { it?.let { d -> RoomDocuments.decode(id, d) } }
 
-    private suspend fun unsettled(): Boolean = store.observe(FirestoreSchema.pendingRating(uid)).first() != null
+    private suspend fun unsettled(): Boolean = store.get(FirestoreSchema.pendingRating(uid)) != null
 }

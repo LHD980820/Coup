@@ -535,6 +535,10 @@ class UserRepositoryTest {
             reads++
             return inner.observe(path)
         }
+        override suspend fun get(path: String): kotlinx.serialization.json.JsonObject? {
+            reads++
+            return inner.get(path)
+        }
         override suspend fun write(ops: List<WriteOp>) {
             writes++
             inner.write(ops)

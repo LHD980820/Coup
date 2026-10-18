@@ -1,0 +1,4 @@
+io.github.lhd980820.coup.data.test.data-mergeDebugUnitTestResources-0 /home/user/Coup/data/build/intermediates/incremental/debugUnitTest/mergeDebugUnitTestResources/merged.dir
+io.github.lhd980820.coup.data.test.data-mergeDebugUnitTestResources-1 /home/user/Coup/data/build/intermediates/incremental/debugUnitTest/mergeDebugUnitTestResources/stripped.dir
+io.github.lhd980820.coup.data.test.data-debugUnitTest-2 /home/user/Coup/data/build/intermediates/merged_res/debugUnitTest/mergeDebugUnitTestResources
+gradleHome-0 /root/.gradle

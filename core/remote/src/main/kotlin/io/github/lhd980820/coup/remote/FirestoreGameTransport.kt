@@ -177,7 +177,7 @@ public class FirestoreGameTransport(
                     emptyList()
                 } else {
                     result.ranking.map { it.value }
-                        .filter { uid -> store.observe(FirestoreSchema.pendingRating(uid)).first() == null }
+                        .filter { uid -> store.get(FirestoreSchema.pendingRating(uid)) == null }
                         .map { uid -> WriteOp.Set(FirestoreSchema.pendingRating(uid), buildJsonObject { put(FirestoreSchema.Pending.GAME_ID, gameId) }) }
                 }
                 store.write(

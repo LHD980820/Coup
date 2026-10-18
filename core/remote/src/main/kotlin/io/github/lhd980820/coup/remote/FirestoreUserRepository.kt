@@ -16,7 +16,6 @@ import io.github.lhd980820.coup.account.UserProfile
 import io.github.lhd980820.coup.runtime.Clock
 import io.github.lhd980820.coup.runtime.transport.TransportException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -54,11 +53,11 @@ public class FirestoreUserRepository(
 
     /** 로그인 직후 한 번: 프로필이 없으면 옛 계정을 옮기거나 새로 만든다. */
     public suspend fun ensureProfile(defaultNickname: String): UserProfile {
-        val existing = store.observe(FirestoreSchema.user(uid)).first()?.toProfile(uid)
+        val existing = store.get(FirestoreSchema.user(uid))?.toProfile(uid)
         if (existing != null) return existing
         val legacyEmail = email?.takeIf { it.isNotBlank() && '/' !in it }
-        val legacy = legacyEmail?.let { e -> store.observe(FirestoreSchema.legacyUser(e)).first()?.toLegacy(e) }
-        val claimed = legacy != null && store.observe(FirestoreSchema.legacyClaim(legacy.email)).first() != null
+        val legacy = legacyEmail?.let { e -> store.get(FirestoreSchema.legacyUser(e))?.toLegacy(e) }
+        val claimed = legacy != null && store.get(FirestoreSchema.legacyClaim(legacy.email)) != null
         return when (val setup = LegacyMigration.plan(uid, legacyEmail, null, legacy, claimed, defaultNickname, clock.nowMillis())) {
             is ProfileSetup.Existing -> setup.profile
             is ProfileSetup.Fresh -> setup.profile.also { store.write(listOf(WriteOp.Set(FirestoreSchema.user(uid), it.toJson()))) }
@@ -84,9 +83,11 @@ public class FirestoreUserRepository(
     public fun observePending(userId: String = uid): Flow<String?> =
         store.observe(FirestoreSchema.pendingRating(userId)).map { it?.str(FirestoreSchema.Pending.GAME_ID) }
 
+    private suspend fun pendingGame(): String? = store.get(FirestoreSchema.pendingRating(uid))?.str(FirestoreSchema.Pending.GAME_ID)
+
     /** 앱 시작·로비 진입 때 부른다: 정산 대기 중인 게임이 있으면 반영한다. 없으면 null. */
     public suspend fun settlePending(): ApplyOutcome? {
-        val gameId = observePending().first() ?: return null
+        val gameId = pendingGame() ?: return null
         return applyResult(gameId)
     }
 
@@ -96,10 +97,10 @@ public class FirestoreUserRepository(
      */
     public suspend fun applyResult(gameId: String): ApplyOutcome {
         repeat(APPLY_ATTEMPTS) { attempt ->
-            val result = store.observe(FirestoreSchema.result(gameId)).first()?.toResult(gameId) ?: return ApplyOutcome.NoResultYet
-            val profile = store.observe(FirestoreSchema.user(uid)).first()?.toProfile(uid) ?: return ApplyOutcome.NoProfile
-            val applied = store.observe(FirestoreSchema.appliedResult(uid, gameId)).first() != null
-            val clearPending = observePending().first() == gameId
+            val result = store.get(FirestoreSchema.result(gameId))?.toResult(gameId) ?: return ApplyOutcome.NoResultYet
+            val profile = store.get(FirestoreSchema.user(uid))?.toProfile(uid) ?: return ApplyOutcome.NoProfile
+            val applied = store.get(FirestoreSchema.appliedResult(uid, gameId)) != null
+            val clearPending = pendingGame() == gameId
             when (val decision = RatingLedger.decide(profile, result, applied, clock.nowMillis())) {
                 is RatingDecision.Skip -> {
                     if (applied && clearPending) store.write(listOf(WriteOp.Delete(FirestoreSchema.pendingRating(uid))))

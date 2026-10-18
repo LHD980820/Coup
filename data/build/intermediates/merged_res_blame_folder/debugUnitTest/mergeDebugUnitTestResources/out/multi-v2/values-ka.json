@@ -1,0 +1,87 @@
+{
+    "logs": [
+        {
+            "outputFile": "io.github.lhd980820.coup.data.test.data-mergeDebugUnitTestResources-0:/values-ka/values-ka.xml",
+            "map": [
+                {
+                    "source": "/root/.gradle/caches/9.8.0/transforms/36820bb8581854e6594620aa3713caa0/transformed/browser-1.4.0/res/values-ka/values-ka.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,161,264,374",
+                        "endColumns": "105,102,109,104",
+                        "endOffsets": "156,259,369,474"
+                    },
+                    "to": {
+                        "startLines": "22,23,24,25",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "2508,2614,2717,2827",
+                        "endColumns": "105,102,109,104",
+                        "endOffsets": "2609,2712,2822,2927"
+                    }
+                },
+                {
+                    "source": "/root/.gradle/caches/9.8.0/transforms/321c0ef5817cf25c4637715302ae26e7/transformed/play-services-base-18.9.0/res/values-ka/values.xml",
+                    "from": {
+                        "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
+                        "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
+                        "startOffsets": "216,317,462,586,692,842,972,1090,1194,1363,1467,1618,1742,1899,2034,2096,2153",
+                        "endColumns": "100,144,123,105,149,129,117,103,168,103,150,123,156,134,61,56,71",
+                        "endOffsets": "316,461,585,691,841,971,1089,1193,1362,1466,1617,1741,1898,2033,2095,2152,2224"
+                    },
+                    "to": {
+                        "startLines": "4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "288,393,542,670,780,934,1068,1190,1441,1614,1722,1877,2005,2166,2305,2371,2432",
+                        "endColumns": "104,148,127,109,153,133,121,107,172,107,154,127,160,138,65,60,75",
+                        "endOffsets": "388,537,665,775,929,1063,1185,1293,1609,1717,1872,2000,2161,2300,2366,2427,2503"
+                    }
+                },
+                {
+                    "source": "/root/.gradle/caches/9.8.0/transforms/8a7be29d17892315b0be9b713505ec7d/transformed/play-services-basement-18.9.0/res/values-ka/values.xml",
+                    "from": {
+                        "startLines": "4",
+                        "startColumns": "0",
+                        "startOffsets": "218",
+                        "endColumns": "138",
+                        "endOffsets": "356"
+                    },
+                    "to": {
+                        "startLines": "12",
+                        "startColumns": "4",
+                        "startOffsets": "1298",
+                        "endColumns": "142",
+                        "endOffsets": "1436"
+                    }
+                },
+                {
+                    "source": "/root/.gradle/caches/9.8.0/transforms/ba31583ad80383a5d0e203ec6abd274e/transformed/core-1.9.0/res/values-ka/values-ka.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "100",
+                        "endOffsets": "151"
+                    },
+                    "to": {
+                        "startLines": "26",
+                        "startColumns": "4",
+                        "startOffsets": "2932",
+                        "endColumns": "100",
+                        "endOffsets": "3028"
+                    }
+                },
+                {
+                    "source": "/root/.gradle/caches/9.8.0/transforms/d90e2d305226c102f78a49333dcc4b8b/transformed/credentials-1.2.0-rc01/res/values-ka/values-ka.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,165",
+                        "endColumns": "109,122",
+                        "endOffsets": "160,283"
+                    }
+                }
+            ]
+        }
+    ]
+}

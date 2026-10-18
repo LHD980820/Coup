@@ -1,6 +1,7 @@
 package io.github.lhd980820.coup.remote
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonObject
 
 /** 컬렉션 안의 문서 하나. [id]는 문서 ID(경로의 마지막 조각). */
@@ -38,6 +39,12 @@ public interface DocumentStore {
 
     /** 문서를 구독한다. 구독 즉시 현재 값(없으면 null)을 한 번 내보내고, 바뀔 때마다 다시 내보낸다. */
     public fun observe(path: String): Flow<JsonObject?>
+
+    /**
+     * 문서를 한 번 읽는다(없으면 null). 판단에 쓰는 읽기(레이팅 반영, 방 갱신 전 확인 등)는 구독의 첫 값 대신 이것을 쓴다 —
+     * 실제 구현은 로컬 캐시가 아니라 서버에서 읽는다. 기본 구현은 구독의 첫 값.
+     */
+    public suspend fun get(path: String): JsonObject? = observe(path).first()
 
     /** [collectionPath] 컬렉션에서 [field] 값이 [value]인 문서들을 구독한다(현재 일치 목록이 바뀔 때마다 전체 목록을 내보낸다). */
     public fun observeWhere(collectionPath: String, field: String, value: String): Flow<List<StoredDocument>>

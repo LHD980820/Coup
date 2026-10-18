@@ -1,0 +1,11 @@
+/home/user/Coup/data/build.gradle.kts:31: Warning: Use version catalog instead [UseTomlInstead]
+    api("io.github.lhd980820.coup:remote")
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+0 errors, 1 warning

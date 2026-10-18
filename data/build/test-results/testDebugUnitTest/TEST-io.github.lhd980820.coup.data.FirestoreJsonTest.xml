@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="io.github.lhd980820.coup.data.FirestoreJsonTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-10-18T13:32:40.504Z" hostname="vm" time="4.73">
+  <properties/>
+  <testcase name="Firestore가 주는 Int와 Timestamp도 읽는다" classname="io.github.lhd980820.coup.data.FirestoreJsonTest" time="4.582"/>
+  <testcase name="모든 종류가 왕복한다" classname="io.github.lhd980820.coup.data.FirestoreJsonTest" time="0.067"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -37,10 +37,20 @@
    - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
    - ~~Firestore `RoomStore` + 방 규칙(정산 게이트 연결, 게임 좌석 동의)~~ ✅ 완료(아래 메모).
    - ~~에뮬레이터 규칙 검증~~ ✅ 완료(이 클라우드 환경에서 가능했다 — 아래 메모).
-   - **(C)의 순수 Kotlin 부분 일단락.** 남은 것: 실제 Firebase 어댑터(`DocumentStore` 구현) 통합 테스트(같은 에뮬레이터 사용) 및 아래 Android 작업.
+   - **(C)의 순수 Kotlin 부분 일단락.** ~~실제 Firebase 어댑터(`DocumentStore` 구현) 통합 테스트~~ ✅ 완료(ADR 0009, 아래 메모). 남은 것: 아래 Android 작업(로그인·로비 UI에서 어댑터 연결).
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (A) — Firebase 어댑터)
+- 새 모듈 `:data`(Android 라이브러리): `FirebaseDocumentStore`(배치·서버 읽기·구독·쿼리·트랜잭션), `FirestoreJson`(값 변환). 결정과 근거는 ADR 0009.
+- 코어 변경: `DocumentStore.get`(판단용 읽기) 추가, `FirestoreUserRepository`·`FirestoreRoomStore`·`FirestoreGameTransport`가 결정에 쓰는 읽기를 `get`으로(실제 구현은 캐시가 아니라 서버에서 읽는다).
+- **에뮬레이터 통합 테스트 7개**(Robolectric + 실제 Firebase SDK + Auth/Firestore 에뮬레이터 + 실제 규칙): 프로필·거부, 옛 계정 이관, 동시 입장 경쟁, 게임 좌석 동의, **3인 멀티플레이 한 판 전체(정산·랭킹까지)**.
+  CI에 `firebase-emulator` 작업 추가(`COUP_REQUIRE_EMULATOR=true`면 에뮬레이터가 없을 때 건너뛰지 않고 실패).
+- 찾은 것: (1) Firestore 기본 merge는 중첩 맵을 깊게 합친다 -> 최상위 필드 교체(`mergeFieldPaths`)로 모델과 맞춤. (2) 동시 트랜잭션에서 진 쪽은 `ABORTED`가 아니라 규칙 거부(`PERMISSION_DENIED`)로 끝난다 -> 어댑터가 새로 읽어 다시 시도(최대 5번).
+  (3) Robolectric 기본 루퍼 모드에서는 Firebase 콜백이 교착된다 -> `@LooperMode(INSTRUMENTATION_TEST)`.
+- 로컬 실행: `firebase/rules-test`에서 `npx firebase --config ../firebase.json emulators:start --only firestore,auth --project demo-coup`(Java 21) 후 루트에서 `LC_ALL=C.UTF-8 ./gradlew :data:testDebugUnitTest`.
+- 아직: 오프라인 영속 캐시·재연결 시나리오, 앱의 로그인/DI 연결(로비 UI 때).
 
 ## 이번 단계 메모 (Phase 3 (A) — 룰셋·하우스룰 선택 UI)
 - **코어**: `presentation/rules/RuleSetEditor`(순수 로직) — 등록된 하우스룰(`registry.availableHouseRules`)과 조절 항목(시작 코인 1~7, 쿠 강제 코인 7~12, 도전 성공 시 환불, 교환 후 덱 섞기)의 목록·범위·기본값을 주고, `RuleSelection` <-> `RuleSetConfig` 변환, 검증(`issues`), 인원 범위, 레이팅 여부를 맡는다. 기본값은 기반 룰셋에서 읽는다(중복 정의 없음). **기본값으로 되돌린 항목은 override에서 뺀다** — 그래야 표준 규칙이 설정으로도 표준이고(D5 레이팅 대상) 방 설정 비교가 정확하다.
