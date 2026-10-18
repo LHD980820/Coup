@@ -35,6 +35,12 @@ android {
         compose = true
         viewBinding = true
     }
+    testOptions {
+        unitTests {
+            // Robolectric으로 Compose 화면을 JVM에서 실행한다(에뮬레이터 없이 버튼 흐름을 검증)
+            isIncludeAndroidResources = true
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -43,6 +49,9 @@ android {
 }
 
 dependencies {
+    // 게임 코어(includeBuild("core")): 화면 상태·컨트롤러 + 엔진/AI/런타임
+    implementation("io.github.lhd980820.coup:presentation")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -70,6 +79,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

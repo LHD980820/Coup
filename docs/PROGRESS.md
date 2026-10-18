@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -37,10 +37,22 @@
    - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
    - ~~Firestore `RoomStore` + 방 규칙(정산 게이트 연결, 게임 좌석 동의)~~ ✅ 완료(아래 메모).
    - ~~에뮬레이터 규칙 검증~~ ✅ 완료(이 클라우드 환경에서 가능했다 — 아래 메모).
-   - **(C)의 순수 Kotlin 부분 일단락.** 남은 것: Android(A안) 작업 + 실제 Firebase 어댑터 통합 테스트(같은 에뮬레이터 사용).
+   - **(C)의 순수 Kotlin 부분 일단락.** 남은 것: 실제 Firebase 어댑터(`DocumentStore` 구현) 통합 테스트(같은 에뮬레이터 사용) 및 아래 Android 작업.
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (A) — Android: 싱글플레이 Compose 화면)
+- **환경**: `dl.google.com`이 허용되자 이 세션 안에서 Android 빌드가 가능해졌다. 이 컨테이너에는 SDK/JDK 17이 미리 깔려 있지 않았으므로 `scripts/setup-android-cloud.sh`(JDK 17 + 명령줄 도구 + platform 37 + build-tools)로 설치했다. 새 세션도 이 스크립트를 먼저 돌리면 된다(`source scripts/setup-android-cloud.sh`, 한글 테스트 이름 때문에 `LC_ALL=C.UTF-8`). Maven Central이 가끔 429(속도 제한)를 돌려주면 잠시 뒤 재시도.
+- 기준선: `./gradlew assembleDebug`, `test lint` 모두 통과. 새 세션을 따로 만들지 않고 이 세션에서 진행했다(`core/`와 `app/`을 함께 고칠 수 있어 더 빠르다).
+- `settings.gradle.kts`에 `includeBuild("core")`, `:app`이 `io.github.lhd980820.coup:presentation`에 의존(엔진·AI·런타임·화면 상태가 따라온다).
+- `app/.../game/`: `GameViewModel`(수명·의도 전달만; 규칙은 코어의 `GameController`), `GameScreen`(상대 줄·진행 배너·로그·내 카드·결정 패널·결과), `SinglePlayerSetupScreen`(AI 수·난이도), `SinglePlayerActivity`, `Catalogs`(RoleUiCatalog/ActionUiCatalog: ID -> 이름·카드 그림, 모르는 ID는 폴백), `GameTexts`(구조화된 상태 -> 문장, ko/en). 문자열은 `values/strings_game.xml`(ko), `values-en/strings_game.xml`.
+- 디버그 빌드에만 런처 항목 "Coup (new)"(`app/src/debug/AndroidManifest.xml`)로 새 화면을 열 수 있다. 정식 진입점은 홈/로그인이 Compose로 바뀔 때(Phase 5).
+- 테마: 다이내믹 컬러 끄고 다크 우선 브랜드 팔레트(설계 §10.1). 상태 막대 색 직접 지정(deprecated) 제거.
+- **테스트(Robolectric + Compose, 에뮬레이터 없이)**: 실제 화면을 띄워 **버튼만 눌러 AI와 한 판을 끝까지** 둔다(AI 1·2·3·5명, 작은 화면 320x568dp, 큰 글씨 1.6배 포함). 눌러야 하는 컨트롤은 `assertIsDisplayed`로 실제 화면 안에 있어야 한다. 문구 테스트는 모든 배너/로그 종류가 ko/en에서 자리표시자 없이 채워지는지, 모르는 역할·행동이 깨지지 않는지 본다. 변이 검증: 결정 패널을 화면 밖으로 밀기 / 허용 버튼 제거 / 확정 버튼 비활성 -> 모두 테스트가 실패.
+- 테스트가 찾은 것: (1) 작은 화면에서 하단 컨트롤이 잘림 -> 위(상대·기록)만 스크롤, 아래(배너·내 카드·결정)는 고정하도록 레이아웃 수정. 대상 선택은 상대 카드가 아니라 결정 패널의 버튼으로. (2) 누르자마자 다음 판단을 하면 옛 상태를 보는 경쟁(테스트 쪽) — 사람은 `GameController`의 busy 잠금이 막는다.
+- 옛 `strings.xml`(영어 번역 없음)은 `values-en`이 생기면서 lint `MissingTranslation` 오류가 나서 파일 단위로 무시 표시(`tools:ignore`)하고 Phase 5에서 정리하기로 했다.
+- 아직 안 한 것(설계 §10.3): 응답 모달 바텀시트(지금은 인라인 패널), 카드 뒤집기/코인 이동 애니메이션(`UiEffect`), 남은 시간 링, 역할 능력 시트, 대화면 2단 레이아웃, 룰셋/하우스룰 선택 UI, 튜토리얼 화면, 사운드/설정.
 
 ## 이번 단계 메모 (Phase 3 (C) — 규칙 에뮬레이터 검증)
 - **이 환경에서 Firestore 에뮬레이터가 돈다**(Node 22 + Java 21 + `storage.googleapis.com` 접근 가능). 그래서 규칙을 직접 실행했다. (Android SDK는 여전히 `dl.google.com` 차단으로 불가)
@@ -134,4 +146,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-18, Phase 3 (C) 규칙 에뮬레이터 검증 완료_
+_마지막 갱신: 2026-10-18, Phase 3 (A) 싱글플레이 Compose 화면 첫 수직 슬라이스_
