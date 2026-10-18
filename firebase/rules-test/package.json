@@ -1,0 +1,16 @@
+{
+  "name": "coup-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "firestore.rules\ub97c \uc5d0\ubbac\ub808\uc774\ud130\uc5d0\uc11c \uc2e4\ud589\ud574, \uc811\uadfc \ubaa8\ub378(AccessPolicy)\uc774 \uae30\ub85d\ud55c \ud310\ub2e8(\ud5c8\uc6a9/\uac70\ubd80)\uacfc \ube44\uad50\ud55c\ub2e4",
+  "scripts": {
+    "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-coup \"node replay.mjs\"",
+    "mutate": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-coup \"node mutate.mjs\"",
+    "test:extra": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-coup \"node rules-only.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
+    "firebase-tools": "^15.0.0"
+  }
+}

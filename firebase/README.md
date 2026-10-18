@@ -3,7 +3,7 @@
 ## 상태
 | 파일 | 상태 |
 |---|---|
-| `firestore.rules` | ⚠ **미검증** — 클라우드 개발 환경에서는 Firebase 에뮬레이터를 돌릴 수 없어 규칙을 실행해 보지 못했다. |
+| `firestore.rules` | ✅ **에뮬레이터 검증됨**(2026-10-18, Firestore 에뮬레이터 v1.22 + Java 21) — 모델의 허용/거부 판단 3,171건(거부 166건, 시나리오 70개)을 실제 규칙에 재생해 **불일치 0건**. 규칙 조건 변이 98개 중 82개 검출, 나머지 16개는 다른 조건과 겹치는 중복 방어(아래). 배포 전에는 한 번 더 돌릴 것. |
 
 ## 규칙의 근거
 `core/remote/src/test/kotlin/io/github/lhd980820/coup/remote/FakeFirestore.kt` 의 `AccessPolicy`가 같은 접근 매트릭스를
@@ -31,17 +31,32 @@
 레이팅 반영 수정은 `rating`·`plays`·`wins`·`lastAppliedResult`·`lastAppliedRank`만 바꿀 수 있고, 변동량은 결과 문서의 순위·인원수로
 **레이팅 표에서 다시 계산**하며(결과 문서의 값과도 같아야 함), 반영 표시 문서가 전에는 없고 배치 뒤에는 있어야 한다(ADR 0007).
 
-## 배포 전 검증 절차 (아직 안 함)
-1. `npm i -D @firebase/rules-unit-testing` 와 Firebase CLI 설치, `firebase emulators:start --only firestore`.
-2. `FakeFirestore.kt` 의 매트릭스를 그대로 옮긴 규칙 테스트(Node)를 작성: 각 경로 x 역할(방장/게스트/외부인) x 동작(get/list/create/update/delete)에 대해 허용·거부를 단언.
-3. 특히 확인할 것: (a) `get(...)`으로 게임 문서를 읽는 규칙 함수의 비용(문서 읽기 한도), (b) `commands`의 `list`가 방장에게만 열리는지, (c) 아직 없는 명령 문서를 구독(`get`)할 때 보낸 직후 자기 문서가 거부되지 않는지 — 모델은 "존재하지 않는 문서의 구독은 허용"으로 단순화했고, 실제 Firestore는 `resource`가 null이면 `resource.data` 접근이 실패해 **거부될 수 있다**(아래 참고).
-   (d) `getAfter`/`existsAfter`를 쓰는 레이팅 반영·이관·방 생성(참가 코드) 규칙이 배치/트랜잭션 하나로 통과하는지, (g) 방 규칙의 `map.diff()`/`list.concat()`/`list.removeAll()`/삼항 연산자 사용이 의도대로인지, (e) `string.size()`가 이모지·한글을 몇 글자로 세는지(앱은 코드 포인트), (f) `ratingTable()[string(n)][rank]`의 범위 밖 접근이 거부로 끝나는지.
-4. 통과하면 이 README의 상태를 ✅로 바꾼다.
+## 검증 방법 (`rules-test/`)
+`core/remote`의 접근 테스트가 모델([`AccessPolicy`])의 모든 판단을 `-Pruletrace=<dir>`로 기록하고, `rules-test/replay.mjs`가 같은 순서로 **실제 규칙을 에뮬레이터에서** 실행해
+허용/거부가 같은지 비교한다. 자세한 사용법은 [rules-test/README.md](rules-test/README.md).
+- `npm test` — 재생 비교. `npm run test:extra` — 모델이 단순화했거나 모르는 동작을 규칙에서만 확인.
+- `npm run mutate` — 규칙의 각 `&&`/`||` 조건을 무력화해도 불일치가 생기는지(= 시나리오가 그 조건을 검증하는지).
+
+### 검증이 찾은 것 (모두 수정됨)
+- **보낸 직후 자기 명령 문서를 구독하면 거부될 수 있었다**: `resource == null`일 때 `resource.data` 접근이 오류 -> 거부. `resource == null`을 명시적으로 허용(좌석인 사람만).
+- **닉네임 길이**: 규칙의 `size()`는 UTF-16 단위(이모지 하나 = 2)인데 앱은 코드 포인트로 세고 있었다 -> 앱의 `Nicknames`를 `String.length`로 맞췄다(이모지 최대 6개).
+- 변이 검증이 모델 테스트의 빈틈 15곳 이상을 드러냈다(6인 방 뒤쪽 좌석의 정산·준비, 게임 좌석 바꿔치기, 룰 파라미터 변경 방의 rated 거짓말, 방 명단 바꿔치기, 입장 항목 모양 등) — 모두 테스트 추가.
+
+### 살아남은 변이 16개 (모두 중복 방어 — 같은 쓰기를 다른 조건이 막는다)
+| 조건 | 왜 중복인가 |
+|---|---|
+| 옛 계정 선점 `!exists(claim)`, 반영 표시 `!exists(marker)`, `userBefore.lastAppliedResult != gameId` | 이미 있는 문서를 다시 만드는 쓰기는 `update`가 되고, 선점·표시 문서는 수정 불가 |
+| 선점 문서 `uid == auth.uid` (L384) | 이관 규칙이 `getAfter(claim).uid == auth.uid`를 다시 요구한다 |
+| `rank is int` | 정수가 아니면 인덱싱이 오류 -> 거부 |
+| 게임 생성 `room.status == 'PLAYING'` | `room.gameId == gameId`가 시작 전 방(gameId = null)을 이미 거른다 |
+| `PLAYING -> PLAYING` 무변경 갱신 허용 | 아무도 쓰지 않는 무의미한 쓰기를 막을 뿐 |
+| 게스트 변경 키 `size() == 1`, 입장 항목 `hasAll`, 퇴장 시 명단 `removeAll` | 같은 줄 주변의 `hasOnly`/타입 검사/명단=members 검사가 막는다 |
+| 닫힌 방 불변 `status != 'CLOSED'` | `hostRoomUpdate`의 상태 기계가 닫힌 방에서 나가는 전환을 허용하지 않는다 |
+| 참가 코드 `hostUid == auth.uid`(만들기·지우기), 대기 표시 `isHost(gameId)`·`existsAfter(result)` | 방/결과 문서 자체가 방장만 만들 수 있고, 닫는 사람도 방장뿐 |
 
 ## 알려진 위험 (검증 시 우선 확인)
-- **보낸 직후 자기 명령 문서 구독**: 게스트는 명령 문서를 만든 뒤 그 문서를 `get` 구독해 승인/거절을 기다린다.
-  규칙 `allow get: ... resource.data.senderUid == request.auth.uid` 는 문서가 생성된 뒤에는 통과하지만, 구독 시작 시점에 문서가 아직 로컬 캐시에만 있으면 일시적으로 `resource == null`이 될 수 있다.
-  거부되면 게스트는 `TransportException`을 받는다 → 필요하면 문서 ID를 예측 불가능한 값으로 쓰고 `allow get`을 보낸 사람 또는 방장 + 문서 ID 추측 불가에 의존하도록 완화하거나, 승인 결과를 `views/{uid}` 문서의 최근 ack 필드로 돌려주는 방식으로 바꾼다.
+- **재생 비교는 "모델이 시도한 것"만 본다**: 모델에 없는 시도(새 필드, 새 경로)는 비교되지 않는다. 규칙을 바꾸면 모델·테스트도 함께 바꿀 것.
+- **Android SDK 쪽 동작은 아직 안 봤다**: 에뮬레이터 검증은 규칙 엔진의 판단이다. 실제 `FirebaseFirestore` 어댑터(`DocumentStore` 구현)의 트랜잭션·배치·오프라인 캐시 동작은 Android 세션에서 같은 에뮬레이터로 통합 테스트해야 한다.
 - **레이팅은 클라이언트가 반영한다(Phase 7 전까지)**: 규칙은 "잘못 반영"(부풀리기, 두 번 반영, 남의 순위)은 막지만
   **"반영하지 않기"는 막지 못한다** — 수정된 앱은 진 게임을 반영하지 않을 수 있다. 방장이 순위 자체를 조작하는 것도 막지 못한다.
   → **정산 게이트**로 완화: rated 게임이 끝나면 `pendingRatings/{uid}`가 생기고, 정산(반영)해야만 지워진다. 방 입장 규칙이

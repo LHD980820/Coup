@@ -260,6 +260,10 @@ class RoomStoreTest {
         assertDenied { host.createGame(plan.gameId, r.id, "host", listOf("host", "b", "victim"), classic, rated = true) }
         // 방 사람을 빼고
         assertDenied { host.createGame(plan.gameId, r.id, "host", listOf("host"), classic, rated = true) }
+        // 인원수는 같지만 다른 사람으로 바꿔치기
+        assertDenied { host.createGame(plan.gameId, r.id, "host", listOf("host", "victim"), classic, rated = true) }
+        // 같은 사람을 두 번 적어 인원수만 맞추기
+        assertDenied { host.createGame(plan.gameId, r.id, "host", listOf("host", "host"), classic, rated = true) }
         // 다른 gameId
         assertDenied { host.createGame("other", r.id, "host", listOf("host", "b"), classic, rated = true) }
         // 방장이 아닌 사람
@@ -421,6 +425,103 @@ class RoomStoreTest {
         val plan = service("host").start(r.id, "host").ok()
         // 방장이 게임 권위를 b에게 넘기는 문서를 쓰기(게임 수정 권한이 hostUid를 따른다)
         assertDenied { FirestoreGameTransport(fs.storeFor("host")).createGame(plan.gameId, r.id, "b", listOf("host", "b"), classic, rated = true) }
+    }
+
+    @Test
+    fun `규칙 - 큰 방(6명)에서도 뒤쪽 좌석의 정산과 준비를 건너뛰지 않는다`(): Unit = runBlocking {
+        val others = listOf("b", "c", "d", "e", "f")
+        for (late in listOf("d", "e", "f")) { // 좌석 순서 3, 4, 5번
+            val r = service("host").createRoom(user("host"), "큰 방 $late", Visibility.PUBLIC, 6, classic).ok()
+            joinedAndReady(r.id, *others.toTypedArray())
+            markPending(late)
+            val plan = service("host").start(r.id, "host").ok()
+            assertDenied { FirestoreGameTransport(fs.storeFor("host")).createGame(plan) }
+            fs.admin().write(listOf(WriteOp.Delete("pendingRatings/$late")))
+            FirestoreGameTransport(fs.storeFor("host")).createGame(plan)
+            service("host").endGame(r.id, "host").ok()
+            service("host").leave(r.id, "host").ok()
+        }
+        // 준비: 마지막(6번째) 좌석만 준비하지 않은 채 시작을 강제
+        val r = service("host").createRoom(user("host"), "준비", Visibility.PUBLIC, 6, classic).ok()
+        joinedAndReady(r.id, "b", "c", "d", "e")
+        service("f").join(r.id, user("f")).ok()
+        assertDenied { forge("host", r.id) { put(R.STATUS, JsonPrimitive("PLAYING")); put(R.GAME_ID, JsonPrimitive("g")) } }
+    }
+
+    @Test
+    fun `규칙 - 게임 좌석의 중복, 룰 파라미터 변경, 방의 비레이팅 구성을 속일 수 없다`(): Unit = runBlocking {
+        val r = room()
+        joinedAndReady(r.id, "b")
+        service("host").updateRules(r.id, "host", classic.copy(paramOverrides = mapOf("startingCoins" to "3"))).ok()
+        service("b").setReady(r.id, "b", true).ok()
+        val plan = service("host").start(r.id, "host").ok()
+        assertThat(plan.rated).isFalse()
+        val host = FirestoreGameTransport(fs.storeFor("host"))
+        assertDenied { host.createGame(plan.copy(rated = true)) }
+        assertDenied { host.createGame(plan.gameId, r.id, "host", listOf("host", "b", "b"), plan.ruleSetConfig, rated = false) }
+        host.createGame(plan)
+    }
+
+    @Test
+    fun `규칙 - 새 방의 명단은 방장만, 설정 번호는 0에서 시작`(): Unit = runBlocking {
+        val base = RoomRules.create("r6", "방", user("a"), Visibility.PUBLIC, null, 4, classic, ClientInfo(10, registry), registry, 0).ok()
+        fun bad(change: MutableMap<String, JsonElement>.() -> Unit) = assertDenied {
+            fs.storeFor("a").write(listOf(WriteOp.Set("rooms/r6", JsonObject(RoomDocuments.encodeNew(base).toMutableMap().apply(change)))))
+        }
+        bad { put(R.MEMBER_ORDER, JsonArray(listOf(JsonPrimitive("a"), JsonPrimitive("victim")))) }
+        bad { put(R.MEMBER_ORDER, JsonArray(listOf(JsonPrimitive("victim")))) }
+        bad { members { put("victim", member("v", -1, 9)) } }
+        bad { put(R.CONFIG_VERSION, JsonPrimitive(5)) }
+    }
+
+    @Test
+    fun `규칙 - 명단에 같은 사람을 두 번 올리거나 명단과 members를 어긋나게 할 수 없다`(): Unit = runBlocking {
+        val r = room()
+        joinedAndReady(r.id, "b")
+        assertDenied { forge("host", r.id) { appendOrder("b") } } // b가 두 번
+        assertDenied { forge("host", r.id) { appendOrder("ghost") } } // members에 없는 사람
+        // 인원수는 그대로 두고 명단의 한 사람만 다른 사람으로 바꿔치기(게임 좌석을 남으로 채우는 길)
+        assertDenied { forge("host", r.id) { put(R.MEMBER_ORDER, JsonArray(listOf(JsonPrimitive("host"), JsonPrimitive("ghost")))) } }
+        assertDenied { forge("b", r.id) { appendOrder("b") } }
+    }
+
+    @Test
+    fun `규칙 - 입장하는 항목의 모양이 어긋나면 방 문서를 읽을 수 없게 되므로 거절한다`(): Unit = runBlocking {
+        val r = room()
+        fun entry(vararg parts: Pair<String, JsonElement>) = JsonObject(mapOf(*parts))
+        val full = mapOf<String, JsonElement>(
+            FirestoreSchema.Member.NAME to JsonPrimitive("c"),
+            FirestoreSchema.Member.READY_VERSION to JsonPrimitive(-1),
+            FirestoreSchema.Member.SEQ to JsonPrimitive(9),
+        )
+        fun join(vararg change: Pair<String, JsonElement?>) = assertDenied {
+            forge("c", r.id) {
+                val e = full.toMutableMap()
+                change.forEach { (k, v) -> if (v == null) e.remove(k) else e[k] = v }
+                members { put("c", JsonObject(e)) }
+                appendOrder("c")
+            }
+        }
+        join(FirestoreSchema.Member.SEQ to null)
+        join(FirestoreSchema.Member.NAME to null)
+        join(FirestoreSchema.Member.SEQ to JsonPrimitive("x"))
+        join("extra" to JsonPrimitive("x"))
+        assertThat(entry().size).isEqualTo(0)
+        // 정상 모양은 통과
+        forge("c", r.id) { members { put("c", JsonObject(full)) }; appendOrder("c") }
+        assertThat(store("host").get(r.id)!!.seats.map { it.id }).containsExactly("host", "c")
+    }
+
+    @Test
+    fun `규칙 - 준비하면서 이름 등 다른 항목을 바꿀 수 없다`(): Unit = runBlocking {
+        val r = room()
+        service("b").join(r.id, user("b")).ok()
+        val cv = (doc(r.id)[R.CONFIG_VERSION] as JsonPrimitive).content.toLong()
+        val seq = ((doc(r.id)[R.MEMBERS] as JsonObject)["b"] as JsonObject)[FirestoreSchema.Member.SEQ]!!.let { (it as JsonPrimitive).content.toLong() }
+        assertDenied { forge("b", r.id) { members { put("b", member("가".repeat(5000), cv, seq)) } } }
+        assertDenied { forge("b", r.id) { members { put("b", member("다른이름", cv, seq)) } } }
+        assertDenied { forge("b", r.id) { members { put("b", member("이름-b", cv, seq + 1)) } } }
+        forge("b", r.id) { members { put("b", member("이름-b", cv, seq)) } }
     }
 
     @Test

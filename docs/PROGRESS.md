@@ -36,10 +36,19 @@
    - ~~사용자/랭킹 도메인~~ ✅ 완료(아래 메모).
    - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
    - ~~Firestore `RoomStore` + 방 규칙(정산 게이트 연결, 게임 좌석 동의)~~ ✅ 완료(아래 메모).
-   - **(C)의 순수 Kotlin 부분은 여기서 일단락.** 남은 것: 에뮬레이터 규칙 검증(Node 필요 — 가능한 환경에서), Android(A안) 작업.
+   - ~~에뮬레이터 규칙 검증~~ ✅ 완료(이 클라우드 환경에서 가능했다 — 아래 메모).
+   - **(C)의 순수 Kotlin 부분 일단락.** 남은 것: Android(A안) 작업 + 실제 Firebase 어댑터 통합 테스트(같은 에뮬레이터 사용).
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (C) — 규칙 에뮬레이터 검증)
+- **이 환경에서 Firestore 에뮬레이터가 돈다**(Node 22 + Java 21 + `storage.googleapis.com` 접근 가능). 그래서 규칙을 직접 실행했다. (Android SDK는 여전히 `dl.google.com` 차단으로 불가)
+- `firebase/rules-test/`: 모델의 모든 판단을 `-Pruletrace`로 기록 -> `replay.mjs`가 실제 규칙에 재생(`npm test`), `rules-only.mjs`(모델이 모르는 동작), `mutate.mjs`+`make-mutants.py`(규칙 조건 변이).
+- 결과: 3,171건 불일치 0건. 변이 98개 중 82개 검출(16개는 중복 방어, 근거는 `firebase/README.md`).
+- 찾아서 고친 것: (1) 보낸 직후 자기 명령 문서 구독이 거부될 수 있던 문제, (2) 닉네임 길이 단위(규칙 UTF-16 vs 앱 코드 포인트) 불일치, (3) 모델 테스트의 빈틈(6인 방 뒤쪽 좌석 정산·준비, 좌석 바꿔치기, 룰 파라미터 방의 rated 거짓말, 명단 바꿔치기, 입장 항목 모양 등).
+- 한계: 모델이 시도한 시나리오만 비교한다. Firebase Android SDK 어댑터(트랜잭션·배치·오프라인)는 Android 세션에서 같은 에뮬레이터로 통합 테스트해야 한다.
+- 새 세션 생성 가능 여부: 이 환경은 환경 목록이 `Default` 하나뿐이고 환경 설정(허용 목록·설정 스크립트)은 도구로 바꿀 수 없다. 같은 환경으로 새 세션을 만들어도 `dl.google.com`이 막혀 Android 빌드는 안 된다.
 
 ## 이번 단계 메모 (Phase 3 (C) — Firestore 방, ADR 0008)
 - `DocumentStore.transaction`(읽기 -> 쓰기, 바뀌면 재실행) 추가. `FakeFirestore`는 낙관적 트랜잭션 + 커밋 직전 끼어들기 훅.
@@ -125,4 +134,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-17, Phase 3 (C) Firestore 방 완료_
+_마지막 갱신: 2026-10-18, Phase 3 (C) 규칙 에뮬레이터 검증 완료_

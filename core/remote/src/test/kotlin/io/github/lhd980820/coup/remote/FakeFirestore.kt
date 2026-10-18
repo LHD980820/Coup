@@ -15,6 +15,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 import java.util.concurrent.ConcurrentHashMap
 
 class PermissionDenied(message: String) : TransportException(message)
@@ -34,6 +35,38 @@ class FakeFirestore {
     val docs = ConcurrentHashMap<String, JsonObject>()
     private val changes = MutableStateFlow(0L)
     private val lock = Any()
+    private val trace: RuleTrace? = RuleTrace.create()
+
+    /** 모델의 판단을 기록하면서 검사한다([RuleTrace]). 거부는 기록한 뒤 그대로 던진다. */
+    private fun checked(auth: Auth, kind: Access, path: String, incoming: JsonObject?, existing: JsonObject?, get: (String) -> JsonObject?, getAfter: (String) -> JsonObject?, query: Pair<String, String>? = null) {
+        try {
+            AccessPolicy.check(auth, kind, path, incoming, existing, get, getAfter, query)
+        } catch (e: PermissionDenied) {
+            traceRead(auth, kind, path, query, false)
+            throw e
+        }
+        traceRead(auth, kind, path, query, true)
+    }
+
+    private fun traceRead(auth: Auth, kind: Access, path: String, query: Pair<String, String>?, allowed: Boolean) {
+        if (kind == Access.READ) trace?.read(auth, "get", path, null, allowed)
+        if (kind == Access.QUERY) {
+            val q = kotlinx.serialization.json.buildJsonObject {
+                if (query != null && query.first.startsWith("orderBy:")) {
+                    val (dir, limit) = query.second.split(":")
+                    put("orderBy", query.first.removePrefix("orderBy:"))
+                    put("dir", dir)
+                    put("limit", limit.toInt())
+                } else if (query != null) {
+                    put("where", kotlinx.serialization.json.buildJsonArray {
+                        add(kotlinx.serialization.json.JsonPrimitive(query.first))
+                        add(kotlinx.serialization.json.JsonPrimitive(query.second))
+                    })
+                }
+            }
+            trace?.read(auth, "query", path, q, allowed)
+        }
+    }
 
     /** 테스트 훅: 트랜잭션이 커밋을 확인하기 직전에 한 번 실행된다(경쟁 상황 재현). 실행 뒤 지워진다. */
     @Volatile
@@ -57,7 +90,7 @@ class FakeFirestore {
                 val ops = mutableListOf<WriteOp>()
                 val tx = object : DocumentTransaction {
                     override suspend fun get(path: String): JsonObject? {
-                        if (auth != null) AccessPolicy.check(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
+                        if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
                         return docs[path].also { reads[path] = it }
                     }
 
@@ -96,15 +129,21 @@ class FakeFirestore {
                     }
                 }
                 if (auth != null) {
-                    ops.map { it.path }.distinct().forEach { path ->
-                        val kind = when {
-                            !after.containsKey(path) -> if (before.containsKey(path)) Access.DELETE else return@forEach
-                            before.containsKey(path) -> Access.UPDATE
-                            else -> Access.CREATE
+                    try {
+                        ops.map { it.path }.distinct().forEach { path ->
+                            val kind = when {
+                                !after.containsKey(path) -> if (before.containsKey(path)) Access.DELETE else return@forEach
+                                before.containsKey(path) -> Access.UPDATE
+                                else -> Access.CREATE
+                            }
+                            AccessPolicy.check(auth, kind, path, after[path], before[path], { before[it] }, { after[it] })
                         }
-                        AccessPolicy.check(auth, kind, path, after[path], before[path], { before[it] }, { after[it] })
+                    } catch (e: PermissionDenied) {
+                        trace?.write(auth, ops, allowed = false)
+                        throw e
                     }
                 }
+                trace?.write(auth, ops, allowed = true)
                 docs.clear()
                 docs.putAll(after)
                 changes.value = changes.value + 1
@@ -112,12 +151,12 @@ class FakeFirestore {
         }
 
         override fun observe(path: String): Flow<JsonObject?> = changes.map {
-            if (auth != null) AccessPolicy.check(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
+            if (auth != null) checked(auth, Access.READ, path, null, docs[path], { docs[it] }, { docs[it] })
             docs[path]
         }.distinctUntilChanged()
 
         override fun observeWhere(collectionPath: String, field: String, value: String): Flow<List<StoredDocument>> = changes.map {
-            if (auth != null) AccessPolicy.check(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = field to value)
+            if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = field to value)
             docs.filterKeys { parentOf(it) == collectionPath }
                 .filterValues { (it[field] as? JsonPrimitive)?.contentOrNull == value }
                 .map { (path, data) -> StoredDocument(path.substringAfterLast('/'), data) }
@@ -126,7 +165,7 @@ class FakeFirestore {
 
         override fun observeOrdered(collectionPath: String, orderBy: String, descending: Boolean, limit: Int): Flow<List<StoredDocument>> =
             changes.map {
-                if (auth != null) AccessPolicy.check(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] })
+                if (auth != null) checked(auth, Access.QUERY, collectionPath, null, null, { docs[it] }, { docs[it] }, query = "orderBy:$orderBy" to "${if (descending) "desc" else "asc"}:$limit")
                 val matching = docs.filterKeys { parentOf(it) == collectionPath }
                     .mapNotNull { (path, data) -> (data[orderBy] as? JsonPrimitive)?.doubleOrNull?.let { Triple(path.substringAfterLast('/'), data, it) } }
                 val byValue = compareBy<Triple<String, JsonObject, Double>> { it.third }
@@ -501,7 +540,7 @@ object AccessPolicy {
                     if (!isSettled(uid, get)) deny("settle your last rated game first")
                     if (orderAfter != orderBefore + uid) deny("joiners go to the end of memberOrder")
                     val name = entry?.str(FirestoreSchema.Member.NAME) ?: deny("name missing")
-                    if (name.codePointCount(0, name.length) !in 1..20) deny("bad name")
+                    if (name.length !in 1..20) deny("bad name")
                     if (entry.long(FirestoreSchema.Member.READY_VERSION) != -1L) deny("joiners start not ready")
                     if (entry.long(FirestoreSchema.Member.SEQ) == null || entry.keys != setOf(FirestoreSchema.Member.NAME, FirestoreSchema.Member.READY_VERSION, FirestoreSchema.Member.SEQ)) {
                         deny("bad member entry")
@@ -552,8 +591,7 @@ object AccessPolicy {
 
     private fun validNickname(data: JsonObject): Boolean {
         val name = data.str("nickname") ?: return false
-        val length = name.codePointCount(0, name.length)
-        return length in NICK_MIN..NICK_MAX
+        return name.length in NICK_MIN..NICK_MAX // 규칙의 size()와 같은 UTF-16 단위
     }
 
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull

@@ -121,6 +121,12 @@ class UserRepositoryTest {
         // 옛 값과 다름
         val claim = WriteOp.Set("legacyClaims/a@x.com", buildJsonObject { put("uid", "a") })
         assertFailure { store.write(listOf(claim, WriteOp.Set("users/a", profile(9999, migrated = true, plays = 3)))) }.isInstanceOf(PermissionDenied::class)
+        // 레이팅은 같지만 판수가 다름
+        assertFailure { store.write(listOf(claim, WriteOp.Set("users/a", profile(1100, migrated = true, plays = 99)))) }.isInstanceOf(PermissionDenied::class)
+        // 다른 사람 uid로 선점 표시
+        assertFailure {
+            store.write(listOf(WriteOp.Set("legacyClaims/a@x.com", buildJsonObject { put("uid", "someone-else") }), WriteOp.Set("users/a", profile(1100, migrated = true, plays = 3))))
+        }.isInstanceOf(PermissionDenied::class)
         // 선점 표시 없이
         assertFailure { store.write(listOf(WriteOp.Set("users/a", profile(1100, migrated = true, plays = 3)))) }.isInstanceOf(PermissionDenied::class)
         // 남의 이메일 선점

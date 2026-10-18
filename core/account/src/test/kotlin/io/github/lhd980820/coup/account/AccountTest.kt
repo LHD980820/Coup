@@ -77,8 +77,10 @@ class AccountTest {
         assertThat(Nicknames.validate("a".repeat(13))).isEqualTo(NicknameError.TOO_LONG)
         assertThat(Nicknames.validate("줄\n바꿈")).isEqualTo(NicknameError.INVALID_CHARACTERS)
         assertThat(Nicknames.validate("보이지​않음")).isEqualTo(NicknameError.INVALID_CHARACTERS)
-        // 이모지는 한 글자로 센다
-        assertThat(Nicknames.validate("😀😀")).isNull()
+        // 길이는 UTF-16 단위다(규칙의 size()와 같다): 이모지 하나가 2
+        assertThat(Nicknames.validate("😀")).isNull()
+        assertThat(Nicknames.validate("😀".repeat(6))).isNull()
+        assertThat(Nicknames.validate("😀".repeat(7))).isEqualTo(NicknameError.TOO_LONG)
     }
 
     @Test
@@ -86,6 +88,8 @@ class AccountTest {
         assertThat(Nicknames.defaultFor("coupking@gmail.com", "Player")).isEqualTo("coupking")
         assertThat(Nicknames.defaultFor("averyveryverylongname@x.com", "Player")).isEqualTo("averyveryver")
         assertThat(Nicknames.defaultFor("a@x.com", "Player")).isEqualTo("Player")
+        // 서로게이트 쌍을 가르지 않고 12 단위 안에서 자른다
+        assertThat(Nicknames.defaultFor("abcdefghijk😀😀@x.com", "Player")).isEqualTo("abcdefghijk")
         assertThat(Nicknames.defaultFor(null, "Player")).isEqualTo("Player")
     }
 

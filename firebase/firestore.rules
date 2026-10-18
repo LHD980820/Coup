@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// ⚠ 미검증: 이 파일은 core/remote/src/test/.../FakeFirestore.kt 의 AccessPolicy(실행 가능한 모델)를 손으로 옮긴 것이다.
-// 클라우드 개발 환경에서는 Firebase 에뮬레이터를 돌릴 수 없어 이 규칙 자체는 아직 실행해 보지 못했다.
-// 배포 전에 firebase/README.md 의 검증 절차(에뮬레이터 규칙 테스트)를 반드시 수행할 것.
+// 이 파일은 core/remote/src/test/.../FakeFirestore.kt 의 AccessPolicy(실행 가능한 모델)를 손으로 옮긴 것이다.
+// 에뮬레이터 검증: firebase/rules-test (모델의 모든 허용/거부 판단을 이 규칙에 재생해 일치를 확인 + 규칙에서만 보이는 동작 확인).
+// 규칙을 고치면 모델(AccessPolicy)도 함께 고치고 rules-test를 다시 돌릴 것.
 // 정책을 바꿀 때는 AccessPolicy 와 이 파일을 함께 고친다. (설계 문서 §8.3, docs/adr/0005, docs/adr/0007)
 // 배치 쓰기에서 get()은 요청 전 상태, getAfter()/existsAfter()는 배치 전체가 적용된 뒤 상태를 읽는다(모델도 같다).
 
@@ -53,8 +53,10 @@ service cloud.firestore {
                       && request.auth.uid != gameData(gameId).hostUid
                       && request.resource.data.senderUid == request.auth.uid
                       && request.resource.data.status == 'PENDING';
+        // 아직 없는 문서를 읽는 것(보낸 직후 승인 결과를 기다리는 구독)도 허용한다: resource가 null이면 resource.data 접근이 오류가 되어
+        // 거부되므로 명시적으로 열어 둔다(에뮬레이터로 확인). 없는 문서는 아무 정보도 담지 않는다.
         allow get: if isHost(gameId)
-                   || (signedIn() && resource.data.senderUid == request.auth.uid);
+                   || (isSeat(gameId) && (resource == null || resource.data.senderUid == request.auth.uid));
         allow list: if isHost(gameId);
         allow update: if isHost(gameId);
         allow delete: if false;
@@ -82,7 +84,7 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // 닉네임 2~12자. ⚠ 규칙의 string.size()가 이모지 등을 몇 글자로 세는지 에뮬레이터로 확인할 것(앱은 코드 포인트로 센다).
+    // 닉네임 길이 2~12. size()는 UTF-16 단위로 센다(에뮬레이터로 확인: 이모지 하나 = 2) -> 앱의 Nicknames도 String.length로 맞춘다.
     function validNickname(name) {
       return name is string && name.size() >= 2 && name.size() <= 12;
     }

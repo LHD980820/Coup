@@ -25,7 +25,10 @@ public data class UserProfile(
 
 public enum class NicknameError { TOO_SHORT, TOO_LONG, INVALID_CHARACTERS }
 
-/** 닉네임 규칙: 앞뒤 공백 제거 후 2~12자, 제어 문자·줄바꿈 금지. 보안 규칙(`firestore.rules`)도 같은 길이를 검사한다. */
+/**
+ * 닉네임 규칙: 앞뒤 공백 제거 후 길이 2~12, 제어·서식 문자 금지. 길이는 **UTF-16 단위**(`String.length`)로 센다 —
+ * 보안 규칙(`firestore.rules`)의 `size()`가 그렇게 세기 때문이다(에뮬레이터로 확인: 이모지 한 개 = 2). 그래서 이모지는 최대 6개.
+ */
 public object Nicknames {
     public const val MIN_LENGTH: Int = 2
     public const val MAX_LENGTH: Int = 12
@@ -37,8 +40,8 @@ public object Nicknames {
         val name = normalize(input)
         return when {
             name.any { it.isISOControl() || Character.getType(it) == Character.FORMAT.toInt() } -> NicknameError.INVALID_CHARACTERS
-            name.codePointCount(0, name.length) < MIN_LENGTH -> NicknameError.TOO_SHORT
-            name.codePointCount(0, name.length) > MAX_LENGTH -> NicknameError.TOO_LONG
+            name.length < MIN_LENGTH -> NicknameError.TOO_SHORT
+            name.length > MAX_LENGTH -> NicknameError.TOO_LONG
             else -> null
         }
     }
@@ -48,7 +51,16 @@ public object Nicknames {
      */
     public fun defaultFor(email: String?, fallback: String): String {
         val local = email?.substringBefore('@')?.filter { !it.isISOControl() }?.trim().orEmpty()
-        val cut = if (local.codePointCount(0, local.length) > MAX_LENGTH) local.substring(0, local.offsetByCodePoints(0, MAX_LENGTH)) else local
+        val cut = buildString {
+            var i = 0
+            while (i < local.length) {
+                val cp = local.codePointAt(i)
+                val units = Character.charCount(cp)
+                if (length + units > MAX_LENGTH) break // 서로게이트 쌍을 가르지 않는다
+                appendCodePoint(cp)
+                i += units
+            }
+        }.trim()
         return if (validate(cut) == null) cut else fallback
     }
 }
