@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="game_home_title">Coup</string>
+    <string name="game_home_single">Play vs AI</string>
+    <string name="game_home_tutorial">Tutorial</string>
+    <string name="game_tutor_name">Tutor</string>
+    <string name="tutorial_list_title">Tutorial</string>
+    <string name="tutorial_list_hint">Learn the rules by playing. Follow the hints and press the highlighted button.</string>
+    <string name="tutorial_done_badge">Done</string>
+    <string name="tutorial_back">Back to list</string>
+    <string name="tutorial_next">Next lesson</string>
+    <string name="tutorial_coach_step">%1$d / %2$d</string>
+    <string name="tutorial_complete_title">Lesson complete!</string>
+    <string name="tutorial_basics_title">1. Basic actions</string>
+    <string name="tutorial_basics_income">Press Income to take 1 coin. Nobody can block Income.</string>
+    <string name="tutorial_basics_foreign_aid">Now press Foreign Aid to take 2 coins. Anyone with a Duke could block it, but your opponent will allow it this time.</string>
+    <string name="tutorial_basics_done">Well done! You pick one action each turn. With 10 or more coins you must Coup.</string>
+    <string name="tutorial_claim_title">2. Claiming a role</string>
+    <string name="tutorial_claim_tax">You hold a Duke. Press Tax to take 3 coins. Tax is an action that claims \"I am the Duke\".</string>
+    <string name="tutorial_claim_done">You can claim a role while acting. If nobody doubts you, it just happens. You may claim a card you don\'t hold (bluffing), but it is risky if challenged.</string>
+    <string name="tutorial_challenge_title">3. Challenging</string>
+    <string name="tutorial_challenge_challenge">Your opponent claims the Duke to collect Tax. In this exercise they are lying. Press Challenge!</string>
+    <string name="tutorial_challenge_done">Challenge won! A caught liar loses a card. If your challenge is wrong, you lose a card instead, so be careful.</string>
+    <string name="tutorial_block_title">4. Blocking</string>
+    <string name="tutorial_block_block">Your opponent claims the Captain to steal your coins. You hold an Ambassador, so press \"Block with Ambassador\".</string>
+    <string name="tutorial_block_done">Blocked! Stealing can be blocked by the Captain or the Ambassador. A block is also a claim, so it can be challenged.</string>
+</resources>

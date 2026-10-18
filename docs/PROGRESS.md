@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -41,6 +41,15 @@
 2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+
+## 이번 단계 메모 (Phase 3 (A) — 튜토리얼 화면)
+- 홈(`HomeScreen`: AI와 대전 / 튜토리얼) -> 튜토리얼 목록(`TutorialListScreen`, 완료 표시) -> 과정(`TutorialGame`). 코어의 `GuidedSession`/`TutorialLessons`를 그대로 쓰고, 화면은 얇다.
+- 과정 화면 = 일반 `GameScreen` + 안내 카드(`CoachCard`: 단계 n/m, 문구). **안내가 가리키는 컨트롤만 활성**(테두리로 강조), 나머지 행동·허용·도전·막기는 잠긴다. 지시 밖 수를 시도하면 안내 카드 테두리가 붉어진다(`offScript`). 튜토리얼에서는 기권 대신 "목록으로".
+- 과정을 끝내면 완료 대화상자(완료 문구, 다음 과정 / 목록으로)와 기기 저장(`TutorialStore`: SharedPreferences, 테스트는 메모리). 마지막 과정에는 "다음 과정"이 없다. 목록 카드는 TalkBack이 "완료"를 읽는다(`stateDescription`).
+- 문구 키 -> 문자열 리소스는 `TutorialTexts`(명시적 맵). 코어에 새 키가 생기면 `TutorialTextsTest`가 ko/en 모두에서 누락을 잡는다.
+- `GameViewModel`이 튜토리얼 시작/완료를 맡는다. 디버그 런처 "Coup (new)"는 이제 홈 화면으로 열린다.
+- 테스트(Robolectric+Compose): 4개 과정을 **안내대로 눌러 끝까지**(안내 밖 컨트롤이 실제로 잠겨 있는지 단계마다 확인), 완료 기록·표시, 다음 과정으로 이어짐, 마지막 과정, 저장소 영속, 문구 키 누락. 변이 검증 3종(잠금 해제 / 완료 기록 누락 / 번역 키 누락)을 모두 잡는다.
+- 아직: 기존 안내 이미지 9장(`Tutorial.kt`)은 새 흐름에 연결하지 않았다(필요하면 1단계 소개 화면으로 재사용). 튜토리얼 중 상대(선생)의 행동은 즉시 일어난다 — 연출용 지연/말풍선은 애니메이션 작업에서.
 
 ## 이번 단계 메모 (Phase 3 (A) — Android: 싱글플레이 Compose 화면)
 - **환경**: `dl.google.com`이 허용되자 이 세션 안에서 Android 빌드가 가능해졌다. 이 컨테이너에는 SDK/JDK 17이 미리 깔려 있지 않았으므로 `scripts/setup-android-cloud.sh`(JDK 17 + 명령줄 도구 + platform 37 + build-tools)로 설치했다. 새 세션도 이 스크립트를 먼저 돌리면 된다(`source scripts/setup-android-cloud.sh`, 한글 테스트 이름 때문에 `LC_ALL=C.UTF-8`). Maven Central이 가끔 429(속도 제한)를 돌려주면 잠시 뒤 재시도.
@@ -146,4 +155,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-18, Phase 3 (A) 싱글플레이 Compose 화면 첫 수직 슬라이스_
+_마지막 갱신: 2026-10-18, Phase 3 (A) 튜토리얼 화면_

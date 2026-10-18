@@ -12,6 +12,9 @@ import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.RoleId
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerConfig
+import io.github.lhd980820.coup.presentation.tutorial.GuidedSession
+import io.github.lhd980820.coup.presentation.tutorial.TutorialLesson
+import io.github.lhd980820.coup.presentation.tutorial.TutorialSessionFactory
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerSessionFactory
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +43,7 @@ internal interface GameActions {
 internal class GameViewModel(
     private val aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
     scope: CoroutineScope? = null,
+    val tutorialStore: TutorialStore = InMemoryTutorialStore(),
 ) : ViewModel(), GameActions {
     /** 게임을 돌리는 코루틴 범위. 기본은 [viewModelScope]이고, 테스트는 메인 루퍼에 의존하지 않는 범위를 넘긴다. */
     private val gameScope: CoroutineScope = scope ?: viewModelScope
@@ -48,15 +52,43 @@ internal class GameViewModel(
     var controller by mutableStateOf<GameController?>(null)
         private set
 
+    /** 튜토리얼 중이면 그 과정과 진행 상황, 아니면 null. */
+    var tutorial by mutableStateOf<GuidedSession?>(null)
+        private set
+    var tutorialLesson by mutableStateOf<TutorialLesson?>(null)
+        private set
+
+    /** 튜토리얼 목록을 보여줄 때 쓴다(끝낸 과정 표시). */
+    var completedLessons by mutableStateOf(tutorialStore.completed())
+        private set
+
     fun start(config: SinglePlayerConfig) {
         controller?.close()
         val session = SinglePlayerSessionFactory.create(config, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher)
         controller = GameController(session, gameScope)
     }
 
+    fun startTutorial(lesson: TutorialLesson, humanName: String, tutorName: String) {
+        controller?.close()
+        val guided = TutorialSessionFactory.create(
+            lesson, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher, humanName = humanName, tutorName = tutorName,
+        )
+        tutorial = guided
+        tutorialLesson = lesson
+        controller = GameController(guided, gameScope)
+    }
+
+    /** 튜토리얼 과정을 끝냈다고 기록한다(여러 번 불러도 같다). */
+    fun completeTutorial(lessonId: String) {
+        tutorialStore.markCompleted(lessonId)
+        completedLessons = tutorialStore.completed()
+    }
+
     fun quit() {
         controller?.close()
         controller = null
+        tutorial = null
+        tutorialLesson = null
     }
 
     private fun run(block: suspend GameController.() -> Unit) {

@@ -114,7 +114,8 @@ class GameScreenTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val vm = GameViewModel(scope = scope)
         compose.setContent { CoupTheme { SinglePlayerFlow(vm, onExit = {}) } }
-        // 설정 화면을 실제로 조작해 시작한다
+        // 홈 -> 설정 화면을 실제로 조작해 시작한다
+        compose.onNodeWithTag(ShellTags.HOME_SINGLE).assertIsDisplayed().performClick()
         compose.onNodeWithTag(SetupTags.opponents(opponents)).assertIsDisplayed().performClick()
         compose.onNodeWithTag(SetupTags.START).assertIsDisplayed().performClick()
         compose.waitUntil(5_000) { vm.controller != null }

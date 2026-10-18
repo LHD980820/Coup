@@ -2,6 +2,7 @@ package io.github.lhd980820.coup.game
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +61,7 @@ import io.github.lhd980820.coup.presentation.GameUiState
 import io.github.lhd980820.coup.presentation.OpponentStatus
 import io.github.lhd980820.coup.presentation.OpponentUi
 import io.github.lhd980820.coup.presentation.UiMessage
+import io.github.lhd980820.coup.presentation.tutorial.TutorialExpect
 import kotlinx.coroutines.flow.Flow
 
 /** 자동화 테스트가 노드를 찾는 태그. 화면 문구(번역)에 의존하지 않기 위해 따로 둔다. */
@@ -80,7 +82,22 @@ internal object GameTags {
     const val CONCEDE = "concede"
     const val CONCEDE_CONFIRM = "concede_confirm"
     const val WAITING = "waiting"
+    const val COACH = "coach"
+    const val COACH_BACK = "coach_back"
 }
+
+/** 튜토리얼 안내: 지금 단계 문구와, 사용자가 해야 하는 한 수([expect]). null이면 제한 없음. */
+internal data class GuideUi(val message: String, val step: Int, val total: Int, val expect: TutorialExpect?, val offScript: Int)
+
+private fun TutorialExpect?.allowsAction(id: String) = this == null || (this is TutorialExpect.Action && action.value == id)
+private fun TutorialExpect?.allowsPass() = this == null || this is TutorialExpect.Pass
+private fun TutorialExpect?.allowsChallenge() = this == null || this is TutorialExpect.Challenge
+private fun TutorialExpect?.allowsBlock(role: String) = this == null || (this is TutorialExpect.Block && this.role.value == role)
+
+/** 안내가 가리키는 컨트롤은 테두리로 강조한다(색만으로 전달하지 않도록 코치 문구도 함께 있다). */
+@Composable
+private fun Modifier.guideRing(on: Boolean): Modifier =
+    if (on) this.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)) else this
 
 /**
  * 게임 화면(설계 §10.3). 상태는 [GameUiState] 하나이고 규칙 판단은 하지 않는다 — 버튼의 활성/블러핑 표시는 모두 상태에서 온다.
@@ -94,6 +111,7 @@ internal fun GameScreen(
     onExit: () -> Unit,
     onPlayAgain: () -> Unit,
     modifier: Modifier = Modifier,
+    guide: GuideUi? = null,
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -114,10 +132,13 @@ internal fun GameScreen(
                     OpponentsRow(state, texts)
                     LogList(state, texts)
                 }
+                guide?.let { CoachCard(it) }
                 BannerCard(state, texts)
                 state.me?.let { MyArea(state, it, actions) }
-                DecisionPanel(state, texts, actions)
-                if (state.result == null) {
+                DecisionPanel(state, texts, actions, guide?.expect)
+                if (guide != null) {
+                    TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
+                } else if (state.result == null) {
                     TextButton(onClick = { confirmConcede = true }, modifier = Modifier.testTag(GameTags.CONCEDE)) {
                         Text(stringResource(R.string.game_concede))
                     }
@@ -204,6 +225,20 @@ private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean) {
             if (op.claiming.isNotEmpty()) {
                 Text(stringResource(R.string.game_claiming, texts.roles(op.claiming)), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             }
+        }
+    }
+}
+
+@Composable
+private fun CoachCard(guide: GuideUi) {
+    Card(
+        Modifier.fillMaxWidth().testTag(GameTags.COACH),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+        border = if (guide.offScript > 0) BorderStroke(2.dp, MaterialTheme.colorScheme.error) else null,
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.tutorial_coach_step, guide.step, guide.total), style = MaterialTheme.typography.labelSmall)
+            Text(guide.message, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
@@ -297,7 +332,7 @@ private fun CardImage(role: io.github.lhd980820.coup.engine.model.RoleId?, revea
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameActions) {
+private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameActions, expect: TutorialExpect? = null) {
     val decision = state.decision
     val enabled = !state.busy
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -306,7 +341,10 @@ private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAct
                 Text(stringResource(R.string.game_waiting_decision), modifier = Modifier.testTag(GameTags.WAITING))
             }
             is DecisionUi.Actions -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                decision.buttons.forEach { ActionButton(it, texts, enabled) { actions.chooseAction(it.actionId) } }
+                decision.buttons.forEach { b ->
+                    val allowed = expect.allowsAction(b.actionId.value)
+                    ActionButton(b, texts, enabled && allowed, ring = expect != null && allowed) { actions.chooseAction(b.actionId) }
+                }
             }
             is DecisionUi.PickTarget -> {
                 Text(stringResource(R.string.game_pick_target))
@@ -324,19 +362,28 @@ private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAct
             is DecisionUi.Respond -> {
                 Text(texts.respondPrompt(decision.actor, decision.actionId, decision.windowKind))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = actions::pass, enabled = enabled, modifier = Modifier.testTag(GameTags.PASS)) {
+                    Button(
+                        onClick = actions::pass,
+                        enabled = enabled && expect.allowsPass(),
+                        modifier = Modifier.guideRing(expect != null && expect.allowsPass()).testTag(GameTags.PASS),
+                    ) {
                         Text(stringResource(R.string.game_pass))
                     }
                     if (decision.canChallenge) {
                         Button(
                             onClick = actions::challenge,
-                            enabled = enabled,
+                            enabled = enabled && expect.allowsChallenge(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.testTag(GameTags.CHALLENGE),
+                            modifier = Modifier.guideRing(expect != null && expect.allowsChallenge()).testTag(GameTags.CHALLENGE),
                         ) { Text(stringResource(R.string.game_challenge)) }
                     }
                     decision.blocks.forEach { b ->
-                        OutlinedButton(onClick = { actions.block(b.role) }, enabled = enabled, modifier = Modifier.testTag(GameTags.block(b.role.value))) {
+                        val allowed = expect.allowsBlock(b.role.value)
+                        OutlinedButton(
+                            onClick = { actions.block(b.role) },
+                            enabled = enabled && allowed,
+                            modifier = Modifier.guideRing(expect != null && allowed).testTag(GameTags.block(b.role.value)),
+                        ) {
                             Text(stringResource(R.string.game_block_with, texts.role(b.role)) + if (b.bluff) " · " + stringResource(R.string.game_bluff) else "")
                         }
                     }
@@ -363,14 +410,14 @@ private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAct
 }
 
 @Composable
-private fun ActionButton(button: ActionButtonUi, texts: GameTexts, enabled: Boolean, onClick: () -> Unit) {
+private fun ActionButton(button: ActionButtonUi, texts: GameTexts, enabled: Boolean, ring: Boolean = false, onClick: () -> Unit) {
     val name = texts.actionName(button.actionId)
     val label = if (button.cost > 0) stringResource(R.string.game_action_cost, name, button.cost) else name
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Button(
             onClick = onClick,
             enabled = enabled && button.enabled,
-            modifier = Modifier.testTag(GameTags.action(button.actionId.value)),
+            modifier = Modifier.guideRing(ring && enabled && button.enabled).testTag(GameTags.action(button.actionId.value)),
         ) { Text(label) }
         // 색만으로 의미를 전달하지 않는다: 블러핑/필수/비활성 사유는 글자로도 표시
         val note = when {

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="game_home_title">Coup</string>
+    <string name="game_home_single">AI와 대전</string>
+    <string name="game_home_tutorial">튜토리얼</string>
+    <string name="game_tutor_name">선생님</string>
+    <string name="tutorial_list_title">튜토리얼</string>
+    <string name="tutorial_list_hint">게임을 하면서 규칙을 익혀요. 안내에 따라 표시된 버튼을 눌러 보세요.</string>
+    <string name="tutorial_done_badge">완료</string>
+    <string name="tutorial_back">목록으로</string>
+    <string name="tutorial_next">다음 과정</string>
+    <string name="tutorial_coach_step">%1$d / %2$d</string>
+    <string name="tutorial_complete_title">과정 완료!</string>
+    <string name="tutorial_basics_title">1. 기본 행동</string>
+    <string name="tutorial_basics_income">수입 버튼을 눌러 코인 1개를 얻어 보세요. 수입은 누구도 막을 수 없어요.</string>
+    <string name="tutorial_basics_foreign_aid">이제 해외 원조를 눌러 코인 2개를 받아 보세요. 공작을 가진 사람이 막을 수 있지만, 이번에는 상대가 허용해 줄 거예요.</string>
+    <string name="tutorial_basics_done">잘했어요! 매 턴 행동을 하나씩 골라요. 코인이 10개 이상이면 반드시 쿠를 해야 해요.</string>
+    <string name="tutorial_claim_title">2. 역할 주장</string>
+    <string name="tutorial_claim_tax">내 카드에 공작이 있어요. 세금을 눌러 코인 3개를 가져오세요. 세금은 \"나는 공작이다\"라고 주장하는 행동이에요.</string>
+    <string name="tutorial_claim_done">행동하면서 역할을 주장할 수 있어요. 상대가 믿으면 그대로 실행돼요. 카드가 없어도 주장할 수 있지만(블러핑) 도전받으면 위험해요.</string>
+    <string name="tutorial_challenge_title">3. 도전하기</string>
+    <string name="tutorial_challenge_challenge">상대가 공작이라며 세금을 걷으려 해요. 이번 연습에서는 상대가 거짓말을 하고 있어요. 도전을 눌러 보세요!</string>
+    <string name="tutorial_challenge_done">도전 성공! 거짓 주장을 들킨 상대는 카드 한 장을 잃어요. 도전이 틀리면 내가 카드를 잃으니 신중하게 하세요.</string>
+    <string name="tutorial_block_title">4. 막기</string>
+    <string name="tutorial_block_block">상대가 사령관으로 내 코인을 훔치려 해요. 내게는 대사 카드가 있으니 \"대사로 막기\"를 눌러 막아 보세요.</string>
+    <string name="tutorial_block_done">막기 성공! 갈취는 사령관이나 대사가 막을 수 있어요. 막는 것도 역할 주장이라서 도전받을 수 있어요.</string>
+</resources>
