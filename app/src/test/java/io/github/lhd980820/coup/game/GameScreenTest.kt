@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import io.github.lhd980820.coup.ai.AiDifficulty
 import io.github.lhd980820.coup.presentation.DecisionUi
 import io.github.lhd980820.coup.presentation.GameUiState
@@ -116,8 +117,8 @@ class GameScreenTest {
         compose.setContent { CoupTheme { SinglePlayerFlow(vm, onExit = {}) } }
         // 홈 -> 설정 화면을 실제로 조작해 시작한다
         compose.onNodeWithTag(ShellTags.HOME_SINGLE).assertIsDisplayed().performClick()
-        compose.onNodeWithTag(SetupTags.opponents(opponents)).assertIsDisplayed().performClick()
-        compose.onNodeWithTag(SetupTags.START).assertIsDisplayed().performClick()
+        compose.onNodeWithTag(SetupTags.opponents(opponents)).performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag(SetupTags.START).performScrollTo().assertIsDisplayed().performClick()
         compose.waitUntil(5_000) { vm.controller != null }
         // 설정 화면의 seed는 무작위이므로, 재현 가능한 판을 위해 같은 설정으로 다시 시작한다
         vm.start(config(opponents, seed))

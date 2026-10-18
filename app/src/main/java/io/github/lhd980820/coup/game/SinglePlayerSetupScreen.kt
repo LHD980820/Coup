@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
@@ -18,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -28,6 +31,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.ai.AiDifficulty
+import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
+import io.github.lhd980820.coup.presentation.rules.RuleSetEditor
 import io.github.lhd980820.coup.presentation.singleplayer.OpponentSpec
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerConfig
 
@@ -42,11 +47,13 @@ internal object SetupTags {
 internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modifier: Modifier = Modifier) {
     var opponents by rememberSaveable { mutableIntStateOf(2) }
     var difficulty by rememberSaveable { mutableStateOf(AiDifficulty.NORMAL) }
+    val editor = remember { RuleSetEditor(BuiltinRules.registry(), BuiltinRules.classicConfig()) }
+    val rules = rememberRuleSelection()
     val you = stringResource(R.string.game_you)
     val aiNames = (1..5).map { stringResource(R.string.game_ai_name, it) }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(stringResource(R.string.game_title), style = MaterialTheme.typography.headlineMedium)
 
             Text(stringResource(R.string.game_setup_opponents), style = MaterialTheme.typography.titleMedium)
@@ -78,15 +85,19 @@ internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modi
                 }
             }
 
+            RuleSetPicker(editor, rules.value, onChange = { rules.value = it })
+
             Button(
                 onClick = {
                     onStart(
                         SinglePlayerConfig(
                             opponents = List(opponents) { OpponentSpec(difficulty = difficulty, name = aiNames[it]) },
+                            ruleSet = editor.config(rules.value),
                             humanName = you,
                         ),
                     )
                 },
+                enabled = editor.issues(rules.value).isEmpty(),
                 modifier = Modifier.fillMaxWidth().testTag(SetupTags.START),
             ) { Text(stringResource(R.string.game_setup_start)) }
         }

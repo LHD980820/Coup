@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_title">규칙</string>
+    <string name="rules_standard">표준 규칙</string>
+    <string name="rules_changed">바꾼 규칙 %1$d개</string>
+    <string name="rules_edit">규칙 바꾸기</string>
+    <string name="rules_collapse">접기</string>
+    <string name="rules_reset">표준 규칙으로</string>
+    <string name="rules_house_title">하우스룰</string>
+    <string name="rules_params_title">세부 설정</string>
+    <string name="rules_default_value">기본 %1$s</string>
+    <string name="rules_value_on">켬</string>
+    <string name="rules_value_off">끔</string>
+    <string name="rules_decrease">%1$s 줄이기</string>
+    <string name="rules_increase">%1$s 늘리기</string>
+    <string name="rules_unrated_note">하우스룰이나 세부 설정을 바꾸면 이 판은 레이팅에 반영되지 않아요.</string>
+    <string name="rules_invalid">이 조합으로는 게임을 시작할 수 없어요: %1$s</string>
+    <string name="house_rule_no_steal_from_broke_title">빈털터리 갈취 금지</string>
+    <string name="house_rule_no_steal_from_broke_desc">코인이 없는 플레이어는 갈취 대상으로 지정할 수 없어요. (옛 앱의 규칙)</string>
+    <string name="house_rule_last_stand_title">마지막 발악</string>
+    <string name="house_rule_last_stand_desc">영향력이 1장 남은 플레이어는 수입으로 코인 2개를 얻어요.</string>
+    <string name="rule_param_startingCoins_title">시작 코인</string>
+    <string name="rule_param_startingCoins_desc">게임을 시작할 때 모두가 갖는 코인 수예요.</string>
+    <string name="rule_param_forcedActionThreshold_title">쿠 강제 코인</string>
+    <string name="rule_param_forcedActionThreshold_desc">코인이 이 값 이상이면 쿠만 할 수 있어요.</string>
+    <string name="rule_param_refundCostWhenActionChallengeLost_title">도전 성공 시 비용 환불</string>
+    <string name="rule_param_refundCostWhenActionChallengeLost_desc">블러핑이 들통나 취소된 행동의 비용(암살 3코인)을 돌려받아요.</string>
+    <string name="rule_param_exchangeReturnShuffles_title">교환 후 덱 섞기</string>
+    <string name="rule_param_exchangeReturnShuffles_desc">교환으로 돌려놓은 카드를 덱에 넣고 섞어요. 끄면 덱 맨 아래에 놓여요.</string>
+</resources>

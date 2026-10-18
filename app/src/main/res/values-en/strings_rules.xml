@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rules_title">Rules</string>
+    <string name="rules_standard">Standard rules</string>
+    <string name="rules_changed">%1$d rule(s) changed</string>
+    <string name="rules_edit">Change rules</string>
+    <string name="rules_collapse">Collapse</string>
+    <string name="rules_reset">Reset to standard</string>
+    <string name="rules_house_title">House rules</string>
+    <string name="rules_params_title">Details</string>
+    <string name="rules_default_value">Default %1$s</string>
+    <string name="rules_value_on">On</string>
+    <string name="rules_value_off">Off</string>
+    <string name="rules_decrease">Decrease %1$s</string>
+    <string name="rules_increase">Increase %1$s</string>
+    <string name="rules_unrated_note">Changing house rules or details means this game won\'t count toward your rating.</string>
+    <string name="rules_invalid">You can\'t start with this combination: %1$s</string>
+    <string name="house_rule_no_steal_from_broke_title">No stealing from the broke</string>
+    <string name="house_rule_no_steal_from_broke_desc">A player with no coins can\'t be targeted by Steal. (the old app\'s rule)</string>
+    <string name="house_rule_last_stand_title">Last stand</string>
+    <string name="house_rule_last_stand_desc">A player with one influence left gains 2 coins from Income.</string>
+    <string name="rule_param_startingCoins_title">Starting coins</string>
+    <string name="rule_param_startingCoins_desc">How many coins everyone starts with.</string>
+    <string name="rule_param_forcedActionThreshold_title">Forced Coup at</string>
+    <string name="rule_param_forcedActionThreshold_desc">With this many coins or more you may only Coup.</string>
+    <string name="rule_param_refundCostWhenActionChallengeLost_title">Refund on caught bluff</string>
+    <string name="rule_param_refundCostWhenActionChallengeLost_desc">When a bluffed action is cancelled, its cost (3 coins for an assassination) is returned.</string>
+    <string name="rule_param_exchangeReturnShuffles_title">Shuffle after Exchange</string>
+    <string name="rule_param_exchangeReturnShuffles_desc">Returned cards are shuffled into the deck. Off puts them at the bottom.</string>
+</resources>
