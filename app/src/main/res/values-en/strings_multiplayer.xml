@@ -31,6 +31,11 @@
     <string name="mp_auth_account_not_found">We couldn\'t find that account.</string>
     <string name="mp_auth_too_many_requests">Too many attempts. Try again in a moment.</string>
     <string name="mp_auth_network">Couldn\'t reach the network.</string>
+    <string name="mp_auth_credential_conflict">This email is registered with another method (email and password). Please sign in that way.</string>
+    <string name="mp_auth_google_no_account">There\'s no Google account on this device. Add one in Settings and try again.</string>
+    <string name="mp_auth_google_unavailable">Google sign-in isn\'t available on this device. Please use email instead.</string>
+    <string name="mp_google_continue">Continue with Google</string>
+    <string name="mp_or">or</string>
     <string name="mp_auth_unknown">Couldn\'t sign in. Please try again.</string>
 
     <string name="mp_account_loading">Setting up your account…</string>

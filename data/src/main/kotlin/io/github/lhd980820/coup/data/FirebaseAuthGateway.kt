@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import io.github.lhd980820.coup.shell.auth.AuthError
 import io.github.lhd980820.coup.shell.auth.AuthGateway
 import io.github.lhd980820.coup.shell.auth.AuthResult
@@ -20,7 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 
 /**
- * [AuthGateway]의 Firebase Auth 구현(이메일/비밀번호). 앱 전체에서 하나만 쓴다 — 기존 화면이 같은 [FirebaseAuth]로 로그인해도
+ * [AuthGateway]의 Firebase Auth 구현(이메일/비밀번호, 구글). 앱 전체에서 하나만 쓴다 — 기존 화면이 같은 [FirebaseAuth]로 로그인해도
  * [user]가 따라 바뀐다. 실패는 [AuthResult.Failed]로 바꾼다(취소만 예외).
  *
  * 이메일 열거 보호가 켜진 프로젝트(기본값)에서는 없는 계정과 틀린 비밀번호가 구분되지 않고 모두 [AuthError.WRONG_CREDENTIALS]다.
@@ -42,17 +43,21 @@ public class FirebaseAuthGateway(private val auth: FirebaseAuth) : AuthGateway {
     override suspend fun sendPasswordReset(email: String): AuthResult =
         attempt { auth.sendPasswordResetEmail(email).await() }
 
+    /** 구글 ID 토큰 -> Firebase 자격 증명. 같은 이메일이 다른 방법으로 이미 가입돼 있으면 [AuthError.CREDENTIAL_CONFLICT]. */
+    override suspend fun signInWithGoogle(idToken: String): AuthResult =
+        attempt(collision = AuthError.CREDENTIAL_CONFLICT) { auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await() }
+
     override suspend fun signOut() {
         auth.signOut()
     }
 
-    private suspend fun attempt(block: suspend () -> Unit): AuthResult = try {
+    private suspend fun attempt(collision: AuthError = AuthError.EMAIL_IN_USE, block: suspend () -> Unit): AuthResult = try {
         block()
         AuthResult.Ok
     } catch (e: CancellationException) {
         throw e
     } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-        AuthResult.Failed(errorOf(e))
+        AuthResult.Failed(errorOf(e).let { if (it == AuthError.EMAIL_IN_USE) collision else it })
     }
 
     private fun FirebaseUser.toUser() = AuthUser(uid, email)

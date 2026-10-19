@@ -18,11 +18,13 @@ import io.github.lhd980820.coup.presentation.tutorial.TutorialLessons
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
 import io.github.lhd980820.coup.multiplayer.FirebaseBackend
 import io.github.lhd980820.coup.multiplayer.MultiplayerFlow
 import io.github.lhd980820.coup.multiplayer.MultiplayerGame
 import io.github.lhd980820.coup.multiplayer.ShellViewModel
 import io.github.lhd980820.coup.presentation.GameController
+import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 
 /**
@@ -37,13 +39,16 @@ class SinglePlayerActivity : ComponentActivity() {
         viewModelFactory { initializer { ShellViewModel(FirebaseBackend(appVersion()), viewModel) } }
     }
 
+    /** 구글 로그인(Credential Manager). 웹 클라이언트 ID는 google-services 플러그인이 만든 리소스다(기존 앱과 같은 값). */
+    private val google by lazy { CredentialManagerGoogleTokenSource(this, getString(R.string.default_web_client_id)) }
+
     private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CoupTheme {
-                SinglePlayerFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell)
+                SinglePlayerFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google)
             }
         }
     }
@@ -56,7 +61,13 @@ private enum class Screen { HOME, SETUP, TUTORIALS, MULTI }
  * 정식 내비게이션(Navigation Compose)은 화면이 늘어나는 Phase 5에서 도입한다.
  */
 @Composable
-internal fun SinglePlayerFlow(viewModel: GameViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, shell: ShellViewModel? = null) {
+internal fun SinglePlayerFlow(
+    viewModel: GameViewModel,
+    onExit: () -> Unit,
+    modifier: Modifier = Modifier,
+    shell: ShellViewModel? = null,
+    google: GoogleTokenSource? = null,
+) {
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val controller: GameController? = viewModel.controller
     val you = stringResource(R.string.game_you)
@@ -79,7 +90,7 @@ internal fun SinglePlayerFlow(viewModel: GameViewModel, onExit: () -> Unit, modi
                 onSaveNickname = { shell?.updateNickname(it) },
                 onSignOut = { shell?.signOut() },
             )
-            Screen.MULTI -> if (shell != null) MultiplayerFlow(shell, onBack = { screen = Screen.HOME }, modifier = modifier) else screen = Screen.HOME
+            Screen.MULTI -> if (shell != null) MultiplayerFlow(shell, onBack = { screen = Screen.HOME }, modifier = modifier, google = google) else screen = Screen.HOME
             Screen.SETUP -> SinglePlayerSetupScreen(onStart = viewModel::start, modifier = modifier)
             Screen.TUTORIALS -> TutorialListScreen(
                 lessons = TutorialLessons.all,

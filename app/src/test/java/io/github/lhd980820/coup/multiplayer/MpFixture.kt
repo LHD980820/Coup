@@ -54,6 +54,16 @@ internal class FakeAuth(private val accounts: MutableMap<String, String> = mutab
 
     override suspend fun sendPasswordReset(email: String): AuthResult = AuthResult.Ok
 
+    /** 받은 구글 토큰들(검증용). 토큰 "google:<이메일>"은 그 이메일의 구글 계정으로 로그인한다. */
+    val googleTokens = mutableListOf<String>()
+
+    override suspend fun signInWithGoogle(idToken: String): AuthResult {
+        googleTokens += idToken
+        val email = idToken.removePrefix("google:").takeIf { idToken.startsWith("google:") } ?: return AuthResult.Failed(AuthError.UNKNOWN)
+        _user.value = AuthUser(uidOf(email), email)
+        return AuthResult.Ok
+    }
+
     override suspend fun signOut() {
         _user.value = null
     }

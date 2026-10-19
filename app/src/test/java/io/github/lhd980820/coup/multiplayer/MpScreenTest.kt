@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import io.github.lhd980820.coup.game.SinglePlayerFlow
 import io.github.lhd980820.coup.game.ShellTags
+import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 import org.junit.After
 import org.junit.Before
@@ -39,8 +40,8 @@ abstract class MpScreenTest {
         fx.close()
     }
 
-    internal fun show() {
-        compose.setContent { CoupTheme { SinglePlayerFlow(fx.game, onExit = {}, shell = fx.shell) } }
+    internal fun show(google: GoogleTokenSource? = null) {
+        compose.setContent { CoupTheme { SinglePlayerFlow(fx.game, onExit = {}, shell = fx.shell, google = google) } }
     }
 
     protected fun string(@StringRes id: Int, vararg args: Any): String = RuntimeEnvironment.getApplication().getString(id, *args)

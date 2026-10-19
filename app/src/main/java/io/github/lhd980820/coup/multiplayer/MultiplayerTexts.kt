@@ -21,6 +21,9 @@ internal object MultiplayerTexts {
         AuthError.ACCOUNT_NOT_FOUND -> R.string.mp_auth_account_not_found
         AuthError.TOO_MANY_REQUESTS -> R.string.mp_auth_too_many_requests
         AuthError.NETWORK -> R.string.mp_auth_network
+        AuthError.CREDENTIAL_CONFLICT -> R.string.mp_auth_credential_conflict
+        AuthError.GOOGLE_NO_ACCOUNT -> R.string.mp_auth_google_no_account
+        AuthError.GOOGLE_UNAVAILABLE -> R.string.mp_auth_google_unavailable
         AuthError.UNKNOWN -> R.string.mp_auth_unknown
     }
 

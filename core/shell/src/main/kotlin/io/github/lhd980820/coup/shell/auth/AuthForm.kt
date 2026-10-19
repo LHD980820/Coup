@@ -77,6 +77,27 @@ public class AuthFormModel(private val gateway: AuthGateway) {
         _state.update { it.copy(confirm = value, confirmError = null, failure = null) }
     }
 
+    /**
+     * 구글로 로그인한다(계정 선택 -> Firebase 로그인). 사용자가 선택 창을 닫으면 아무 오류도 보이지 않는다.
+     * 입력칸은 쓰지 않으므로 입력 검사도 하지 않는다.
+     */
+    public suspend fun signInWithGoogle(source: GoogleTokenSource) {
+        if (_state.value.busy) return
+        _state.update { it.copy(busy = true, failure = null, resetSent = false, emailError = null, passwordError = null, confirmError = null) }
+        var failure: AuthError? = AuthError.UNKNOWN
+        try {
+            failure = when (val token = source.requestIdToken()) {
+                is GoogleToken.Ok -> (gateway.signInWithGoogle(token.idToken) as? AuthResult.Failed)?.error
+                GoogleToken.Cancelled -> null
+                GoogleToken.NoAccount -> AuthError.GOOGLE_NO_ACCOUNT
+                GoogleToken.Unavailable -> AuthError.GOOGLE_UNAVAILABLE
+                GoogleToken.Failed -> AuthError.UNKNOWN
+            }
+        } finally {
+            _state.update { it.copy(busy = false, failure = failure) }
+        }
+    }
+
     public suspend fun submit() {
         val s = _state.value
         if (s.busy) return

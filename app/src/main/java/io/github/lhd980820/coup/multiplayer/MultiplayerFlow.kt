@@ -27,6 +27,7 @@ import io.github.lhd980820.coup.game.GameScreen
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.remote.ApplyOutcome
 import io.github.lhd980820.coup.shell.account.AccountState
+import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 
 internal object FlowTags {
     const val ACCOUNT_LOADING = "mp_account_loading"
@@ -41,10 +42,10 @@ internal object FlowTags {
  * 어느 화면을 보일지는 로그인 상태와 [ShellViewModel]의 상태가 정한다.
  */
 @Composable
-internal fun MultiplayerFlow(shell: ShellViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
+internal fun MultiplayerFlow(shell: ShellViewModel, onBack: () -> Unit, modifier: Modifier = Modifier, google: GoogleTokenSource? = null) {
     val user by shell.user.collectAsState()
     if (user == null) {
-        LoginScreen(shell.authForm, onBack = onBack, modifier = modifier)
+        LoginScreen(shell.authForm, onBack = onBack, modifier = modifier, google = google)
         return
     }
     when (shell.accountState) {

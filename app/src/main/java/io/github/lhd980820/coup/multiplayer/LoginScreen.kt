@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -39,6 +41,7 @@ import io.github.lhd980820.coup.shell.auth.AuthFormModel
 import io.github.lhd980820.coup.shell.auth.AuthMode
 import io.github.lhd980820.coup.shell.auth.Credentials
 import io.github.lhd980820.coup.shell.auth.FieldError
+import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import kotlinx.coroutines.launch
 
 internal object LoginTags {
@@ -53,6 +56,7 @@ internal object LoginTags {
     const val FAILURE = "login_failure"
     const val RESET_SENT = "login_reset_sent"
     const val BACK = "login_back"
+    const val GOOGLE = "login_google"
 }
 
 @Composable
@@ -68,7 +72,7 @@ private fun fieldText(error: FieldError): String =
  * 성공하면 로그인 상태가 바뀌므로 이 화면은 스스로 닫지 않고, 부모가 상태를 보고 화면을 바꾼다.
  */
 @Composable
-internal fun LoginScreen(form: AuthFormModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
+internal fun LoginScreen(form: AuthFormModel, onBack: () -> Unit, modifier: Modifier = Modifier, google: GoogleTokenSource? = null) {
     val state by form.state.collectAsState()
     val scope = rememberCoroutineScope()
     var showPassword by rememberSaveable { mutableStateOf(false) }
@@ -164,6 +168,16 @@ internal fun LoginScreen(form: AuthFormModel, onBack: () -> Unit, modifier: Modi
                 enabled = state.canSubmit,
                 modifier = Modifier.fillMaxWidth().testTag(LoginTags.SUBMIT),
             ) { Text(stringResource(actionLabel)) }
+
+            // 구글 로그인: 이 기기에서 쓸 수 있을 때만(로그인·가입 모드). 처음이면 계정이 만들어지므로 두 모드 모두 같은 버튼이다.
+            if (google != null && state.mode != AuthMode.RESET) {
+                Text(stringResource(R.string.mp_or), style = MaterialTheme.typography.labelMedium, modifier = Modifier.align(Alignment.CenterHorizontally))
+                OutlinedButton(
+                    onClick = { scope.launch { form.signInWithGoogle(google) } },
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth().testTag(LoginTags.GOOGLE),
+                ) { Text(stringResource(R.string.mp_google_continue)) }
+            }
 
             when (state.mode) {
                 AuthMode.SIGN_IN -> {

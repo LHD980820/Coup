@@ -13,6 +13,7 @@ import io.github.lhd980820.coup.shell.auth.AuthResult
 import io.github.lhd980820.coup.shell.auth.AuthUser
 import io.github.lhd980820.coup.shell.auth.Credentials
 import io.github.lhd980820.coup.shell.auth.FieldError
+import io.github.lhd980820.coup.shell.auth.GoogleToken
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,10 @@ class FakeAuth(var next: AuthResult = AuthResult.Ok) : AuthGateway {
     }
 
     override suspend fun sendPasswordReset(email: String): AuthResult = act("reset $email") {}
+
+    override suspend fun signInWithGoogle(idToken: String): AuthResult = act("google $idToken") {
+        if (next == AuthResult.Ok) _user.value = AuthUser("uid-google", "g@gmail.com")
+    }
 
     override suspend fun signOut() {
         _user.value = null
@@ -161,5 +166,67 @@ class AuthFormModelTest {
         form.setMode(AuthMode.REGISTER)
         form.setPassword("secret")
         assertThat(form.state.value.canSubmit).isFalse() // 확인 칸이 비어 있다
+    }
+
+    @Test
+    fun `구글 - 토큰을 받으면 그 토큰으로 로그인한다`() = runBlocking {
+        val auth = FakeAuth()
+        val form = AuthFormModel(auth)
+        form.setEmail("typed@b.co") // 입력칸은 쓰지 않는다
+        form.signInWithGoogle { GoogleToken.Ok("token-1") }
+        assertThat(auth.calls).isEqualTo(listOf("google token-1"))
+        assertThat(auth.user.value).isEqualTo(AuthUser("uid-google", "g@gmail.com"))
+        assertThat(form.state.value.failure).isNull()
+        assertThat(form.state.value.busy).isFalse()
+    }
+
+    @Test
+    fun `구글 - 선택 창을 닫으면 오류 없이 그대로`() = runBlocking {
+        val auth = FakeAuth()
+        val form = AuthFormModel(auth)
+        form.signInWithGoogle { GoogleToken.Cancelled }
+        assertThat(auth.calls.isEmpty()).isTrue()
+        assertThat(form.state.value.failure).isNull()
+        assertThat(form.state.value.busy).isFalse()
+    }
+
+    @Test
+    fun `구글 - 계정 없음, 사용 불가, 실패, 서버 거절은 이유를 보여준다`() = runBlocking {
+        val auth = FakeAuth(AuthResult.Failed(AuthError.CREDENTIAL_CONFLICT))
+        val form = AuthFormModel(auth)
+        form.signInWithGoogle { GoogleToken.NoAccount }
+        assertThat(form.state.value.failure).isEqualTo(AuthError.GOOGLE_NO_ACCOUNT)
+        form.signInWithGoogle { GoogleToken.Unavailable }
+        assertThat(form.state.value.failure).isEqualTo(AuthError.GOOGLE_UNAVAILABLE)
+        form.signInWithGoogle { GoogleToken.Failed }
+        assertThat(form.state.value.failure).isEqualTo(AuthError.UNKNOWN)
+        form.signInWithGoogle { GoogleToken.Ok("t") }
+        assertThat(form.state.value.failure).isEqualTo(AuthError.CREDENTIAL_CONFLICT)
+        assertThat(auth.user.value).isNull()
+    }
+
+    @Test
+    fun `구글 - 진행 중에는 다른 제출을 받지 않고, 끝나면 잠금이 풀린다`() = runBlocking {
+        val auth = FakeAuth()
+        val form = AuthFormModel(auth)
+        val gate = CompletableDeferred<Unit>()
+        val running = async { form.signInWithGoogle { gate.await(); GoogleToken.Ok("t") } }
+        while (!form.state.value.busy) kotlinx.coroutines.yield()
+        form.setEmail("a@b.co")
+        form.setPassword("secret")
+        form.submit() // 무시된다
+        form.signInWithGoogle { GoogleToken.Ok("second") } // 무시된다
+        gate.complete(Unit)
+        running.await()
+        assertThat(auth.calls).isEqualTo(listOf("google t"))
+        assertThat(form.state.value.busy).isFalse()
+    }
+
+    @Test
+    fun `구글 - 토큰 받는 중 예외가 나도 잠금이 풀린다`() = runBlocking {
+        val form = AuthFormModel(FakeAuth())
+        runCatching { form.signInWithGoogle { error("boom") } }
+        assertThat(form.state.value.busy).isFalse()
+        assertThat(form.state.value.failure).isEqualTo(AuthError.UNKNOWN)
     }
 }

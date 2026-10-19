@@ -75,6 +75,10 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
     implementation(libs.play.services.auth)
+    // 새 로그인 화면의 구글 로그인(Credential Manager, ADR 0011)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     implementation(libs.glide)
     implementation(libs.circleimageview)

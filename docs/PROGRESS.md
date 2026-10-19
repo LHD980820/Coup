@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -42,12 +42,17 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (Phase 3 (A) — 로그인·로비 UI)
+## 이번 단계 메모 (Phase 3 (A) — 구글 로그인)
+- Credential Manager(`GetSignInWithGoogleOption`) -> 구글 ID 토큰 -> Firebase `signInWithCredential`. 웹 클라이언트 ID가 기존 앱과 같아 **기존 구글 사용자는 같은 uid**로 들어오고 옛 기록을 이어받는다(에뮬레이터로 확인).
+- 코어 `AuthFormModel.signInWithGoogle` + `GoogleTokenSource`, 어댑터 `FirebaseAuthGateway.signInWithGoogle`, 앱 `CredentialManagerGoogleTokenSource`/`GoogleTokens`, 로그인 화면 버튼. 테스트: 코어 +5, 에뮬레이터 4, 앱 9.
+- **오너 작업 필요**: 새 패키지 `io.github.lhd980820.coup`의 서명 SHA-1·SHA-256을 Firebase에 등록하고 `google-services.json`을 다시 받을 것(지금은 옛 패키지에만 등록돼 있어 실기기에서 실패한다). ADR 0011.
+
+## 이전 단계 메모 (Phase 3 (A) — 로그인·로비 UI)
 - **코어 `:shell`**(순수 Kotlin, ADR 0010): `AuthFormModel`, `AccountSession`, `LobbyModel`, `WaitingRoomModel`, `GameLauncher`. 규칙이 켜진 메모리 Firestore(`FakeFirestore`, 이제 `:remote` testFixtures) 위에서 방 만들기 -> 입장 -> 준비 -> 시작 -> 3인 게임 -> 정산 -> 대기실 복귀까지 테스트.
 - **`:data`**: `FirebaseAuthGateway`(Auth 에뮬레이터 테스트 4개).
 - **앱**: `multiplayer/` — `LoginScreen`(로그인·가입·재설정), `ProfileCard`(닉네임 인라인 편집·로그아웃), `LobbyScreen`(목록·코드 입장), `CreateRoomScreen`(룰 선택기 재사용), `WaitingRoomScreen`(방장/게스트 컨트롤), `MultiplayerFlow`·`MultiplayerGame`(싱글플레이와 같은 `GameScreen` + 결과의 레이팅 변화), `ShellViewModel`, `Backend`(Firebase / 테스트용 가짜). 홈에 "멀티플레이" 버튼과 프로필 카드. ko/en 문구와 번역 검사.
 - 테스트가 찾은 제품 버그 2개(계정 준비 상태와 프로필을 따로 받아 로비가 안 열림, 방장의 명령 수신이 전송 오류 한 번에 멈춤)와 테스트 도구 버그 1개(`FakeFirestore` 비원자적 커밋)를 고쳤다 — ADR 0010.
-- 아직: 구글 로그인, 게임 중 뒤로 가기/재접속, 코드 공유, 랭킹·전적 화면.
+- 아직: 게임 중 뒤로 가기/재접속, 코드 공유, 랭킹·전적 화면. (구글 로그인은 다음 단계에서 추가)
 
 ## 이전 단계 메모 (Phase 3 (A) — Firebase 어댑터)
 - 새 모듈 `:data`(Android 라이브러리): `FirebaseDocumentStore`(배치·서버 읽기·구독·쿼리·트랜잭션), `FirestoreJson`(값 변환). 결정과 근거는 ADR 0009.
