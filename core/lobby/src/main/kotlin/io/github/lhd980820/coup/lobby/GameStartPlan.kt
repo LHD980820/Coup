@@ -59,6 +59,25 @@ public data class GameStartPlan(
     }
 
     public companion object {
+        /**
+         * 이미 시작된 게임을 방장 기기가 다시 열 때(앱 재시작 등). 좌석 순서는 복원한 게임 상태의 순서([order])를 따른다 —
+         * 진행 중에는 방의 좌석이 바뀔 수 없으므로(입장·퇴장·봇 변경 모두 대기 중에만) 방에서 이름·봇 설정을 그대로 가져온다.
+         * @throws IllegalArgumentException 방의 좌석과 게임의 좌석이 다를 때
+         */
+        public fun resume(room: Room, gameId: String, order: List<PlayerId>, seed: Long = 0): GameStartPlan {
+            val byId = room.seats.associateBy { it.id }
+            require(order.size == room.seats.size && order.all { it.value in byId }) { "the game's seats do not match the room" }
+            return GameStartPlan(
+                roomId = room.id,
+                gameId = gameId,
+                hostUid = room.hostUid,
+                seats = order.map { id -> byId.getValue(id.value).let { PlannedSeat(id, it.displayName, it.kind, it.botLevel, it.botStyle) } },
+                ruleSetConfig = room.ruleSetConfig,
+                seed = seed,
+                rated = room.isRated,
+            )
+        }
+
         public fun of(room: Room, gameId: String, seed: Long): GameStartPlan {
             val shuffled = room.seats.shuffled(Random(seed))
             return GameStartPlan(

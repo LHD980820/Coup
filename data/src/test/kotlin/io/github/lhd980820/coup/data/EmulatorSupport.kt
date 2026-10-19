@@ -112,6 +112,14 @@ internal suspend fun newUser(name: String): TestUser {
     return TestUser(user.uid, email, db)
 }
 
+/** 같은 계정으로 새 앱 인스턴스에서 다시 로그인한다(앱 재시작 흉내: 메모리 캐시도 비어 있다). */
+internal suspend fun signInAgain(user: TestUser): TestUser {
+    val (auth, db) = newApp("again")
+    val signed = checkNotNull(auth.signInWithEmailAndPassword(user.email, "secret-123").await().user)
+    check(signed.uid == user.uid)
+    return TestUser(signed.uid, user.email, db)
+}
+
 /**
  * 에뮬레이터 테스트 본문을 실행한다. 테스트 클래스는 `@LooperMode(INSTRUMENTATION_TEST)`를 써야 한다 — 메인 루퍼가 별도 스레드에서
  * **실제 시간으로** 돌아서(기기의 계측 테스트와 같다) Firebase 콜백·지연이 그대로 동작한다. 기본(PAUSED) 모드의 가상 시계에서는

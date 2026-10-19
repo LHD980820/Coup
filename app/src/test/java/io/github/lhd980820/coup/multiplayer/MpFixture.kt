@@ -74,7 +74,7 @@ internal class FakeAuth(private val accounts: MutableMap<String, String> = mutab
 }
 
 /** 규칙을 강제하는 메모리 속 Firestore 위에서 앱의 서버 쪽 조립을 흉내 낸다. */
-internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth) : Backend {
+internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth, private val hostLostAfter: kotlin.time.Duration = kotlin.time.Duration.parse("2s")) : Backend {
     private val registry = BuiltinRules.registry()
 
     /** 로그인한 사용자의 저장소를 감싼다(느린 서버·네트워크 오류 흉내). */
@@ -87,7 +87,10 @@ internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth) :
             account = AccountSession(FirestoreUserRepository(store, user.uid, user.email), user.email, "player", scope),
             rooms = RoomService(FirestoreRoomStore(store, user.uid), registry, ClientInfo(10, registry), Clock.System),
             registry = registry,
-            launcher = FirestoreGameLauncher(store, user.uid, GameEngines.create(), scope, joinPollMillis = 20),
+            launcher = FirestoreGameLauncher(
+                store, user.uid, GameEngines.create(), scope, joinPollMillis = 20,
+                hostLostAfter = hostLostAfter, connectionTick = kotlin.time.Duration.parse("200ms"),
+            ),
         )
     }
 }
@@ -96,26 +99,32 @@ internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth) :
  * 화면 테스트의 한 세트: 가짜 서버, 화면 모델, 그리고 "다른 기기의 사용자"를 코어 서비스로 조작하는 도구.
  * 게임·세션 코루틴은 메인 루퍼와 무관한 범위에서 돈다(Robolectric의 일시정지 루퍼에 막히지 않게).
  */
-internal class MpFixture {
+internal class MpFixture(
+    val fs: FakeFirestore = FakeFirestore(),
+    val auth: FakeAuth = FakeAuth(),
+    val activeRooms: ActiveRoomStore = InMemoryActiveRoomStore(),
+) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val fs = FakeFirestore()
-    val auth = FakeAuth()
     val backend = FakeBackend(fs, auth)
     val game = GameViewModel(scope = scope)
-    val shell = ShellViewModel(backend, game, scope)
+    val shell = ShellViewModel(backend, game, scope, activeRooms)
+
+    /** 앱 재시작: 서버와 로그인 상태, 기기에 저장한 방은 그대로이고 화면 모델과 세션은 새로 만든다. 옛 것은 [close]로 끝낸다. */
+    fun restart(): MpFixture = MpFixture(fs, auth, activeRooms)
     private val registry = BuiltinRules.registry()
 
     fun close() = scope.cancel()
 
     // ---- 다른 기기의 사용자(코어 서비스로 조작) ----------------------------------------------------
 
-    inner class Remote(val email: String, val nickname: String) {
+    /** 다른 기기. [device]를 취소하면 그 기기의 앱이 꺼진 것과 같다. */
+    inner class Remote(val email: String, val nickname: String, val device: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)) {
         val uid = FakeAuth.uidOf(email)
         private val store = fs.storeFor(uid, email)
         val lobbyUser = LobbyUser(uid, nickname)
         val rooms = RoomService(FirestoreRoomStore(store, uid), registry, ClientInfo(10, registry), Clock.System)
         val account = AccountSession(FirestoreUserRepository(store, uid, email), email, "player", scope)
-        val launcher = FirestoreGameLauncher(store, uid, GameEngines.create(), scope, joinPollMillis = 20)
+        val launcher = FirestoreGameLauncher(store, uid, GameEngines.create(), device, joinPollMillis = 20)
 
         suspend fun signUp() = account.start()
 
@@ -125,7 +134,7 @@ internal class MpFixture {
             (rooms.createRoom(lobbyUser, title, io.github.lhd980820.coup.lobby.Visibility.PUBLIC, max, BuiltinRules.classicConfig()) as RoomResult.Ok).value
     }
 
-    fun remote(email: String, nickname: String) = Remote(email, nickname)
+    fun remote(email: String, nickname: String, device: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)) = Remote(email, nickname, device)
 }
 
 /** 읽기를 [gate]가 열릴 때까지 붙잡고, [fail]이면 실패시킨다. */

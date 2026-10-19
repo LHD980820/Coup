@@ -51,8 +51,11 @@ class Fixture(private val scope: CoroutineScope) {
     /** 프로필까지 만든 계정(정산 게이트·결과 반영에 필요). */
     suspend fun signedUp(uid: String): AccountSession = account(uid).also { it.start() }
 
-    fun launcher(uid: String, store: DocumentStore = store(uid)): GameLauncher =
+    fun launcher(uid: String, store: DocumentStore = store(uid), scope: CoroutineScope = this.scope): GameLauncher =
         FirestoreGameLauncher(store, uid, GameEngines.create(), scope, joinPollMillis = 20, joinGiveUpMillis = 5_000)
+
+    /** 기기 하나의 수명(프로세스). 취소하면 그 기기의 세션·구독이 모두 멈춘다(앱 종료 흉내). */
+    fun device(): CoroutineScope = CoroutineScope(scope.coroutineContext + kotlinx.coroutines.SupervisorJob(scope.coroutineContext[kotlinx.coroutines.Job]))
 
     fun waitingRoom(roomId: String, uid: String, launcher: GameLauncher = launcher(uid), store: DocumentStore = store(uid)) =
         WaitingRoomModel(roomId, user(uid), roomService(uid, store), registry, launcher)

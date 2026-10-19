@@ -103,6 +103,9 @@ public class RoomService(
 
     public fun observe(roomId: String): Flow<Room?> = store.observe(roomId)
 
+    /** 방을 한 번 읽는다(없으면 null). 앱을 다시 켰을 때 "아직 그 방에 있는가"를 확인하는 데 쓴다. */
+    public suspend fun get(roomId: String): Room? = store.get(roomId)
+
     private fun newId(): String = buildString { repeat(ID_LENGTH) { append(ID_ALPHABET[random.nextInt(ID_ALPHABET.length)]) } }
 
     private companion object {

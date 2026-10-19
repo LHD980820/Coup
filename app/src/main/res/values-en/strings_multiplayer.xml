@@ -125,6 +125,10 @@
     <string name="mp_waiting_host">Waiting for the host to start…</string>
     <string name="mp_rules_readonly">Rules: %1$s</string>
 
+    <string name="mp_rejoin">Back to the game</string>
+    <string name="mp_connection_reconnecting">Connection is unstable. Reconnecting…</string>
+    <string name="mp_connection_host_lost">Lost connection to the host. You can continue when the host is back.</string>
+    <string name="mp_connection_leave">To the room</string>
     <string name="mp_result_rating">Rating %1$d (%2$+d)</string>
     <string name="mp_result_rating_pending">Updating your rating…</string>
     <string name="mp_result_rating_unrated">This game doesn\'t count toward ratings.</string>

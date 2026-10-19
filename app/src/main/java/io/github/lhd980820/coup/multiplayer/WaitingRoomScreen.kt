@@ -66,6 +66,7 @@ internal object WaitingTags {
     fun seat(id: String) = "room_seat_$id"
     fun kick(id: String) = "room_kick_$id"
     const val EMPTY_SEAT = "room_empty_seat"
+    const val REJOIN = "room_rejoin"
 }
 
 /**
@@ -115,6 +116,12 @@ internal fun WaitingRoomScreen(model: WaitingRoomModel, onEvent: (WaitingRoomEve
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(WaitingTags.PROBLEM),
                 )
+            }
+            // 진행 중인 게임이 있는데 게임 화면 밖에 있다(방장과 끊겨 나왔거나, 들어가다 실패했다) -> 다시 들어간다
+            if (s.gameInProgress && !s.launching) {
+                Button(onClick = { scope.launch { model.rejoin() } }, modifier = Modifier.fillMaxWidth().testTag(WaitingTags.REJOIN)) {
+                    Text(stringResource(R.string.mp_rejoin))
+                }
             }
             if (s.launching) {
                 Text(stringResource(R.string.mp_launching), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(WaitingTags.LAUNCHING))

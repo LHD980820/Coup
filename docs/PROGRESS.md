@@ -9,7 +9,7 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요), 재접속 ✅(ADR 0012) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4~7 | ⬜ | |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -42,7 +42,13 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (Phase 3 (A) — 구글 로그인)
+## 이번 단계 메모 (Phase 3 (A) — 재접속)
+- 방장 복구(권한자 백업에서 `resumeHost`), 게스트 재입장(대기실이 진행 중인 게임으로 이어 줌, "게임으로 돌아가기"), 앱 재시작 시 기억한 방으로 복귀, 연결 배너, 뒤로 가기 = 기권 확인.
+- 런타임 끊김 내성: 방장 게시 실패 시 최신 상태 다시 게시(결과 기록도 재시도), 게스트 구독이 끊기면 다시 구독.
+- 테스트가 찾은 제품 버그 3개(초기화 순서 NPE로 게스트 화면 멈춤, "여는 중" 해제 순서, 결과 완료 표시 순서)를 고쳤다. 실제 규칙 위 복구는 에뮬레이터로 확인. ADR 0012.
+- 아직: 방장 이전 없음(방장이 안 돌아오면 그 판은 끝나지 않음), 버려진 방 정리는 서버(Phase 7).
+
+## 이전 단계 메모 (Phase 3 (A) — 구글 로그인)
 - Credential Manager(`GetSignInWithGoogleOption`) -> 구글 ID 토큰 -> Firebase `signInWithCredential`. 웹 클라이언트 ID가 기존 앱과 같아 **기존 구글 사용자는 같은 uid**로 들어오고 옛 기록을 이어받는다(에뮬레이터로 확인).
 - 코어 `AuthFormModel.signInWithGoogle` + `GoogleTokenSource`, 어댑터 `FirebaseAuthGateway.signInWithGoogle`, 앱 `CredentialManagerGoogleTokenSource`/`GoogleTokens`, 로그인 화면 버튼. 테스트: 코어 +5, 에뮬레이터 4, 앱 9.
 - **오너 작업 필요**: 새 패키지 `io.github.lhd980820.coup`의 서명 SHA-1·SHA-256을 Firebase에 등록하고 `google-services.json`을 다시 받을 것(지금은 옛 패키지에만 등록돼 있어 실기기에서 실패한다). ADR 0011.

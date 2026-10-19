@@ -9,7 +9,9 @@ import io.github.lhd980820.coup.account.NicknameError
 import io.github.lhd980820.coup.account.UserProfile
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.lobby.LobbyUser
+import io.github.lhd980820.coup.lobby.RoomStatus
 import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.runtime.transport.TransportException
 import io.github.lhd980820.coup.shell.account.AccountState
 import io.github.lhd980820.coup.shell.auth.AuthFormModel
 import io.github.lhd980820.coup.shell.lobby.LobbyModel
@@ -41,6 +43,7 @@ internal class ShellViewModel(
     private val backend: Backend,
     private val game: GameViewModel,
     scope: CoroutineScope? = null,
+    private val activeRooms: ActiveRoomStore = InMemoryActiveRoomStore(),
 ) : ViewModel() {
     private val scope: CoroutineScope = scope ?: viewModelScope
 
@@ -134,12 +137,30 @@ internal class ShellViewModel(
 
     // ---- 화면 이동 ----------------------------------------------------------------------------
 
-    /** 홈에서 멀티플레이로 들어왔다. */
+    /**
+     * 홈에서 멀티플레이로 들어왔다. 지난번에 방에 있다가 앱이 꺼졌다면(기기에 남은 방) 그 방이 아직 있고 내가 앉아 있을 때 그 방으로 돌아간다 —
+     * 방이 진행 중이면 대기실 모델이 게임을 이어 준다(방장은 복구, 게스트는 다시 입장).
+     */
     fun openLobby() {
         val s = services ?: return
         val nickname = profile?.nickname ?: return
-        if (lobby == null) lobby = LobbyModel(s.rooms, LobbyUser(s.user.uid, nickname))
-        if (room == null) screen = MultiScreen.LOBBY
+        val firstOpen = lobby == null
+        if (firstOpen) lobby = LobbyModel(s.rooms, LobbyUser(s.user.uid, nickname))
+        if (room == null && multiGame == null) screen = MultiScreen.LOBBY
+        val saved = activeRooms.get(s.user.uid)
+        if (firstOpen && saved != null && room == null) {
+            signedInScope?.launch {
+                val stillThere = try {
+                    s.rooms.get(saved)?.takeIf { r -> r.status != RoomStatus.CLOSED && r.seats.any { it.id == s.user.uid } }
+                } catch (e: TransportException) {
+                    null // 지금은 확인할 수 없다 — 기억은 지우지 않고 로비를 보여 준다(다음에 다시 시도)
+                }
+                when {
+                    stillThere != null -> if (room == null && services === s) enterRoom(saved)
+                    else -> if (services === s) activeRooms.set(s.user.uid, null)
+                }
+            }
+        }
     }
 
     fun openCreate() {
@@ -159,6 +180,7 @@ internal class ShellViewModel(
         val nickname = profile?.nickname ?: return
         room = WaitingRoomModel(roomId, LobbyUser(s.user.uid, nickname), s.rooms, s.registry, s.launcher)
         screen = MultiScreen.ROOM
+        activeRooms.set(s.user.uid, roomId)
     }
 
     /** 대기실 모델이 알린 일을 처리한다(화면이 [WaitingRoomModel.events]를 모아서 넘긴다). */
@@ -172,6 +194,7 @@ internal class ShellViewModel(
     }
 
     private fun leaveRoomScreen(why: RoomNotice?) {
+        services?.let { activeRooms.set(it.user.uid, null) }
         room = null
         notice = why
         screen = MultiScreen.LOBBY

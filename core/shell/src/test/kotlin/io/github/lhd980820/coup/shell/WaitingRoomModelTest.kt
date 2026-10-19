@@ -155,6 +155,7 @@ class WaitingRoomModelTest {
         val failing = object : GameLauncher {
             override suspend fun host(plan: GameStartPlan): GameSession = throw TransportException("offline")
             override suspend fun join(room: Room, me: PlayerId): GameSession = error("unused")
+            override suspend fun resumeHost(room: Room): GameSession? = error("unused")
         }
         val host = f.waitingRoom(room.id, "host", launcher = failing)
         val guest = f.waitingRoom(room.id, "a")

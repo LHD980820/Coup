@@ -105,6 +105,7 @@ internal fun MultiplayerGame(shell: ShellViewModel, game: GameViewModel, modifie
         modifier = modifier,
         resultExtra = { RatingNote(shell) },
         playAgainLabel = R.string.mp_result_to_room,
+        backConcedes = true,
     )
 }
 

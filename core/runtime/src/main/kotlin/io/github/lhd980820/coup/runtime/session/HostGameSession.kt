@@ -40,6 +40,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -102,6 +104,11 @@ public class HostGameSession(
     private val authority: GameAuthority
     private var intake: Job? = null
     private var heartbeat: Job? = null
+    private var republish: Job? = null
+    private val publishLock = Mutex()
+
+    @Volatile
+    private var latest: Delivery? = null
     private var finished = false
 
     override val gameId: String = initialState.gameId
@@ -202,20 +209,44 @@ public class HostGameSession(
             spectator = envelope(Viewer.Spectator),
             authorityBackup = EngineJson.encodeState(state),
         )
-        try {
-            transport.publish(gameId, publication)
-            if (state.isOver && !finished) {
-                finished = true
-                transport.finish(gameId, resultOf(state))
+        val delivery = Delivery(publication, if (state.isOver) resultOf(state) else null)
+        republish?.cancel()
+        latest = delivery
+        if (deliver(delivery)) {
+            if (_connection.value == ConnectionState.RECONNECTING) _connection.value = ConnectionState.CONNECTED
+            return
+        }
+        // 게시하지 못했다. 다음 상태 변경을 기다리면 안 된다 — 모두가 이 상태를 보고 움직여야 하는 경우(게스트 차례) 영영 멈춘다.
+        // 최신 상태를 성공할 때까지 다시 게시한다. 그사이 새 상태가 오면 그것이 이 일을 넘겨받는다.
+        _connection.value = ConnectionState.RECONNECTING
+        republish = scope.launch {
+            while (latest === delivery) {
+                delay(retryInterval)
+                if (latest === delivery && deliver(delivery)) {
+                    _connection.value = ConnectionState.CONNECTED
+                    return@launch
+                }
             }
+        }
+    }
+
+    /** 게시 한 건(+ 끝난 게임이면 결과). 한 번에 하나씩만 보낸다 — 옛 게시가 새 게시 뒤에 도착해 뷰를 되돌리지 않게. */
+    private class Delivery(val publication: Publication, val result: GameResultRecord?)
+
+    private suspend fun deliver(delivery: Delivery): Boolean = publishLock.withLock {
+        if (latest !== delivery) return@withLock true // 이미 더 새 상태가 있다(그쪽이 보낸다)
+        try {
+            transport.publish(gameId, delivery.publication)
+            if (delivery.result != null && !finished) {
+                transport.finish(gameId, delivery.result)
+                finished = true // 결과를 실제로 쓴 뒤에만(실패하면 다시 게시할 때 다시 쓴다)
+            }
+            true
         } catch (e: CancellationException) {
             throw e
         } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-            // 게스트는 다음 갱신(전체 뷰를 담고 있다)으로 따라잡는다. 권한자의 상태는 영향받지 않는다.
-            _connection.value = ConnectionState.RECONNECTING
-            return
+            false
         }
-        if (_connection.value == ConnectionState.RECONNECTING) _connection.value = ConnectionState.CONNECTED
     }
 
     private fun resultOf(state: GameState): GameResultRecord {
@@ -241,6 +272,7 @@ public class HostGameSession(
     override fun close() {
         intake?.cancel()
         heartbeat?.cancel()
+        republish?.cancel()
         authority.stop()
         _connection.value = ConnectionState.CLOSED
     }

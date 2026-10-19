@@ -2,6 +2,7 @@ package io.github.lhd980820.coup.shell.lobby
 
 import io.github.lhd980820.coup.engine.core.GameEngine
 import io.github.lhd980820.coup.engine.model.PlayerId
+import io.github.lhd980820.coup.engine.serialization.EngineJson
 import io.github.lhd980820.coup.lobby.GameStartPlan
 import io.github.lhd980820.coup.lobby.Room
 import io.github.lhd980820.coup.lobby.SeatKind
@@ -18,6 +19,12 @@ import io.github.lhd980820.coup.runtime.transport.TransportException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import io.github.lhd980820.coup.runtime.SeatKind as RuntimeSeatKind
 
 /** 방에서 게임으로 넘어가는 다리: 방장은 게임을 열고, 게스트는 방장이 연 게임에 붙는다. 실패는 [TransportException]. */
@@ -25,8 +32,14 @@ public interface GameLauncher {
     /** 방장: 게임 문서를 만들고 권위 세션을 연다. */
     public suspend fun host(plan: GameStartPlan): GameSession
 
-    /** 게스트: 방장이 게임을 열 때까지 기다렸다가 내 좌석 뷰를 구독하는 세션을 연다. */
+    /** 게스트: 방장이 게임을 열 때까지 기다렸다가 내 좌석 뷰를 구독하는 세션을 연다. 진행 중인 게임에 다시 들어올 때도 같다. */
     public suspend fun join(room: Room, me: PlayerId): GameSession
+
+    /**
+     * 방장: 진행 중인 게임을 다시 연다(앱 재시작·프로세스 종료 뒤). 마지막으로 게시한 상태(권한자 백업)에서 이어 간다.
+     * 게임이 이미 끝났으면(결과를 기록했으면) null — 이어 갈 것이 없다.
+     */
+    public suspend fun resumeHost(room: Room): GameSession?
 }
 
 /**
@@ -45,8 +58,11 @@ public class FirestoreGameLauncher(
     private val timeoutPolicy: TimeoutPolicy = TimeoutPolicy.standard(),
     private val joinPollMillis: Long = 500,
     private val joinGiveUpMillis: Long = 30_000,
+    hostLostAfter: Duration = 30.seconds,
+    connectionTick: Duration = 5.seconds,
+    private val ackTimeout: Duration = 10.seconds,
 ) : GameLauncher {
-    private val transport = FirestoreGameTransport(store, clock)
+    private val transport = FirestoreGameTransport(store, clock, hostLostAfter = hostLostAfter, connectionTick = connectionTick)
 
     override suspend fun host(plan: GameStartPlan): GameSession {
         transport.createGame(plan)
@@ -59,8 +75,33 @@ public class FirestoreGameLauncher(
         val info = room.seats.associate {
             PlayerId(it.id) to SeatInfo(it.displayName, if (it.kind == SeatKind.BOT) RuntimeSeatKind.AI else RuntimeSeatKind.REMOTE_HUMAN)
         }
-        return RemoteGameSession(gameId, me, transport.guest(uid), info, scope)
+        return RemoteGameSession(gameId, me, transport.guest(uid), info, scope, ackTimeout = ackTimeout)
     }
+
+    override suspend fun resumeHost(room: Room): GameSession? {
+        val gameId = room.gameId ?: throw TransportException("the room has no game")
+        val game = store.get(FirestoreSchema.game(gameId)) ?: throw TransportException("the game does not exist")
+        if (game.string(FirestoreSchema.Game.STATUS) == FirestoreSchema.GameStatus.FINISHED) return null
+        val backup = store.get(FirestoreSchema.authority(gameId))?.string(FirestoreSchema.Authority.BACKUP_JSON)
+            ?: throw TransportException("no authority backup for $gameId")
+        val state = try {
+            EngineJson.decodeState(backup)
+        } catch (e: SerializationException) {
+            throw TransportException("undecodable authority backup", e)
+        } catch (e: IllegalArgumentException) {
+            throw TransportException("undecodable authority backup", e)
+        }
+        if (state.gameId != gameId) throw TransportException("the backup belongs to another game")
+        val plan = try {
+            GameStartPlan.resume(room, gameId, state.seats)
+        } catch (e: IllegalArgumentException) {
+            throw TransportException("the room no longer matches the game", e)
+        }
+        // 백업은 게스트에게 게시한 마지막 상태와 같다(같은 배치로 쓴다). 그 뒤 방장 기기에서만 일어난 일은 아무도 보지 못했으므로 잃어도 된다.
+        return HostGameSession(engine, state, plan.hostSeats(), transport.host, timeoutPolicy, clock, scope)
+    }
+
+    private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
     private suspend fun waitForGame(gameId: String) {
         val deadline = clock.nowMillis() + joinGiveUpMillis

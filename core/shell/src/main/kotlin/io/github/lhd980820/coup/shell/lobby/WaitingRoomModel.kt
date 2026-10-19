@@ -60,8 +60,10 @@ public data class WaitingRoomUiState(
     val canStart: Boolean,
     /** 요청 처리 중(버튼 잠금). */
     val busy: Boolean = false,
-    /** 게임을 여는 중(방장: 문서 생성, 게스트: 방장을 기다리는 중). */
+    /** 게임을 여는 중(방장: 문서 생성·복구, 게스트: 방장을 기다리는 중). */
     val launching: Boolean = false,
+    /** 내가 앉은 게임이 진행 중이다(게임 화면을 나왔거나 연결이 끊겼다면 [WaitingRoomModel.rejoin]으로 돌아간다). */
+    val gameInProgress: Boolean = false,
     val problem: LobbyProblem? = null,
 )
 
@@ -109,6 +111,13 @@ public class WaitingRoomModel(
     @Volatile
     private var busy = false
 
+    /** 방장이 지금 게임을 시작하는 중이다(그 사이 방이 PLAYING으로 보여도 "복구"로 착각하지 않게). */
+    @Volatile
+    private var starting = false
+
+    @Volatile
+    private var lastRoom: Room? = null
+
     /** 화면이 보이는 동안 방을 구독한다. 방이 닫히거나 내가 나가면 끝난다. */
     public suspend fun run() {
         coroutineScope {
@@ -133,13 +142,16 @@ public class WaitingRoomModel(
                 }
                 .collect { room ->
                     if (room == null) return@collect
+                    lastRoom = room
                     _state.update { render(room, it) }
-                    // 게스트: 방장이 게임을 열면(방이 PLAYING) 같이 들어간다
+                    // 진행 중인 게임이 있으면 들어간다: 게스트는 방장이 게임을 열었을 때와 다시 들어올 때(앱 재시작) 모두,
+                    // 방장은 앱을 다시 켜서 방에 돌아왔을 때(권한자 백업에서 복구). 방장이 막 시작하는 중이면 start()가 맡는다.
                     val gameId = room.gameId
                     val seated = room.seats.any { it.id == me.uid }
-                    if (seated && room.status == RoomStatus.PLAYING && gameId != null && room.hostUid != me.uid && handledGameId != gameId) {
+                    val isHost = room.hostUid == me.uid
+                    if (seated && room.status == RoomStatus.PLAYING && gameId != null && handledGameId != gameId && !(isHost && starting)) {
                         handledGameId = gameId
-                        launch { joinGame(room, gameId) }
+                        launch { enterGame(room, gameId) }
                     }
                 }
         }
@@ -176,6 +188,7 @@ public class WaitingRoomModel(
             canStart = isHost && blockers.isEmpty(),
             busy = previous?.busy ?: false,
             launching = previous?.launching ?: false,
+            gameInProgress = room.status == RoomStatus.PLAYING && room.gameId != null && room.seats.any { it.id == me.uid },
             problem = previous?.problem,
         )
     }
@@ -219,6 +232,7 @@ public class WaitingRoomModel(
     public suspend fun start() {
         if (busy) return
         setBusy(true, launching = true)
+        starting = true
         try {
             when (val started = service.start(roomId, me.uid)) {
                 is RoomResult.Err -> report(LobbyProblem.Room(started.error))
@@ -241,8 +255,21 @@ public class WaitingRoomModel(
         } catch (e: TransportException) {
             report(LobbyProblem.Network)
         } finally {
+            starting = false
             setBusy(false, launching = false)
         }
+    }
+
+    /**
+     * 진행 중인 게임으로 다시 들어간다(게임 화면을 나왔거나, 방장과 연결이 끊겼다가 돌아왔을 때). 방장이면 마지막 게시 상태에서 복구한다.
+     * 진행 중인 게임이 없으면 아무 일도 하지 않는다.
+     */
+    public suspend fun rejoin() {
+        val room = lastRoom ?: return
+        val gameId = room.gameId ?: return
+        if (room.status != RoomStatus.PLAYING || room.seats.none { it.id == me.uid } || _state.value?.launching == true) return
+        handledGameId = gameId
+        enterGame(room, gameId)
     }
 
     /** 게임 화면을 닫고 대기실로 돌아왔다. 방장은 방을 다시 대기 상태로 돌려 다음 판을 준비한다(게스트는 다시 준비해야 한다). */
@@ -259,18 +286,32 @@ public class WaitingRoomModel(
         }
     }
 
-    private suspend fun joinGame(room: Room, gameId: String) {
+    private suspend fun enterGame(room: Room, gameId: String) {
         setBusy(busy, launching = true)
+        val session: GameSession?
         try {
-            val session = launcher.join(room, PlayerId(me.uid))
-            _events.send(WaitingRoomEvent.GameStarted(session, gameId))
+            session = if (room.hostUid == me.uid) launcher.resumeHost(room) else launcher.join(room, PlayerId(me.uid))
         } catch (e: CancellationException) {
             throw e
         } catch (e: TransportException) {
-            handledGameId = null // 방이 다시 갱신되면 다시 시도한다
+            handledGameId = null // 방이 다시 갱신되거나 "게임으로 돌아가기"를 누르면 다시 시도한다
             report(LobbyProblem.Network)
+            return
         } finally {
+            // 알리기 전에 푼다 — 받는 쪽이 곧바로 다시 들어가기를 눌러도 "여는 중"에 막히지 않게
             setBusy(busy, launching = false)
+        }
+        if (session == null) {
+            // 방장: 게임은 이미 끝나 결과까지 기록됐다(대기실로 돌리기 전에 앱이 꺼졌다) -> 지금 방을 대기 상태로 돌린다
+            try {
+                service.endGame(roomId, me.uid).let { if (it is RoomResult.Err) report(LobbyProblem.Room(it.error)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: TransportException) {
+                report(LobbyProblem.Network)
+            }
+        } else {
+            _events.send(WaitingRoomEvent.GameStarted(session, gameId))
         }
     }
 

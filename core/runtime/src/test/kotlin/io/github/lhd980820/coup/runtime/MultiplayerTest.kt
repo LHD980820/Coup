@@ -394,6 +394,78 @@ class MultiplayerTest {
     }
 
     @Test
+    fun `게시가 실패하면 상태가 더 바뀌지 않아도 다시 게시해서 게스트가 따라잡는다`() = runTest {
+        val inner = InMemoryTransport()
+        var failures = 2
+        val flaky = object : GameTransport.Host by inner.host {
+            override suspend fun publish(gameId: String, publication: Publication) {
+                if (publication.version == 1L && failures > 0) { failures--; throw TransportException("write failed") }
+                inner.host.publish(gameId, publication)
+            }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(0))
+        val seats = listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트"))
+        val host = HostGameSession(engine, engine.newGame(setup), seats, flaky, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope)
+        val info = seats.associate { it.id to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
+        val guest = RemoteGameSession("mp", pid(1), inner.guest(pid(1).value), info, backgroundScope)
+        runCurrent()
+        host.submit(Command.DeclareAction(pid(0), ActionId("income"))) // v1: 이제 게스트 차례 — 게스트가 v1을 못 받으면 아무도 움직이지 않는다
+        runCurrent()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.RECONNECTING)
+        runUntil { guest.snapshot.value?.view?.version == 1L }
+        assertThat(guest.snapshot.value!!.view.myDecision).isNotNull()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.CONNECTED)
+        assertThat(failures).isEqualTo(0)
+    }
+
+    @Test
+    fun `결과 기록이 실패해도 다시 시도해서 결과가 남는다`() = runTest {
+        val inner = InMemoryTransport()
+        var failures = 1
+        val flaky = object : GameTransport.Host by inner.host {
+            override suspend fun finish(gameId: String, result: GameResultRecord) {
+                if (failures > 0) { failures--; throw TransportException("write failed") }
+                inner.host.finish(gameId, result)
+            }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(0))
+        val host = HostGameSession(
+            engine, engine.newGame(setup), listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트")),
+            flaky, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope,
+        )
+        runCurrent()
+        host.concede() // 방장이 기권하면 바로 끝난다
+        runUntil { inner.result != null }
+        assertThat(failures).isEqualTo(0)
+        assertThat(inner.result!!.ranking.first()).isEqualTo(pid(1))
+    }
+
+    @Test
+    fun `게스트의 뷰 구독이 오류로 끊겨도 다시 구독해서 계속 받는다`() = runTest {
+        val inner = InMemoryTransport()
+        var broken = 1
+        val guestTransport = object : GameTransport.Guest by inner.guest(pid(1).value) {
+            override fun observeMyView(gameId: String, me: PlayerId): kotlinx.coroutines.flow.Flow<io.github.lhd980820.coup.runtime.transport.ViewEnvelope> =
+                if (broken > 0) {
+                    broken--
+                    kotlinx.coroutines.flow.flow { throw TransportException("listener failed") }
+                } else {
+                    inner.guest(pid(1).value).observeMyView(gameId, me)
+                }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(1))
+        val seats = listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트"))
+        HostGameSession(engine, engine.newGame(setup), seats, inner.host, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope)
+        val info = seats.associate { it.id to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
+        val guest = RemoteGameSession("mp", pid(1), guestTransport, info, backgroundScope)
+        runCurrent()
+        assertThat(guest.connection.value).isEqualTo(ConnectionState.RECONNECTING)
+        runUntil { guest.snapshot.value?.view?.myDecision != null }
+        assertThat(broken).isEqualTo(0)
+        assertThat(guest.submit(Command.DeclareAction(pid(1), ActionId("income")))).isEqualTo(SubmitResult.Ok)
+    }
+
+    @Test
     fun `호스트 구성 검증`() = runTest {
         val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1)
         val state = engine.newGame(setup)

@@ -22,6 +22,7 @@ import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
 import io.github.lhd980820.coup.multiplayer.FirebaseBackend
 import io.github.lhd980820.coup.multiplayer.MultiplayerFlow
 import io.github.lhd980820.coup.multiplayer.MultiplayerGame
+import io.github.lhd980820.coup.multiplayer.PrefsActiveRoomStore
 import io.github.lhd980820.coup.multiplayer.ShellViewModel
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
@@ -36,7 +37,7 @@ class SinglePlayerActivity : ComponentActivity() {
     }
 
     private val shell: ShellViewModel by viewModels {
-        viewModelFactory { initializer { ShellViewModel(FirebaseBackend(appVersion()), viewModel) } }
+        viewModelFactory { initializer { ShellViewModel(FirebaseBackend(appVersion()), viewModel, activeRooms = PrefsActiveRoomStore(applicationContext)) } }
     }
 
     /** 구글 로그인(Credential Manager). 웹 클라이언트 ID는 google-services 플러그인이 만든 리소스다(기존 앱과 같은 값). */

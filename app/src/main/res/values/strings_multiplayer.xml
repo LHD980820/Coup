@@ -130,6 +130,11 @@
     <string name="mp_waiting_host">방장이 시작하기를 기다리는 중…</string>
     <string name="mp_rules_readonly">규칙: %1$s</string>
 
+    <string name="mp_rejoin">게임으로 돌아가기</string>
+    <string name="mp_connection_reconnecting">연결이 불안정해요. 다시 연결하는 중…</string>
+    <string name="mp_connection_host_lost">방장과 연결이 끊겼어요. 방장이 돌아오면 이어서 할 수 있어요.</string>
+    <string name="mp_connection_leave">대기실로</string>
+
     <!-- 게임 결과 -->
     <string name="mp_result_rating">레이팅 %1$d (%2$+d)</string>
     <string name="mp_result_rating_pending">레이팅을 반영하는 중…</string>

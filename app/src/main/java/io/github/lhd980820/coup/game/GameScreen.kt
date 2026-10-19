@@ -1,6 +1,10 @@
 package io.github.lhd980820.coup.game
 
 import androidx.annotation.StringRes
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import io.github.lhd980820.coup.runtime.session.ConnectionState
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -80,6 +84,8 @@ internal object GameTags {
     const val RESULT = "result"
     const val RESULT_EXIT = "result_exit"
     const val RESULT_AGAIN = "result_again"
+    const val CONNECTION = "game_connection"
+    const val CONNECTION_LEAVE = "game_connection_leave"
     const val CONCEDE = "concede"
     const val CONCEDE_CONFIRM = "concede_confirm"
     const val WAITING = "waiting"
@@ -116,6 +122,8 @@ internal fun GameScreen(
     /** 결과 대화상자 맨 아래에 덧붙일 내용(멀티플레이의 레이팅 변화). */
     resultExtra: (@Composable () -> Unit)? = null,
     @StringRes playAgainLabel: Int = R.string.game_result_again,
+    /** 뒤로 가기를 기권 확인으로 받는다(멀티플레이: 화면을 그냥 닫으면 내 차례가 시간 초과로 흘러간다). 결과가 나온 뒤에는 [onExit]. */
+    backConcedes: Boolean = false,
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -127,6 +135,8 @@ internal fun GameScreen(
         }
     }
     var confirmConcede by remember { mutableStateOf(false) }
+    BackHandler(enabled = backConcedes && state.result == null) { confirmConcede = true }
+    BackHandler(enabled = backConcedes && state.result != null) { onExit() }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.fillMaxSize()) {
@@ -137,6 +147,7 @@ internal fun GameScreen(
                     LogList(state, texts)
                 }
                 guide?.let { CoachCard(it) }
+                ConnectionBanner(state.connection, onExit)
                 BannerCard(state, texts)
                 state.me?.let { MyArea(state, it, actions) }
                 DecisionPanel(state, texts, actions, guide?.expect)
@@ -190,6 +201,29 @@ internal fun GameScreen(
                 TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.RESULT_EXIT)) { Text(stringResource(R.string.game_result_exit)) }
             },
         )
+    }
+}
+
+// ---- 연결 상태 ----------------------------------------------------------------------------------
+
+/** 멀티플레이 연결 상태. 다시 연결 중이면 알리고, 방장과 끊겼으면 대기실로 나갈 수 있게 한다(방장이 돌아오면 "게임으로 돌아가기"로 다시 들어온다). */
+@Composable
+private fun ConnectionBanner(connection: ConnectionState, onLeave: () -> Unit) {
+    val message = when (connection) {
+        ConnectionState.RECONNECTING -> R.string.mp_connection_reconnecting
+        ConnectionState.HOST_LOST -> R.string.mp_connection_host_lost
+        ConnectionState.CONNECTED, ConnectionState.CLOSED -> return
+    }
+    Card(
+        Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.testTag(GameTags.CONNECTION),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(message), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            if (connection == ConnectionState.HOST_LOST) {
+                TextButton(onClick = onLeave, modifier = Modifier.testTag(GameTags.CONNECTION_LEAVE)) { Text(stringResource(R.string.mp_connection_leave)) }
+            }
+        }
     }
 }
 
