@@ -61,11 +61,13 @@ internal fun HomeScreen(
     profile: UserProfile? = null,
     onSaveNickname: suspend (String) -> NicknameError? = { null },
     onSignOut: () -> Unit = {},
+    onRanking: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null,
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(R.string.game_home_title), style = MaterialTheme.typography.displayMedium)
-            profile?.let { ProfileCard(it, onSaveNickname = onSaveNickname, onSignOut = onSignOut) }
+            profile?.let { ProfileCard(it, onSaveNickname = onSaveNickname, onSignOut = onSignOut, onRanking = onRanking, onHistory = onHistory) }
             Button(onClick = onSingle, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_SINGLE)) { Text(stringResource(R.string.game_home_single)) }
             onMultiplayer?.let {
                 Button(onClick = it, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_MULTI)) { Text(stringResource(R.string.mp_home_multiplayer)) }

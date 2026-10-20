@@ -82,9 +82,11 @@ internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth, p
 
     override fun open(user: AuthUser, scope: CoroutineScope): SignedIn {
         val store = wrapStore(fs.storeFor(user.uid, user.email))
+        val users = FirestoreUserRepository(store, user.uid, user.email)
         return SignedIn(
             user = user,
-            account = AccountSession(FirestoreUserRepository(store, user.uid, user.email), user.email, "player", scope),
+            account = AccountSession(users, user.email, "player", scope),
+            users = users,
             rooms = RoomService(FirestoreRoomStore(store, user.uid), registry, ClientInfo(10, registry), Clock.System),
             registry = registry,
             launcher = FirestoreGameLauncher(

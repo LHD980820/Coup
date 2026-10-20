@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
@@ -20,12 +21,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
 import io.github.lhd980820.coup.multiplayer.FirebaseBackend
+import io.github.lhd980820.coup.multiplayer.HistoryScreen
 import io.github.lhd980820.coup.multiplayer.MultiplayerFlow
 import io.github.lhd980820.coup.multiplayer.MultiplayerGame
 import io.github.lhd980820.coup.multiplayer.PrefsActiveRoomStore
+import io.github.lhd980820.coup.multiplayer.RankingScreen
 import io.github.lhd980820.coup.multiplayer.ShellViewModel
 import io.github.lhd980820.coup.presentation.GameController
 import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
+import io.github.lhd980820.coup.shell.stats.HistoryModel
+import io.github.lhd980820.coup.shell.stats.RankingModel
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 
 /**
@@ -55,7 +60,7 @@ class SinglePlayerActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { HOME, SETUP, TUTORIALS, MULTI }
+private enum class Screen { HOME, SETUP, TUTORIALS, MULTI, RANKING, HISTORY }
 
 /**
  * 새 UI 셸의 화면 흐름: 홈 -> (AI와 대전: 설정 -> 게임) | (튜토리얼: 목록 -> 과정). 게임 중이면(컨트롤러가 있으면) 게임 화면이 우선한다.
@@ -90,7 +95,27 @@ internal fun SinglePlayerFlow(
                 profile = shell?.profile,
                 onSaveNickname = { shell?.updateNickname(it) },
                 onSignOut = { shell?.signOut() },
+                onRanking = shell?.let { { screen = Screen.RANKING } },
+                onHistory = shell?.let { { screen = Screen.HISTORY } },
             )
+            Screen.RANKING -> {
+                val services = shell?.services
+                if (services != null) {
+                    val model = remember(services) { RankingModel(services.users, services.user.uid) }
+                    RankingScreen(model, services.user.uid, onBack = { screen = Screen.HOME }, modifier = modifier)
+                } else {
+                    screen = Screen.HOME // 로그아웃됐다
+                }
+            }
+            Screen.HISTORY -> {
+                val services = shell?.services
+                if (services != null) {
+                    val model = remember(services) { HistoryModel(services.users) }
+                    HistoryScreen(model, onBack = { screen = Screen.HOME }, modifier = modifier)
+                } else {
+                    screen = Screen.HOME
+                }
+            }
             Screen.MULTI -> if (shell != null) MultiplayerFlow(shell, onBack = { screen = Screen.HOME }, modifier = modifier, google = google) else screen = Screen.HOME
             Screen.SETUP -> SinglePlayerSetupScreen(onStart = viewModel::start, modifier = modifier)
             Screen.TUTORIALS -> TutorialListScreen(

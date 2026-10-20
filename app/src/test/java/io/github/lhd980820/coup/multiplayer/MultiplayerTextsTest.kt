@@ -2,6 +2,7 @@ package io.github.lhd980820.coup.multiplayer
 
 import android.content.Context
 import android.content.res.Configuration
+import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.account.NicknameError
 import io.github.lhd980820.coup.lobby.BotLevel
 import io.github.lhd980820.coup.lobby.BotStyle
@@ -68,4 +69,14 @@ class MultiplayerTextsTest {
 
     @Test
     fun `방에서 사라진 이유`() = RoomNotice.entries.forEach { check("notice $it", MultiplayerTexts.notice(it)) }
+
+    @Test
+    fun `랭킹·전적 문구`() {
+        listOf(
+            R.string.stats_ranking_open, R.string.stats_history_open, R.string.stats_ranking_title, R.string.stats_history_title,
+            R.string.stats_ranking_loading, R.string.stats_ranking_empty, R.string.stats_offline, R.string.stats_me_in_top, R.string.stats_me_below,
+            R.string.stats_me_unranked, R.string.stats_rank, R.string.stats_row_me, R.string.stats_row_record, R.string.stats_history_loading,
+            R.string.stats_history_empty, R.string.stats_history_summary, R.string.stats_history_net, R.string.stats_history_row, R.string.stats_history_delta_desc,
+        ).forEach { check(ko.resources.getResourceEntryName(it), it) }
+    }
 }

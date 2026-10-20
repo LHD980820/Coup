@@ -141,4 +141,25 @@
     <string name="mp_result_rating_unrated">이 판은 레이팅에 반영되지 않아요.</string>
     <string name="mp_result_rating_failed">레이팅 반영이 늦어지고 있어요. 다음에 접속할 때 반영돼요.</string>
     <string name="mp_result_to_room">대기실로</string>
+
+    <!-- 랭킹·전적 -->
+    <string name="stats_ranking_open">랭킹</string>
+    <string name="stats_history_open">내 전적</string>
+    <string name="stats_ranking_title">랭킹</string>
+    <string name="stats_history_title">내 전적</string>
+    <string name="stats_ranking_loading">랭킹을 불러오는 중…</string>
+    <string name="stats_ranking_empty">아직 랭킹이 없어요. 사람끼리 표준 규칙으로 한 판 하면 올라와요.</string>
+    <string name="stats_offline">연결이 불안정해요. 다시 불러오는 중…</string>
+    <string name="stats_me_in_top">내 순위 %1$d위 · 레이팅 %2$d</string>
+    <string name="stats_me_below">내 레이팅 %1$d · 상위 %2$d위 밖</string>
+    <string name="stats_me_unranked">아직 레이팅 게임을 하지 않았어요. 한 판 하면 순위가 생겨요.</string>
+    <string name="stats_rank">%1$d위</string>
+    <string name="stats_row_me">(나)</string>
+    <string name="stats_row_record">%1$d판 %2$d승</string>
+    <string name="stats_history_loading">전적을 불러오는 중…</string>
+    <string name="stats_history_empty">아직 레이팅 게임 기록이 없어요. 사람끼리 표준 규칙으로 한 판 하면 기록돼요.</string>
+    <string name="stats_history_summary">%1$d판 %2$d승 · 승률 %3$d%%</string>
+    <string name="stats_history_net">최근 %1$d경기 레이팅 변화 %2$+d</string>
+    <string name="stats_history_row">%1$d인전 · %2$d위</string>
+    <string name="stats_history_delta_desc">레이팅 %1$+d</string>
 </resources>

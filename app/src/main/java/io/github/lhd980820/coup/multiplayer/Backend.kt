@@ -23,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 internal class SignedIn(
     val user: AuthUser,
     val account: AccountSession,
+    val users: FirestoreUserRepository,
     val rooms: RoomService,
     val registry: RuleSetRegistry,
     val launcher: GameLauncher,
@@ -48,9 +49,11 @@ internal class FirebaseBackend(
     override fun open(user: AuthUser, scope: CoroutineScope): SignedIn {
         val store = FirebaseDocumentStore(db)
         val registry = BuiltinRules.registry()
+        val users = FirestoreUserRepository(store, user.uid, user.email)
         return SignedIn(
             user = user,
-            account = AccountSession(FirestoreUserRepository(store, user.uid, user.email), user.email, DEFAULT_NICKNAME, scope),
+            account = AccountSession(users, user.email, DEFAULT_NICKNAME, scope),
+            users = users,
             rooms = RoomService(FirestoreRoomStore(store, user.uid), registry, ClientInfo(appVersion, registry), Clock.System),
             registry = registry,
             launcher = FirestoreGameLauncher(store, user.uid, GameEngines.create(), scope),

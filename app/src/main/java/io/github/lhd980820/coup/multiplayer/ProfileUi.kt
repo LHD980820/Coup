@@ -33,6 +33,8 @@ internal object ProfileTags {
     const val CARD = "profile_card"
     const val EDIT = "profile_edit"
     const val SIGN_OUT = "profile_sign_out"
+    const val RANKING = "profile_ranking"
+    const val HISTORY = "profile_history"
     const val NICKNAME = "profile_nickname"
     const val SAVE = "profile_save"
     const val CANCEL = "profile_cancel"
@@ -48,6 +50,8 @@ internal fun ProfileCard(
     onSaveNickname: suspend (String) -> NicknameError?,
     onSignOut: () -> Unit,
     modifier: Modifier = Modifier,
+    onRanking: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null,
 ) {
     var editing by rememberSaveable { mutableStateOf(false) }
     var text by rememberSaveable(profile.nickname, editing) { mutableStateOf(profile.nickname) }
@@ -91,6 +95,12 @@ internal fun ProfileCard(
                     }
                 }
             } else {
+                if (onRanking != null || onHistory != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        onRanking?.let { TextButton(onClick = it, modifier = Modifier.testTag(ProfileTags.RANKING)) { Text(stringResource(R.string.stats_ranking_open)) } }
+                        onHistory?.let { TextButton(onClick = it, modifier = Modifier.testTag(ProfileTags.HISTORY)) { Text(stringResource(R.string.stats_history_open)) } }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { editing = true }, modifier = Modifier.testTag(ProfileTags.EDIT)) { Text(stringResource(R.string.mp_profile_edit)) }
                     TextButton(onClick = onSignOut, modifier = Modifier.testTag(ProfileTags.SIGN_OUT)) { Text(stringResource(R.string.mp_sign_out)) }

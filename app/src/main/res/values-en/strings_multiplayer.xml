@@ -134,4 +134,24 @@
     <string name="mp_result_rating_unrated">This game doesn\'t count toward ratings.</string>
     <string name="mp_result_rating_failed">Your rating update is delayed. It will apply next time you connect.</string>
     <string name="mp_result_to_room">Back to room</string>
+
+    <string name="stats_ranking_open">Ranking</string>
+    <string name="stats_history_open">My record</string>
+    <string name="stats_ranking_title">Ranking</string>
+    <string name="stats_history_title">My record</string>
+    <string name="stats_ranking_loading">Loading the ranking…</string>
+    <string name="stats_ranking_empty">No ranking yet. Play a standard-rules game against other people to get on it.</string>
+    <string name="stats_offline">Connection is unstable. Reloading…</string>
+    <string name="stats_me_in_top">Your rank: #%1$d · Rating %2$d</string>
+    <string name="stats_me_below">Your rating: %1$d · outside the top %2$d</string>
+    <string name="stats_me_unranked">You haven\'t played a rated game yet. Play one to get a rank.</string>
+    <string name="stats_rank">#%1$d</string>
+    <string name="stats_row_me">(you)</string>
+    <string name="stats_row_record">%1$d played, %2$d won</string>
+    <string name="stats_history_loading">Loading your record…</string>
+    <string name="stats_history_empty">No rated games yet. Play a standard-rules game against other people to get one.</string>
+    <string name="stats_history_summary">%1$d played, %2$d won · %3$d%% win rate</string>
+    <string name="stats_history_net">Last %1$d games: rating %2$+d</string>
+    <string name="stats_history_row">%1$d players · rank %2$d</string>
+    <string name="stats_history_delta_desc">Rating %1$+d</string>
 </resources>

@@ -27,6 +27,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
 import kotlin.random.Random
 
@@ -106,4 +107,23 @@ fun fixture(timeoutMillis: Long = 30_000, body: suspend CoroutineScope.(Fixture)
         scope.cancel()
     }
     uncaught.firstOrNull()?.let { throw AssertionError("범위 안에서 처리되지 않은 예외: $it", it) }
+}
+
+/** 구독이 [breakNext]일 때 한 번 오류로 끊기게 한다(네트워크 오류 흉내). 읽기·쓰기는 그대로. */
+class FlakyObserveStore(private val inner: DocumentStore) : DocumentStore by inner {
+    @Volatile
+    var breakNext = false
+
+    private fun <T> guard(flow: kotlinx.coroutines.flow.Flow<T>): kotlinx.coroutines.flow.Flow<T> = flow.map {
+        if (breakNext) {
+            breakNext = false
+            throw TransportException("listener failed")
+        }
+        it
+    }
+
+    override fun observe(path: String) = guard(inner.observe(path))
+    override fun observeWhere(collectionPath: String, field: String, value: String) = guard(inner.observeWhere(collectionPath, field, value))
+    override fun observeOrdered(collectionPath: String, orderBy: String, descending: Boolean, limit: Int) =
+        guard(inner.observeOrdered(collectionPath, orderBy, descending, limit))
 }
