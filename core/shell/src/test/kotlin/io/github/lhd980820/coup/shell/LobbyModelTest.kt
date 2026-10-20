@@ -110,4 +110,16 @@ class LobbyModelTest {
         withTimeout(5_000) { lobby.state.first { s -> s.rooms?.any { it.title == "새 방" } == true } }
         job.cancel()
     }
+
+    @Test
+    fun `공유 메시지를 통째로 붙여 넣어도 코드를 찾아 입장한다`() = fixture { f ->
+        listOf("host", "a").forEach { f.signedUp(it) }
+        val room = (f.roomService("host").createRoom(f.user("host"), "비밀", Visibility.PRIVATE, 4, f.classic) as RoomResult.Ok).value
+        val lobby = LobbyModel(f.roomService("a"), f.user("a"))
+        val message = "Coup 방 '비밀'에 들어오세요!\n참가 코드: ${room.joinCode!!.lowercase()}"
+        assertThat(lobby.isCodeComplete(message)).isTrue()
+        assertThat(lobby.isCodeComplete("그냥 아무 말이나 적었어요")).isFalse()
+        lobby.joinByCode(message)
+        assertThat(withTimeout(5_000) { lobby.events.first() }).isEqualTo(LobbyEvent.EnterRoom(room.id))
+    }
 }

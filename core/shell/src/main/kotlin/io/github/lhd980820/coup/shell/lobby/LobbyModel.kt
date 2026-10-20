@@ -90,9 +90,9 @@ public class LobbyModel(
         act { service.join(roomId, me) }
     }
 
-    /** 참가 코드로 입장한다. 코드는 대소문자·공백을 무시한다. */
+    /** 참가 코드로 입장한다. 코드는 대소문자·공백을 무시하고, 공유 메시지를 통째로 붙여 넣어도 코드를 찾아 쓴다. */
     public suspend fun joinByCode(code: String) {
-        act { service.joinByCode(me, code) }
+        act { service.joinByCode(me, JoinCodes.extract(code) ?: code) }
     }
 
     private suspend fun act(block: suspend () -> RoomResult<io.github.lhd980820.coup.lobby.Room>) {
@@ -116,7 +116,7 @@ public class LobbyModel(
     }
 
     /** 참가 코드 입력칸이 보내도 되는 모양인가. */
-    public fun isCodeComplete(input: String): Boolean = JoinCodes.isWellFormed(input)
+    public fun isCodeComplete(input: String): Boolean = JoinCodes.extract(input) != null
 
     private companion object {
         const val DEFAULT_REFRESH_MILLIS = 8_000L

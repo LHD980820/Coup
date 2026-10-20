@@ -162,4 +162,13 @@
     <string name="stats_history_net">최근 %1$d경기 레이팅 변화 %2$+d</string>
     <string name="stats_history_row">%1$d인전 · %2$d위</string>
     <string name="stats_history_delta_desc">레이팅 %1$+d</string>
+
+    <!-- 코드 공유 -->
+    <string name="mp_code_copy">복사</string>
+    <string name="mp_code_share">공유</string>
+    <string name="mp_code_copied">참가 코드를 복사했어요.</string>
+    <string name="mp_code_copy_failed">복사하지 못했어요. 코드를 직접 알려 주세요.</string>
+    <string name="mp_code_share_chooser">참가 코드 공유</string>
+    <string name="mp_code_share_message">Coup 방 \'%1$s\'에 들어오세요!\n참가 코드: %2$s</string>
+    <string name="mp_code_paste_hint">공유받은 메시지를 통째로 붙여 넣어도 돼요.</string>
 </resources>

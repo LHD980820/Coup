@@ -22,6 +22,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +69,9 @@ internal object WaitingTags {
     fun kick(id: String) = "room_kick_$id"
     const val EMPTY_SEAT = "room_empty_seat"
     const val REJOIN = "room_rejoin"
+    const val CODE_COPY = "room_code_copy"
+    const val CODE_SHARE = "room_code_share"
+    const val CODE_COPIED = "room_code_copied"
 }
 
 /**
@@ -91,7 +96,7 @@ internal fun WaitingRoomScreen(model: WaitingRoomModel, onEvent: (WaitingRoomEve
                 }
             }
             if (s.visibility == Visibility.PRIVATE && s.joinCode != null) {
-                Text(stringResource(R.string.mp_room_code, s.joinCode!!), style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag(WaitingTags.CODE))
+                JoinCodeRow(title = s.title, code = s.joinCode!!)
             }
             Text(
                 stringResource(if (s.rated) R.string.mp_room_rated else R.string.mp_room_unrated),
@@ -149,6 +154,36 @@ internal fun WaitingRoomScreen(model: WaitingRoomModel, onEvent: (WaitingRoomEve
                 if (s.myReady && !s.launching) {
                     Text(stringResource(R.string.mp_waiting_host), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag(WaitingTags.WAITING_HOST))
                 }
+            }
+        }
+    }
+}
+
+/** 비공개 방의 참가 코드와 복사·공유. 기기 밖으로 내보내는 일은 [CodeSharer]가 하고, 없으면 코드만 보인다. */
+@Composable
+private fun JoinCodeRow(title: String, code: String) {
+    val sharer = LocalCodeSharer.current
+    val label = stringResource(R.string.mp_code_label)
+    val message = stringResource(R.string.mp_code_share_message, title, code)
+    val chooser = stringResource(R.string.mp_code_share_chooser)
+    var copied by remember(code) { mutableStateOf<Boolean?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.mp_room_code, code), style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag(WaitingTags.CODE))
+        if (sharer != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { copied = sharer.copy(label, code) }, modifier = Modifier.testTag(WaitingTags.CODE_COPY)) {
+                    Text(stringResource(R.string.mp_code_copy))
+                }
+                OutlinedButton(onClick = { sharer.share(message, chooser) }, modifier = Modifier.testTag(WaitingTags.CODE_SHARE)) {
+                    Text(stringResource(R.string.mp_code_share))
+                }
+            }
+            copied?.let {
+                Text(
+                    stringResource(if (it) R.string.mp_code_copied else R.string.mp_code_copy_failed),
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(WaitingTags.CODE_COPIED),
+                )
             }
         }
     }

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,7 +20,9 @@ import io.github.lhd980820.coup.presentation.tutorial.TutorialLessons
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.lhd980820.coup.multiplayer.AndroidCodeSharer
 import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
+import io.github.lhd980820.coup.multiplayer.LocalCodeSharer
 import io.github.lhd980820.coup.multiplayer.FirebaseBackend
 import io.github.lhd980820.coup.multiplayer.HistoryScreen
 import io.github.lhd980820.coup.multiplayer.MultiplayerFlow
@@ -48,13 +51,17 @@ class SinglePlayerActivity : ComponentActivity() {
     /** 구글 로그인(Credential Manager). 웹 클라이언트 ID는 google-services 플러그인이 만든 리소스다(기존 앱과 같은 값). */
     private val google by lazy { CredentialManagerGoogleTokenSource(this, getString(R.string.default_web_client_id)) }
 
+    private val codeSharer by lazy { AndroidCodeSharer(this) }
+
     private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             CoupTheme {
+                CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
                 SinglePlayerFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google)
+                }
             }
         }
     }

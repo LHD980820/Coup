@@ -18,6 +18,7 @@ import io.github.lhd980820.coup.game.SinglePlayerFlow
 import io.github.lhd980820.coup.game.ShellTags
 import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.ui.theme.CoupTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -40,8 +41,12 @@ abstract class MpScreenTest {
         fx.close()
     }
 
-    internal fun show(google: GoogleTokenSource? = null) {
-        compose.setContent { CoupTheme { SinglePlayerFlow(fx.game, onExit = {}, shell = fx.shell, google = google) } }
+    internal fun show(google: GoogleTokenSource? = null, sharer: CodeSharer? = null) {
+        compose.setContent {
+            CoupTheme {
+                CompositionLocalProvider(LocalCodeSharer provides sharer) { SinglePlayerFlow(fx.game, onExit = {}, shell = fx.shell, google = google) }
+            }
+        }
     }
 
     protected fun string(@StringRes id: Int, vararg args: Any): String = RuntimeEnvironment.getApplication().getString(id, *args)
@@ -112,9 +117,9 @@ abstract class MpScreenTest {
     }
 
     /** 계정을 만들어 로그인하고 로비가 열릴 때까지. */
-    protected fun signInAndOpenLobby(email: String = "kim@test.co", password: String = "secret-123") {
+    internal fun signInAndOpenLobby(email: String = "kim@test.co", password: String = "secret-123", sharer: CodeSharer? = null) {
         fx.auth.addAccount(email, password)
-        show()
+        show(sharer = sharer)
         openMultiplayer()
         signInWith(email, password)
         waitFor(LobbyTags.CREATE)

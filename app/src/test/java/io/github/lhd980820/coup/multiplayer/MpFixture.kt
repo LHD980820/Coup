@@ -132,8 +132,8 @@ internal class MpFixture(
 
         fun waitingRoom(roomId: String) = WaitingRoomModel(roomId, lobbyUser, rooms, registry, launcher)
 
-        suspend fun createRoom(title: String = "원격 방", max: Int = 4) =
-            (rooms.createRoom(lobbyUser, title, io.github.lhd980820.coup.lobby.Visibility.PUBLIC, max, BuiltinRules.classicConfig()) as RoomResult.Ok).value
+        suspend fun createRoom(title: String = "원격 방", max: Int = 4, visibility: io.github.lhd980820.coup.lobby.Visibility = io.github.lhd980820.coup.lobby.Visibility.PUBLIC) =
+            (rooms.createRoom(lobbyUser, title, visibility, max, BuiltinRules.classicConfig()) as RoomResult.Ok).value
     }
 
     fun remote(email: String, nickname: String, device: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)) = Remote(email, nickname, device)
@@ -151,5 +151,20 @@ internal class SlowStore(private val inner: DocumentStore) : DocumentStore by in
         gate?.await()
         if (fail) throw io.github.lhd980820.coup.runtime.transport.TransportException("offline")
         return inner.get(path)
+    }
+}
+
+/** 복사·공유를 기록만 하는 가짜. [copyWorks]가 false면 복사가 실패한다. */
+internal class FakeCodeSharer(var copyWorks: Boolean = true) : CodeSharer {
+    val copied = mutableListOf<Pair<String, String>>()
+    val shared = mutableListOf<Pair<String, String>>()
+
+    override fun copy(label: String, text: String): Boolean {
+        if (copyWorks) copied += label to text
+        return copyWorks
+    }
+
+    override fun share(text: String, chooserTitle: String) {
+        shared += text to chooserTitle
     }
 }

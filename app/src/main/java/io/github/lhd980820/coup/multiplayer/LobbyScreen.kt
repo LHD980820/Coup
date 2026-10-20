@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
+import io.github.lhd980820.coup.lobby.JoinCodes
 import io.github.lhd980820.coup.lobby.RoomSummary
 import io.github.lhd980820.coup.shell.lobby.LobbyEvent
 import io.github.lhd980820.coup.shell.lobby.LobbyModel
@@ -102,8 +103,10 @@ internal fun LobbyScreen(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = code,
-                    onValueChange = { code = it.take(MAX_CODE_INPUT) },
+                    // 공유받은 메시지를 통째로 붙여 넣으면 그 안의 코드만 남긴다
+                    onValueChange = { code = JoinCodes.extract(it) ?: it.take(MAX_CODE_INPUT) },
                     label = { Text(stringResource(R.string.mp_code_label)) },
+                    supportingText = { Text(stringResource(R.string.mp_code_paste_hint)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = { scope.launch { lobby.joinByCode(code) } }),

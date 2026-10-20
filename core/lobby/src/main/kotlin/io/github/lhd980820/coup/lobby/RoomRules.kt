@@ -194,5 +194,18 @@ public object JoinCodes {
 
     public fun normalize(input: String): String = input.trim().uppercase()
 
+    // 공유 메시지의 "참가 코드: ABC234" / "Join code: ABC234" 꼴. 이름표(코드/code) 뒤의 콜론 다음 6글자만 받는다 —
+    // 이름표 없이 글 속의 아무 6글자를 코드로 읽으면 평범한 영어 단어를 코드로 착각한다.
+    private val LABELED = Regex("(?i)(?:코드|code)\\s*[:：]\\s*([A-Za-z0-9]{6})(?![A-Za-z0-9])")
+
+    /**
+     * 사람이 붙여 넣은 글에서 참가 코드를 꺼낸다: 글 전체가 코드이거나(공백·대소문자 무시), 공유 메시지처럼 "코드: XXXXXX" 이름표가 있을 때.
+     * 모양이 맞는 코드가 없으면 null.
+     */
+    public fun extract(text: String): String? {
+        if (isWellFormed(text)) return normalize(text)
+        return LABELED.find(text)?.groupValues?.get(1)?.let(::normalize)?.takeIf(::isWellFormed)
+    }
+
     public fun isWellFormed(input: String): Boolean = normalize(input).let { it.length == LENGTH && it.all { c -> c in ALPHABET } }
 }

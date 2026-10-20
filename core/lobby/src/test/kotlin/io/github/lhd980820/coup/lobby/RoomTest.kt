@@ -399,4 +399,19 @@ class RoomTest {
         assertThat(second.gameId).isNotEqualTo(first.gameId)
         assertThat(second).isInstanceOf(GameStartPlan::class)
     }
+
+    @Test
+    fun `붙여 넣은 글에서 참가 코드 꺼내기 - 코드 자체, 이름표가 붙은 공유 메시지만`() {
+        assertThat(JoinCodes.extract(" abc234 ")).isEqualTo("ABC234")
+        assertThat(JoinCodes.extract("Coup 방 '우리 방'에 들어오세요!\n참가 코드: abc234")).isEqualTo("ABC234")
+        assertThat(JoinCodes.extract("Join my Coup room \"Fun\"!\nJoin code: XYZ789.")).isEqualTo("XYZ789")
+        assertThat(JoinCodes.extract("참가 코드：ABC234")).isEqualTo("ABC234") // 전각 콜론
+        // 이름표가 없으면 글 속의 6글자 단어를 코드로 착각하지 않는다
+        assertThat(JoinCodes.extract("Please JOINME2 to the room")).isNull()
+        assertThat(JoinCodes.extract("Join the PRIVATE game")).isNull()
+        // 이름표가 있어도 코드 모양이 아니거나(0/O/1/I/L 포함) 길면 거절
+        assertThat(JoinCodes.extract("코드: ABC0EF")).isNull()
+        assertThat(JoinCodes.extract("code: ABC2345")).isNull()
+        assertThat(JoinCodes.extract("")).isNull()
+    }
 }
