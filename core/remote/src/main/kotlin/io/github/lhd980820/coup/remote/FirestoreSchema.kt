@@ -55,6 +55,14 @@ public object FirestoreSchema {
         public const val RULE_SET_CONFIG_JSON: String = "ruleSetConfigJson"
         public const val RATED: String = "rated"
         public const val ROOM_ID: String = "roomId"
+
+        /** 서버 시각(만든 배치의 `request.time`). 첫 결정의 시간 초과를 검증하는 기준(ADR 0015). */
+        public const val CREATED_AT: String = "createdAt"
+
+        /** 서버 판정 결과(서버만 쓴다): VERIFIED / REJECTED / UNRATED. */
+        public const val VERDICT: String = "verdict"
+        public const val VERDICT_REASON: String = "verdictReason"
+        public const val JUDGED_AT: String = "judgedAt"
     }
 
     public object Setup {

@@ -235,6 +235,7 @@ object AccessPolicy {
     private const val NICK_MAX = 12
     private val PROFILE_KEYS = setOf("nickname", "rating", "plays", "wins", "createdAt", "migratedFromLegacy")
     private val RATING_KEYS = setOf("rating", "plays", "wins", "lastAppliedResult", "lastAppliedRank")
+    private val GAME_HOST_KEYS = setOf(FirestoreSchema.Game.STATUS, FirestoreSchema.Game.VERSION, FirestoreSchema.Game.HOST_HEARTBEAT_AT)
     private val MARKER_KEYS = setOf("rank", "delta", "playerCount", "finishedAt", "appliedAt")
 
     fun check(
@@ -301,8 +302,15 @@ object AccessPolicy {
                         (ruleSet[FirestoreSchema.RuleSet.HOUSE_RULES] as? JsonArray)?.isEmpty() == true &&
                         (ruleSet[FirestoreSchema.RuleSet.PARAM_OVERRIDES] as? JsonObject)?.isEmpty() == true
                     if (data.bool(FirestoreSchema.Game.RATED) != roomRated) deny("rated must match the room setup")
+                    if (requestTime == null || data.long(FirestoreSchema.Game.CREATED_AT) != requestTime) deny("createdAt must be the server time")
                 }
-                Access.UPDATE -> if (uid != hostOf(segments[1])) deny("only the host may update the game")
+                Access.UPDATE -> {
+                    if (uid != hostOf(segments[1])) deny("only the host may update the game")
+                    val before = existing ?: deny("no game")
+                    val after = incoming ?: deny("no data")
+                    val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+                    if (!GAME_HOST_KEYS.containsAll(changed)) deny("the host may only change ${GAME_HOST_KEYS}, not ${changed - GAME_HOST_KEYS}")
+                }
                 else -> deny("not allowed")
             }
             // games/{id}/views/{viewer}

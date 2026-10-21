@@ -128,36 +128,46 @@ public class FirestoreUserRepository(
         store.observeOrdered(FirestoreSchema.appliedResults(uid), FirestoreSchema.Applied.APPLIED_AT, descending = true, limit = limit)
             .map { docs -> docs.mapNotNull { it.data.toApplied(it.id) } }
 
-    private fun applyOps(decision: RatingDecision.Apply): List<WriteOp> {
-        val p = decision.updated
-        val r = decision.record
-        return listOf(
-            WriteOp.Merge(
-                FirestoreSchema.user(uid),
-                buildJsonObject {
-                    put(FirestoreSchema.User.RATING, p.rating)
-                    put(FirestoreSchema.User.PLAYS, p.plays)
-                    put(FirestoreSchema.User.WINS, p.wins)
-                    put(FirestoreSchema.User.LAST_APPLIED_RESULT, r.gameId)
-                    put(FirestoreSchema.User.LAST_APPLIED_RANK, r.rank)
-                },
-            ),
-            WriteOp.Set(
-                FirestoreSchema.appliedResult(uid, r.gameId),
-                buildJsonObject {
-                    put(FirestoreSchema.Applied.RANK, r.rank)
-                    put(FirestoreSchema.Applied.DELTA, r.delta)
-                    put(FirestoreSchema.Applied.PLAYER_COUNT, r.playerCount)
-                    put(FirestoreSchema.Applied.FINISHED_AT, r.finishedAt)
-                    put(FirestoreSchema.Applied.APPLIED_AT, r.appliedAt)
-                },
-            ),
-        )
-    }
+    private fun applyOps(decision: RatingDecision.Apply): List<WriteOp> = ratingOps(uid, decision)
 
     private companion object {
         const val APPLY_ATTEMPTS = 3
     }
+}
+
+/** 레이팅 반영 한 건의 쓰기: 프로필(레이팅·판수·승수) + 반영 표시 문서. 클라이언트 반영과 서버 판정(ADR 0015)이 같은 모양을 쓴다. */
+internal fun ratingOps(uid: String, decision: RatingDecision.Apply): List<WriteOp> {
+    val p = decision.updated
+    val r = decision.record
+    return listOf(
+        WriteOp.Merge(
+            FirestoreSchema.user(uid),
+            buildJsonObject {
+                put(FirestoreSchema.User.RATING, p.rating)
+                put(FirestoreSchema.User.PLAYS, p.plays)
+                put(FirestoreSchema.User.WINS, p.wins)
+                put(FirestoreSchema.User.LAST_APPLIED_RESULT, r.gameId)
+                put(FirestoreSchema.User.LAST_APPLIED_RANK, r.rank)
+            },
+        ),
+        WriteOp.Set(
+            FirestoreSchema.appliedResult(uid, r.gameId),
+            buildJsonObject {
+                put(FirestoreSchema.Applied.RANK, r.rank)
+                put(FirestoreSchema.Applied.DELTA, r.delta)
+                put(FirestoreSchema.Applied.PLAYER_COUNT, r.playerCount)
+                put(FirestoreSchema.Applied.FINISHED_AT, r.finishedAt)
+                put(FirestoreSchema.Applied.APPLIED_AT, r.appliedAt)
+            },
+        ),
+    )
+}
+
+/** 사용자·결과 문서 <-> 도메인. 서버 판정(`:judge`)이 같은 형식을 읽고 쓰도록 공개한다. */
+public object UserDocuments {
+    public fun profile(uid: String, doc: JsonObject): UserProfile? = doc.toProfile(uid)
+    public fun result(gameId: String, doc: JsonObject): GameResult? = doc.toResult(gameId)
+    public fun ratingWrites(uid: String, decision: RatingDecision.Apply): List<WriteOp> = ratingOps(uid, decision)
 }
 
 // ---- 문서 <-> 도메인 (형식이 틀린 문서는 null로 건너뛴다) -------------------------------------------

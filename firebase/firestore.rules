@@ -30,7 +30,10 @@ service cloud.firestore {
       allow read: if isSeat(gameId);
       // 게임은 방에 묶인다(ADR 0008): 좌석 = 방에 스스로 들어온 사람 전원, rated = 방 구성, 좌석 전원 정산 완료.
       allow create: if signedIn() && validGameCreate(gameId);
-      allow update: if isHost(gameId);
+      // 방장은 진행 상태·버전·생존 신호만 바꾼다(ADR 0015). 좌석·rated·시작 시각은 만들 때 정해지고,
+      // 판정(verdict)은 서버(관리자 권한)만 쓴다 — 방장이 진 판을 미리 "무효"로 적어 두지 못하게.
+      allow update: if isHost(gameId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'version', 'hostHeartbeatAt']);
       allow delete: if false;
 
       // 좌석별 뷰: 자기 것만 읽는다. 관전 뷰는 좌석이면 읽는다. 쓰기는 방장만.
@@ -230,7 +233,8 @@ service cloud.firestore {
         && seatsSettled(d.seats)
         && d.rated == (room.bots.size() == 0
                        && room.ruleSet.houseRules.size() == 0
-                       && room.ruleSet.paramOverrides.size() == 0);
+                       && room.ruleSet.paramOverrides.size() == 0)
+        && d.createdAt == request.time;
     }
 
     // 반복문이 없어서 최대 좌석 수(6)만큼 펼친다.

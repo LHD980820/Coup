@@ -88,6 +88,7 @@ public class FirestoreGameTransport(
                             put(FirestoreSchema.Game.RULE_SET_CONFIG_JSON, json.encodeToString(RuleSetConfig.serializer(), ruleSetConfig))
                             put(FirestoreSchema.Game.RATED, rated)
                             put(FirestoreSchema.Game.ROOM_ID, roomId)
+                            put(FirestoreSchema.Game.CREATED_AT, ServerValues.TIMESTAMP)
                         },
                     ),
                 ),

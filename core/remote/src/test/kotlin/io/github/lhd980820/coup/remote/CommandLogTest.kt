@@ -100,4 +100,26 @@ class CommandLogTest {
         transport("host").host.publish(gameId, publication(1, listOf(income)))
         assertThat(fs.storeFor("host").get(FirestoreSchema.logEntry(gameId, 1))!![FirestoreSchema.Log.AT].toString()).isEqualTo("1000000")
     }
+
+    @Test
+    fun `게임 문서 - 방장은 상태·버전·생존 신호만 바꾸고, 좌석·rated·판정·시작 시각은 못 바꾼다`() = runBlocking<Unit> {
+        newGame()
+        val host = fs.storeFor("host")
+        host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.VERSION, 3); put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, 5L) })))
+        host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.FINISHED) })))
+        for (forged in listOf(
+            buildJsonObject { put(FirestoreSchema.Game.RATED, false) },
+            buildJsonObject { put(FirestoreSchema.Game.VERDICT, "REJECTED") },
+            buildJsonObject { put(FirestoreSchema.Game.CREATED_AT, 1L) },
+            buildJsonObject { put(FirestoreSchema.Game.HOST_UID, "b") },
+        )) {
+            assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), forged))) }.isInstanceOf(PermissionDenied::class)
+        }
+    }
+
+    @Test
+    fun `게임 문서 - 시작 시각은 서버 시각이어야 한다`() = runBlocking<Unit> {
+        newGame()
+        assertThat(fs.storeFor("host").get(FirestoreSchema.game(gameId))!![FirestoreSchema.Game.CREATED_AT].toString()).isEqualTo("1000000")
+    }
 }
