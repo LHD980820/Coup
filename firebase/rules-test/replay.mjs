@@ -3,6 +3,21 @@
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
+
+// 모델은 서버 시각을 표식 {"__serverTimestamp__": true}로 기록한다(core ServerValues). 실제 규칙에는 serverTimestamp()로 보낸다.
+function resolve(value) {
+  if (Array.isArray(value)) return value.map(resolve);
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && keys[0] === '__serverTimestamp__' && value.__serverTimestamp__ === true) {
+      return firebase.firestore.FieldValue.serverTimestamp();
+    }
+    return Object.fromEntries(keys.map((k) => [k, resolve(value[k])]));
+  }
+  return value;
+}
 
 export async function replayAll(dir, rulesPath, { stopAtFirst = false } = {}) {
   const env = await initializeTestEnvironment({
@@ -15,8 +30,8 @@ export async function replayAll(dir, rulesPath, { stopAtFirst = false } = {}) {
     const batch = db.batch();
     for (const o of ops) {
       const ref = db.doc(o.path);
-      if (o.op === 'set') batch.set(ref, o.data);
-      else if (o.op === 'merge') batch.set(ref, o.data, { merge: true });
+      if (o.op === 'set') batch.set(ref, resolve(o.data));
+      else if (o.op === 'merge') batch.set(ref, resolve(o.data), { merge: true });
       else batch.delete(ref);
     }
     return batch.commit();

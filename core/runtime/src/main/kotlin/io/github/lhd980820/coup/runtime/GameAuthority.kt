@@ -22,6 +22,28 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** 상태 변경 통지. 퍼블리셔(로컬 UI, Firestore 등)가 구현한다. 이 안에서 [GameAuthority.submit]을 직접 호출하면 안 된다. */
+/** 명령이 어디서 왔는가. 서버 검증(ADR 0015)이 출처마다 다르게 확인한다. */
+public enum class CommandSource {
+    /** 좌석(사람·봇)이 낸 명령. 원격 사람이면 [AppliedCommand.ref]가 그 명령 문서의 ID다. */
+    SEAT,
+
+    /** 마감이 지나 권한자가 대신 낸 기본 명령([GameEngine.timeoutCommand]). */
+    TIMEOUT,
+}
+
+/** 적용된 명령 한 건. [version]은 적용 뒤 상태의 버전이다(1부터 빈틈없이 이어진다). [command]는 실제로 적용된 모양 그대로다(버전 조건을 뗐으면 뗀 채로). */
+public data class AppliedCommand(
+    val version: Long,
+    val command: Command,
+    val source: CommandSource,
+    val ref: String? = null,
+)
+
+/** 적용된 명령을 순서대로 받는다(권한자의 잠금 안에서 곧바로 불린다 — 오래 걸리면 안 된다). */
+public fun interface CommandRecorder {
+    public fun onApplied(record: AppliedCommand)
+}
+
 public fun interface AuthorityListener {
     public suspend fun onStateChanged(state: GameState, events: List<GameEvent>, deadlines: Map<PlayerId, Long>)
 }
@@ -53,6 +75,7 @@ public class GameAuthority(
     private val _state = MutableStateFlow(initial)
     private val _deadlines = MutableStateFlow<Map<PlayerId, Long>>(emptyMap())
     private val listeners = mutableListOf<AuthorityListener>()
+    private val recorders = mutableListOf<CommandRecorder>()
     private val updates = Channel<Update>(Channel.UNLIMITED)
     private val timers = mutableMapOf<PlayerId, Timer>()
     private val notified = mutableMapOf<PlayerId, Any>() // 전달 코루틴 전용
@@ -68,6 +91,12 @@ public class GameAuthority(
     public fun addListener(listener: AuthorityListener) {
         check(dispatcher == null) { "add listeners before start()" }
         listeners += listener
+    }
+
+    /** [start] 전에 등록한다. 적용된 모든 명령을 순서대로 받는다(명령 기록). */
+    public fun addRecorder(recorder: CommandRecorder) {
+        check(dispatcher == null) { "add recorders before start()" }
+        recorders += recorder
     }
 
     public fun start() {
@@ -93,15 +122,15 @@ public class GameAuthority(
     }
 
     /** 명령 제출. 수락되면 상태가 바뀌고 좌석·리스너에 순서대로 통지된다. */
-    public suspend fun submit(command: Command): ApplyResult = mutex.withLock { applyLocked(command) }
+    public suspend fun submit(command: Command): ApplyResult = mutex.withLock { applyLocked(command, CommandSource.SEAT, null) }
 
     /**
      * [player]가 낸 명령(좌석 컨트롤러나 전송 계층에서 온 것). 명령의 행위자는 [player]여야 한다.
      * 버전 불일치로만 거절됐고 결정이 그대로면 한 번 더 적용한다(위 설명 참고).
      */
-    public suspend fun submitFrom(player: PlayerId, command: Command): ApplyResult = mutex.withLock {
+    public suspend fun submitFrom(player: PlayerId, command: Command, ref: String? = null): ApplyResult = mutex.withLock {
         if (command.actor != player) return@withLock ApplyResult.Rejected(Rejection.NOT_YOUR_DECISION)
-        val result = applyLocked(command)
+        val result = applyLocked(command, CommandSource.SEAT, ref)
         val stale = result is ApplyResult.Rejected && result.reason == Rejection.STALE_VERSION
         if (!stale) return@withLock result
         val expected = command.expectedVersion ?: return@withLock result
@@ -109,13 +138,15 @@ public class GameAuthority(
         val state = _state.value
         val current = engine.legalOptions(state, player) ?: return@withLock result
         if (signatureOf(state, current) != then) return@withLock result
-        applyLocked(command.withoutExpectedVersion())
+        applyLocked(command.withoutExpectedVersion(), CommandSource.SEAT, ref)
     }
 
-    private fun applyLocked(command: Command): ApplyResult {
+    private fun applyLocked(command: Command, source: CommandSource, ref: String?): ApplyResult {
         val result = engine.apply(_state.value, command)
         if (result is ApplyResult.Accepted) {
             _state.value = result.state
+            val record = AppliedCommand(result.state.version, command, source, ref)
+            recorders.forEach { it.onApplied(record) }
             refreshTimers(result.state)
             updates.trySend(Update(result.state, result.events, _deadlines.value))
         }
@@ -156,7 +187,7 @@ public class GameAuthority(
         timers.remove(player) // 자기 자신을 취소하지 않도록 먼저 뺀다
         val state = _state.value
         if (player !in engine.pendingDeciders(state)) return@withLock
-        applyLocked(engine.timeoutCommand(state, player))
+        applyLocked(engine.timeoutCommand(state, player), CommandSource.TIMEOUT, null)
     }
 
     private suspend fun deliver(update: Update) {

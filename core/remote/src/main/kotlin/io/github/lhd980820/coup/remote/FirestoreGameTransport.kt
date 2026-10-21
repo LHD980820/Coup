@@ -1,6 +1,7 @@
 package io.github.lhd980820.coup.remote
 
 import io.github.lhd980820.coup.engine.command.Command
+import io.github.lhd980820.coup.engine.core.GameSetup
 import io.github.lhd980820.coup.engine.command.Rejection
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.rules.RuleSetConfig
@@ -68,11 +69,14 @@ public class FirestoreGameTransport(
         seats: List<String>,
         ruleSetConfig: RuleSetConfig,
         rated: Boolean,
+        setup: GameSetup? = null,
     ) {
         require(hostUid in seats) { "the host must be one of the seats" }
+        require(setup == null || setup.gameId == gameId) { "the setup belongs to another game" }
         guarded {
             store.write(
-                listOf(
+                // 실행 설정(시드)은 게임 문서와 같은 배치로만 만들 수 있다 — 나중에 시드를 골라 넣지 못하게(규칙이 검사)
+                listOfNotNull(setup?.let { setupOp(it) }) + listOf(
                     WriteOp.Set(
                         FirestoreSchema.game(gameId),
                         buildJsonObject {
@@ -91,7 +95,7 @@ public class FirestoreGameTransport(
         }
     }
 
-    /** 방 시작 계획([io.github.lhd980820.coup.lobby.GameStartPlan])으로 게임 문서를 만든다. 좌석은 사람만. */
+    /** 방 시작 계획([io.github.lhd980820.coup.lobby.GameStartPlan])으로 게임 문서와 실행 설정을 만든다. 게임 문서의 좌석은 사람만. */
     public suspend fun createGame(plan: io.github.lhd980820.coup.lobby.GameStartPlan) {
         createGame(
             gameId = plan.gameId,
@@ -100,36 +104,34 @@ public class FirestoreGameTransport(
             seats = plan.seats.filter { it.kind == io.github.lhd980820.coup.lobby.SeatKind.HUMAN }.map { it.playerId.value },
             ruleSetConfig = plan.ruleSetConfig,
             rated = plan.rated,
+            setup = plan.setup(),
         )
     }
+
+    private fun setupOp(setup: GameSetup): WriteOp = WriteOp.Set(
+        FirestoreSchema.setup(setup.gameId),
+        buildJsonObject {
+            put(FirestoreSchema.Setup.ORDER, buildJsonArray { setup.seats.forEach { add(JsonPrimitive(it.value)) } })
+            put(FirestoreSchema.Setup.RULE_SET_CONFIG_JSON, json.encodeToString(RuleSetConfig.serializer(), setup.ruleSetConfig))
+            put(FirestoreSchema.Setup.SEED, setup.seed)
+            setup.firstPlayer?.let { put(FirestoreSchema.Setup.FIRST_PLAYER, it.value) }
+        },
+    )
 
     // ---- 방장 ---------------------------------------------------------------------------------
 
     public val host: GameTransport.Host = object : GameTransport.Host {
         override suspend fun publish(gameId: String, publication: Publication) {
-            val ops = buildList {
-                publication.views.forEach { (player, envelope) -> add(viewOp(gameId, player.value, envelope)) }
-                add(viewOp(gameId, FirestoreSchema.SPECTATOR_VIEW, publication.spectator))
-                add(
-                    WriteOp.Set(
-                        FirestoreSchema.authority(gameId),
-                        buildJsonObject {
-                            put(FirestoreSchema.Authority.VERSION, publication.version)
-                            put(FirestoreSchema.Authority.BACKUP_JSON, publication.authorityBackup)
-                        },
-                    ),
-                )
-                add(
-                    WriteOp.Merge(
-                        FirestoreSchema.game(gameId),
-                        buildJsonObject {
-                            put(FirestoreSchema.Game.VERSION, publication.version)
-                            put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis())
-                        },
-                    ),
-                )
+            try {
+                guarded { store.write(publicationOps(gameId, publication, skipLog = emptySet())) }
+            } catch (e: TransportException) {
+                // 앞선 게시가 실제로는 서버에 반영됐는데 실패로 보였다면(응답 유실), 같은 기록을 다시 만들려다 규칙(만들기만)에 막힌다.
+                // 이미 있는 기록만 빼고 한 번 더 보낸다. 기록은 고칠 수 없으므로 처음 쓴 서버 시각이 그대로 남는다.
+                if (publication.log.isEmpty()) throw e
+                val written = publication.log.filter { entry -> runCatching { store.get(FirestoreSchema.logEntry(gameId, entry.version)) }.getOrNull() != null }
+                if (written.isEmpty()) throw e
+                guarded { store.write(publicationOps(gameId, publication, skipLog = written.map { it.version }.toSet())) }
             }
-            guarded { store.write(ops) }
         }
 
         override fun incomingCommands(gameId: String): Flow<IncomingCommand> {
@@ -204,6 +206,44 @@ public class FirestoreGameTransport(
                 )
             }
         }
+    }
+
+    private fun publicationOps(gameId: String, publication: Publication, skipLog: Set<Long>): List<WriteOp> = buildList {
+        publication.views.forEach { (player, envelope) -> add(viewOp(gameId, player.value, envelope)) }
+        add(viewOp(gameId, FirestoreSchema.SPECTATOR_VIEW, publication.spectator))
+        add(
+            WriteOp.Set(
+                FirestoreSchema.authority(gameId),
+                buildJsonObject {
+                    put(FirestoreSchema.Authority.VERSION, publication.version)
+                    put(FirestoreSchema.Authority.BACKUP_JSON, publication.authorityBackup)
+                },
+            ),
+        )
+        // 명령 기록: 뷰·백업과 같은 배치로(기록과 백업이 어긋나지 않게). 서버 시각을 함께 남긴다.
+        publication.log.filter { it.version !in skipLog }.forEach { entry ->
+            add(
+                WriteOp.Set(
+                    FirestoreSchema.logEntry(gameId, entry.version),
+                    buildJsonObject {
+                        put(FirestoreSchema.Log.VERSION, entry.version)
+                        put(FirestoreSchema.Log.COMMAND_JSON, json.encodeToString(Command.serializer(), entry.command))
+                        put(FirestoreSchema.Log.SOURCE, entry.source.name)
+                        entry.ref?.let { put(FirestoreSchema.Log.REF, it) }
+                        put(FirestoreSchema.Log.AT, ServerValues.TIMESTAMP)
+                    },
+                ),
+            )
+        }
+        add(
+            WriteOp.Merge(
+                FirestoreSchema.game(gameId),
+                buildJsonObject {
+                    put(FirestoreSchema.Game.VERSION, publication.version)
+                    put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis())
+                },
+            ),
+        )
     }
 
     private fun viewOp(gameId: String, viewerId: String, envelope: ViewEnvelope): WriteOp =

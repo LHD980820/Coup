@@ -1,6 +1,8 @@
 package io.github.lhd980820.coup.data
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
+import io.github.lhd980820.coup.remote.ServerValues
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -13,13 +15,14 @@ import kotlinx.serialization.json.longOrNull
 /**
  * JSON(코어의 문서 표현) <-> Firestore 값. 정수는 Long(규칙의 `int`), 실수는 Double, 맵·리스트는 그대로.
  * 코어는 정수만 쓰므로 정수가 실수로 바뀌는 일이 없게 정수를 먼저 판별한다.
+ * 서버 시각 표식([ServerValues.TIMESTAMP])은 `FieldValue.serverTimestamp()`로 보낸다(읽으면 Timestamp -> 밀리초).
  */
 internal object FirestoreJson {
     fun toFirestore(obj: JsonObject): Map<String, Any?> = obj.mapValues { (_, v) -> value(v) }
 
     private fun value(e: JsonElement): Any? = when (e) {
         is JsonNull -> null
-        is JsonObject -> toFirestore(e)
+        is JsonObject -> if (ServerValues.isTimestamp(e)) FieldValue.serverTimestamp() else toFirestore(e)
         is JsonArray -> e.map { value(it) }
         is JsonPrimitive -> when {
             e.isString -> e.content

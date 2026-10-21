@@ -31,6 +31,11 @@ public class Publication(
     public val spectator: ViewEnvelope,
     /** 호스트 재시작 복구용 권한자 상태([io.github.lhd980820.coup.engine.serialization.EngineJson] 문자열). 호스트 외에는 읽을 수 없어야 한다. */
     public val authorityBackup: String,
+    /**
+     * 지난 게시 이후 적용된 명령들(버전 오름차순, 이 게시의 [version]까지). 서버가 끝난 게임을 다시 돌려 검증하는 근거다(ADR 0015).
+     * 뷰·백업과 **같은 배치**로 써야 한다 — 그래야 백업과 기록이 어긋나지 않는다. 호스트 외에는 읽을 수 없어야 한다(교환에서 고른 카드 등 비공개 정보).
+     */
+    public val log: List<io.github.lhd980820.coup.runtime.AppliedCommand> = emptyList(),
 )
 
 /** [senderUid]는 전송 계층이 인증한 발신자다. 명령 안의 `actor`는 신뢰하지 않는다. */

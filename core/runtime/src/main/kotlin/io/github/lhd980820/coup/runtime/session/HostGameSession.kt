@@ -109,6 +109,9 @@ public class HostGameSession(
 
     @Volatile
     private var latest: Delivery? = null
+
+    /** 아직 게시하지 못한 명령 기록. 게시가 성공하면 그 버전까지 지운다(실패하면 다음 게시가 함께 보낸다 — 기록에 빈틈이 생기지 않게). */
+    private val unpublishedLog = mutableListOf<io.github.lhd980820.coup.runtime.AppliedCommand>()
     private var finished = false
 
     override val gameId: String = initialState.gameId
@@ -131,6 +134,7 @@ public class HostGameSession(
             }
         }
         authority = GameAuthority(engine, initialState, controllers, timeoutPolicy, clock, scope)
+        authority.addRecorder { record -> synchronized(unpublishedLog) { unpublishedLog += record } }
         authority.addListener(AuthorityListener { state, events, deadlines -> onStateChanged(state, events, deadlines) })
         authority.start()
         heartbeat = scope.launch {
@@ -150,7 +154,7 @@ public class HostGameSession(
             while (true) {
                 try {
                     transport.incomingCommands(gameId).collect { incoming ->
-                        val ack = handleRemoteCommand(incoming.senderUid, incoming.command)
+                        val ack = handleRemoteCommand(incoming.senderUid, incoming.command, incoming.commandId)
                         acknowledge(incoming.commandId, ack)
                     }
                     return@launch
@@ -180,9 +184,9 @@ public class HostGameSession(
         }
     }
 
-    private suspend fun handleRemoteCommand(senderUid: String, command: Command): AckResult {
+    private suspend fun handleRemoteCommand(senderUid: String, command: Command, commandId: String): AckResult {
         val seat = remoteByUid[senderUid] ?: return AckResult.Rejected(Rejection.NOT_YOUR_DECISION)
-        return when (val result = authority.submitFrom(seat.id, command)) {
+        return when (val result = authority.submitFrom(seat.id, command, ref = commandId)) {
             is ApplyResult.Accepted -> AckResult.Accepted(result.state.version)
             is ApplyResult.Rejected -> AckResult.Rejected(result.reason)
         }
@@ -208,6 +212,7 @@ public class HostGameSession(
             views = remoteByUid.values.associate { it.id to envelope(Viewer.Player(it.id)) },
             spectator = envelope(Viewer.Spectator),
             authorityBackup = EngineJson.encodeState(state),
+            log = synchronized(unpublishedLog) { unpublishedLog.filter { it.version <= state.version } },
         )
         val delivery = Delivery(publication, if (state.isOver) resultOf(state) else null)
         republish?.cancel()
@@ -237,6 +242,7 @@ public class HostGameSession(
         if (latest !== delivery) return@withLock true // 이미 더 새 상태가 있다(그쪽이 보낸다)
         try {
             transport.publish(gameId, delivery.publication)
+            synchronized(unpublishedLog) { unpublishedLog.removeAll { it.version <= delivery.publication.version } }
             if (delivery.result != null && !finished) {
                 transport.finish(gameId, delivery.result)
                 finished = true // 결과를 실제로 쓴 뒤에만(실패하면 다시 게시할 때 다시 쓴다)

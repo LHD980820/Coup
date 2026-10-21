@@ -32,6 +32,9 @@ public class InMemoryTransport {
     public var lastBackup: String? = null
         private set
 
+    /** 게시된 명령 기록(버전 순, 중복 없이). 서버 검증 재생 테스트용. */
+    public val log: MutableList<io.github.lhd980820.coup.runtime.AppliedCommand> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** 호스트가 [GameTransport.Host.finish]로 알린 결과. */
     @Volatile
     public var result: GameResultRecord? = null
@@ -52,6 +55,7 @@ public class InMemoryTransport {
     public val host: GameTransport.Host = object : GameTransport.Host {
         override suspend fun publish(gameId: String, publication: Publication) {
             lastBackup = publication.authorityBackup
+            publication.log.forEach { entry -> if (log.none { it.version == entry.version }) log += entry }
             connection.value = ConnectionState.CONNECTED
             publication.views.forEach { (player, envelope) ->
                 flowOf(player).emit(roundTrip(ViewEnvelope.serializer(), envelope))

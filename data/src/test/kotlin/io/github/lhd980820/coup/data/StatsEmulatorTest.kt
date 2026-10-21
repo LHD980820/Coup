@@ -43,7 +43,8 @@ class StatsEmulatorTest {
         try {
             val model = RankingModel(FirestoreUserRepository(me.store, me.uid, me.email), me.uid)
             scope.launch { model.run() }
-            val state = withTimeout(20_000) { model.state.first { it.entries != null && it.me != null } }
+            // 첫 값은 로컬 캐시(내 프로필만)일 수 있다 — 서버 결과가 올 때까지 기다린다
+            val state = withTimeout(20_000) { model.state.first { it.entries?.size == 3 && it.me != null } }
             assertEquals(listOf("x1", me.uid, "x2"), state.entries!!.map { it.uid }) // 안 한 x3은 빠진다
             assertEquals(listOf(1, 2, 3), state.entries!!.map { it.rank })
             assertEquals(2, (state.me as MyStanding.InTop).entry.rank)
@@ -64,7 +65,7 @@ class StatsEmulatorTest {
         try {
             val model = HistoryModel(FirestoreUserRepository(me.store, me.uid, me.email))
             scope.launch { model.run() }
-            val state = withTimeout(20_000) { model.state.first { it.results != null && it.profile != null } }
+            val state = withTimeout(20_000) { model.state.first { it.results?.size == 2 && it.profile != null } }
             assertEquals(listOf("g2", "g1"), state.results!!.map { it.gameId })
             assertEquals(4, state.netDelta)
         } finally {

@@ -41,9 +41,28 @@ service cloud.firestore {
         allow write: if isHost(gameId);
       }
 
-      // 권한자 상태 백업(모든 플레이어의 비공개 카드 포함): 방장만.
+      // 권한자 상태 백업(모든 플레이어의 비공개 카드 포함): 방장만. 실행 설정(setup)은 아래에서 따로 — 여기서는 고칠 수 없다.
       match /authority/{doc} {
-        allow read, write: if isHost(gameId);
+        allow read: if isHost(gameId);
+        allow write: if isHost(gameId) && doc != 'setup';
+      }
+
+      // 실행 설정(시드 포함, ADR 0015): 게임 문서를 만드는 같은 배치에서 방장이 만들 때만. 이후 수정·삭제 불가 —
+      // 게임이 진행된 뒤 결과에 맞는 시드를 골라 넣지 못하게 한다. 서버(관리자 권한)가 끝난 게임을 다시 돌릴 때 읽는다.
+      match /authority/setup {
+        allow create: if signedIn()
+                      && !exists(/databases/$(database)/documents/games/$(gameId))
+                      && getAfter(/databases/$(database)/documents/games/$(gameId)).data.hostUid == request.auth.uid;
+      }
+
+      // 명령 기록(ADR 0015): 방장이 게시와 같은 배치로 만들기만. 문서 ID = 버전, 시각 = 서버 시각(꾸밀 수 없다). 고칠 수 없다.
+      // 교환에서 고른 카드 같은 비공개 정보가 들어 있으므로 방장만 읽는다.
+      match /log/{version} {
+        allow read: if isHost(gameId);
+        allow create: if isHost(gameId)
+                      && request.resource.data.version is int
+                      && string(request.resource.data.version) == version
+                      && request.resource.data.at == request.time;
       }
 
       // 게스트 명령: 보낸 사람이 자기 uid로, 방장이 아닌 좌석으로, PENDING 상태로만 만든다.

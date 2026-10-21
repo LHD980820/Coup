@@ -25,6 +25,12 @@ public object FirestoreSchema {
     public fun game(gameId: String): String = "games/$gameId"
     public fun view(gameId: String, viewerId: String): String = "games/$gameId/views/$viewerId"
     public fun authority(gameId: String): String = "games/$gameId/authority/state"
+    /** 게임을 시작할 때 한 번만 쓰는 실행 설정(시드 포함). 방장만 읽고, 고칠 수 없다(ADR 0015). */
+    public fun setup(gameId: String): String = "games/$gameId/authority/setup"
+
+    /** 적용된 명령 기록. 문서 ID = 버전(1부터). 방장이 게시와 같은 배치로 쓰고, 고칠 수 없다(ADR 0015). */
+    public fun log(gameId: String): String = "games/$gameId/log"
+    public fun logEntry(gameId: String, version: Long): String = "games/$gameId/log/$version"
     public fun commands(gameId: String): String = "games/$gameId/commands"
     public fun command(gameId: String, commandId: String): String = "games/$gameId/commands/$commandId"
     public fun result(gameId: String): String = "results/$gameId"
@@ -49,6 +55,26 @@ public object FirestoreSchema {
         public const val RULE_SET_CONFIG_JSON: String = "ruleSetConfigJson"
         public const val RATED: String = "rated"
         public const val ROOM_ID: String = "roomId"
+    }
+
+    public object Setup {
+        /** 게임의 좌석 순서(봇 포함) — 문자열 배열. */
+        public const val ORDER: String = "order"
+        public const val RULE_SET_CONFIG_JSON: String = "ruleSetConfigJson"
+        public const val SEED: String = "seed"
+        public const val FIRST_PLAYER: String = "firstPlayer"
+    }
+
+    public object Log {
+        public const val VERSION: String = "version"
+        public const val COMMAND_JSON: String = "commandJson"
+        public const val SOURCE: String = "source"
+
+        /** 원격 사람 명령이면 그 명령 문서 ID. */
+        public const val REF: String = "ref"
+
+        /** 서버 시각(쓴 배치의 `request.time`). 시간 초과 검증의 근거. */
+        public const val AT: String = "at"
     }
 
     public object GameStatus {

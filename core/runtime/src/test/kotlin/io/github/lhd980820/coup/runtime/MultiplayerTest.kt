@@ -466,6 +466,62 @@ class MultiplayerTest {
     }
 
     @Test
+    fun `명령 기록 - 사람·봇·시간 초과가 섞인 판을 기록만으로 처음부터 다시 돌리면 같은 상태가 된다`() = runTest {
+        val policy = TimeoutPolicy { _, _ -> 2.seconds }
+        val transport = InMemoryTransport()
+        val t = table(humans = 3, bots = 1, seed = 9, policy = policy, transport = transport)
+        val lazyGuest = t.guests.keys.last()
+        drive(t.all(), skip = setOf(lazyGuest)) // 한 게스트는 아무것도 하지 않는다 -> 시간 초과로 대신 둔다
+        runUntil { t.host.snapshot.value?.view?.result != null }
+        runCurrent()
+
+        val log = transport.log.sortedBy { it.version }
+        assertThat(log.map { it.version }).isEqualTo((1L..log.size).toList()) // 1부터 빈틈없이
+        assertThat(log.any { it.source == CommandSource.TIMEOUT && it.command.actor == lazyGuest }).isTrue()
+
+        // 다시 돌리기: 같은 설정 -> 기록된 명령을 차례로
+        val setup = GameSetup("mp", ids(3) + listOf(PlayerId("bot0")), BuiltinRules.classicConfig(), 9, firstPlayer = ids(3).first())
+        var state = engine.newGame(setup)
+        for (entry in log) {
+            if (entry.source == CommandSource.TIMEOUT) assertThat(entry.command).isEqualTo(engine.timeoutCommand(state, entry.command.actor))
+            val applied = engine.apply(state, entry.command)
+            assertThat(applied, name = "v${entry.version}").isInstanceOf(io.github.lhd980820.coup.engine.command.ApplyResult.Accepted::class)
+            state = (applied as io.github.lhd980820.coup.engine.command.ApplyResult.Accepted).state
+            assertThat(state.version).isEqualTo(entry.version)
+        }
+        assertThat(EngineJson.encodeState(state)).isEqualTo(transport.lastBackup)
+        // 원격 사람의 명령은 그 명령 문서를 가리킨다. 방장·봇·시간 초과는 가리킬 문서가 없다.
+        val remote = t.guests.keys
+        log.forEach { e ->
+            val fromGuest = e.source == CommandSource.SEAT && e.command.actor in remote
+            assertThat(e.ref != null, name = "v${e.version} ${e.command.actor} ${e.source}").isEqualTo(fromGuest)
+        }
+    }
+
+    @Test
+    fun `명령 기록 - 게시가 실패한 동안의 기록은 다음 게시가 함께 보낸다`() = runTest {
+        val inner = InMemoryTransport()
+        var failures = 1
+        val flaky = object : GameTransport.Host by inner.host {
+            override suspend fun publish(gameId: String, publication: Publication) {
+                if (publication.version == 1L && failures > 0) { failures--; throw TransportException("write failed") }
+                inner.host.publish(gameId, publication)
+            }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(0))
+        val host = HostGameSession(
+            engine, engine.newGame(setup), listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트")),
+            flaky, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope,
+        )
+        runCurrent()
+        host.submit(Command.DeclareAction(pid(0), ActionId("income"))) // v1: 게시 실패
+        runCurrent()
+        assertThat(inner.log.isEmpty()).isTrue()
+        runUntil { inner.log.isNotEmpty() } // 다시 게시할 때 v1 기록도 함께
+        assertThat(inner.log.map { it.version }).isEqualTo(listOf(1L))
+    }
+
+    @Test
     fun `호스트 구성 검증`() = runTest {
         val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1)
         val state = engine.newGame(setup)

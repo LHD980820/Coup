@@ -68,6 +68,10 @@ class FakeFirestore {
         }
     }
 
+    /** 서버 시각(`request.time`). [ServerValues.TIMESTAMP] 표식이 이 값으로 바뀐다. 테스트가 바꿔 끼울 수 있다. */
+    @Volatile
+    var now: () -> Long = { System.currentTimeMillis() }
+
     /** 테스트 훅: 트랜잭션이 커밋을 확인하기 직전에 한 번 실행된다(경쟁 상황 재현). 실행 뒤 지워진다. */
     @Volatile
     var beforeNextCommit: (suspend () -> Unit)? = null
@@ -123,10 +127,11 @@ class FakeFirestore {
             run {
                 val before = docs.toMap()
                 val after = before.toMutableMap()
+                val requestTime = now()
                 ops.forEach { op ->
                     when (op) {
-                        is WriteOp.Set -> after[op.path] = op.data
-                        is WriteOp.Merge -> after[op.path] = JsonObject((after[op.path] ?: JsonObject(emptyMap())) + op.fields)
+                        is WriteOp.Set -> after[op.path] = resolveServerValues(op.data, requestTime)
+                        is WriteOp.Merge -> after[op.path] = JsonObject((after[op.path] ?: JsonObject(emptyMap())) + resolveServerValues(op.fields, requestTime))
                         is WriteOp.Delete -> after.remove(op.path)
                     }
                 }
@@ -138,7 +143,7 @@ class FakeFirestore {
                                 before.containsKey(path) -> Access.UPDATE
                                 else -> Access.CREATE
                             }
-                            AccessPolicy.check(auth, kind, path, after[path], before[path], { before[it] }, { after[it] })
+                            AccessPolicy.check(auth, kind, path, after[path], before[path], { before[it] }, { after[it] }, requestTime = requestTime)
                         }
                     } catch (e: PermissionDenied) {
                         trace?.write(auth, ops, allowed = false)
@@ -190,6 +195,10 @@ class FakeFirestore {
 
 private const val MAX_TRANSACTION_ATTEMPTS = 5
 
+/** 서버 시각 표식을 [time]으로 바꾼다(최상위 필드만 — 앱은 최상위에만 쓴다). */
+private fun resolveServerValues(data: JsonObject, time: Long): JsonObject =
+    JsonObject(data.mapValues { (_, v) -> if (ServerValues.isTimestamp(v)) JsonPrimitive(time) else v })
+
 enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
 
 /**
@@ -237,6 +246,7 @@ object AccessPolicy {
         get: (String) -> JsonObject?,
         getAfter: (String) -> JsonObject?,
         query: Pair<String, String>? = null,
+        requestTime: Long? = null,
     ) {
         val uid = auth.uid
         val segments = path.split('/')
@@ -308,9 +318,39 @@ object AccessPolicy {
                     else -> deny("not allowed")
                 }
             }
+            // games/{id}/authority/setup: 실행 설정(시드). 게임 문서와 같은 배치에서 방장이 만들 때만, 이후 고칠 수 없다(ADR 0015)
+            segments.size == 4 && segments[0] == "games" && segments[2] == "authority" && segments[3] == "setup" -> {
+                val id = segments[1]
+                when (kind) {
+                    Access.READ -> if (uid != hostOf(id)) deny("setup is host-only")
+                    Access.CREATE -> {
+                        if (get("games/$id") != null) deny("setup must be created together with the game")
+                        val after = getAfter("games/$id") ?: deny("setup must be created together with the game")
+                        if (after.str(FirestoreSchema.Game.HOST_UID) != uid) deny("only the host writes the setup")
+                    }
+                    else -> deny("setup is immutable")
+                }
+            }
             // games/{id}/authority/state
             segments.size == 4 && segments[0] == "games" && segments[2] == "authority" ->
                 if (uid != hostOf(segments[1])) deny("authority state is host-only")
+            // games/{id}/log (컬렉션 조회)
+            segments.size == 3 && segments[0] == "games" && segments[2] == "log" ->
+                if (kind != Access.QUERY || uid != hostOf(segments[1])) deny("only the host may list the log")
+            // games/{id}/log/{version}: 명령 기록. 방장이 만들기만, ID = 버전, 시각 = 서버 시각(ADR 0015)
+            segments.size == 4 && segments[0] == "games" && segments[2] == "log" -> {
+                val id = segments[1]
+                when (kind) {
+                    Access.READ -> if (uid != hostOf(id)) deny("the log is host-only")
+                    Access.CREATE -> {
+                        if (uid != hostOf(id)) deny("only the host writes the log")
+                        val data = incoming ?: deny("no data")
+                        if (data.long(FirestoreSchema.Log.VERSION)?.toString() != segments[3]) deny("log id must be its version")
+                        if (requestTime == null || data.long(FirestoreSchema.Log.AT) != requestTime) deny("log time must be the server time")
+                    }
+                    else -> deny("the log is immutable")
+                }
+            }
             // games/{id}/commands (컬렉션 조회)
             segments.size == 3 && segments[0] == "games" && segments[2] == "commands" ->
                 if (kind != Access.QUERY || uid != hostOf(segments[1])) deny("only the host may list commands")

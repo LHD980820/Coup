@@ -4,6 +4,18 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonObject
 
+/**
+ * 쓰는 값 대신 넣는 표식. 저장소가 **서버 시각**으로 바꿔 쓴다(Firestore `FieldValue.serverTimestamp()`).
+ * 읽으면 epoch millis 숫자다. 보안 규칙은 `== request.time`으로 클라이언트가 시각을 꾸미지 못하게 한다(ADR 0015).
+ */
+public object ServerValues {
+    public const val TIMESTAMP_KEY: String = "__serverTimestamp__"
+    public val TIMESTAMP: kotlinx.serialization.json.JsonObject =
+        kotlinx.serialization.json.JsonObject(mapOf(TIMESTAMP_KEY to kotlinx.serialization.json.JsonPrimitive(true)))
+
+    public fun isTimestamp(value: kotlinx.serialization.json.JsonElement): Boolean = value == TIMESTAMP
+}
+
 /** 컬렉션 안의 문서 하나. [id]는 문서 ID(경로의 마지막 조각). */
 public class StoredDocument(public val id: String, public val data: JsonObject)
 
