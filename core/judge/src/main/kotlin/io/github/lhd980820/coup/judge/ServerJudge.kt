@@ -59,14 +59,23 @@ public class ServerJudge(
         val rated = game.bool(FirestoreSchema.Game.RATED) == true && result.bool(FirestoreSchema.Result.RATED) == true
         if (!rated) return mark(gameId, VERDICT_UNRATED, null).let { if (it) JudgeOutcome.Unrated else JudgeOutcome.AlreadyJudged }
 
-        val verdict = when (val record = load(gameId, game, result)) {
-            is Loaded.Ok -> verifier.verify(record.record)
-            is Loaded.Broken -> Verdict.Rejected(record.reason, record.detail)
-        }
-        return when (verdict) {
+        return when (val verdict = verdictOf(gameId, game, result)) {
             is Verdict.Rejected -> if (mark(gameId, VERDICT_REJECTED, "${verdict.reason}: ${verdict.detail}")) JudgeOutcome.Rejected(verdict) else JudgeOutcome.AlreadyJudged
             is Verdict.Verified -> settle(gameId, verdict, finishedAt = result.long(FirestoreSchema.Result.FINISHED_AT) ?: 0)
         }
+    }
+
+    /** 판정만 한다(아무것도 쓰지 않는다). 결과·게임 문서가 없거나 레이팅 대상이 아니면 null. 진단과 통합 테스트용. */
+    public suspend fun inspect(gameId: String): Verdict? {
+        val result = store.get(FirestoreSchema.result(gameId)) ?: return null
+        val game = store.get(FirestoreSchema.game(gameId)) ?: return null
+        if (game.bool(FirestoreSchema.Game.RATED) != true || result.bool(FirestoreSchema.Result.RATED) != true) return null
+        return verdictOf(gameId, game, result)
+    }
+
+    private suspend fun verdictOf(gameId: String, game: JsonObject, result: JsonObject): Verdict = when (val record = load(gameId, game, result)) {
+        is Loaded.Ok -> verifier.verify(record.record)
+        is Loaded.Broken -> Verdict.Rejected(record.reason, record.detail)
     }
 
     private sealed interface Loaded {
@@ -180,9 +189,9 @@ public class ServerJudge(
     }
 
     public companion object {
-        public const val VERDICT_VERIFIED: String = "VERIFIED"
-        public const val VERDICT_REJECTED: String = "REJECTED"
-        public const val VERDICT_UNRATED: String = "UNRATED"
+        public const val VERDICT_VERIFIED: String = FirestoreSchema.Verdict.VERIFIED
+        public const val VERDICT_REJECTED: String = FirestoreSchema.Verdict.REJECTED
+        public const val VERDICT_UNRATED: String = FirestoreSchema.Verdict.UNRATED
         private const val MAX_LOG = 100_000
         private const val MAX_REASON = 500
     }

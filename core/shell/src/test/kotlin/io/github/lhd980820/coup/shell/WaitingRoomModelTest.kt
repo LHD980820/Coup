@@ -20,7 +20,7 @@ import io.github.lhd980820.coup.lobby.RoomError
 import io.github.lhd980820.coup.lobby.RoomResult
 import io.github.lhd980820.coup.lobby.RoomStatus
 import io.github.lhd980820.coup.lobby.Visibility
-import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.remote.Settlement
 import io.github.lhd980820.coup.runtime.session.GameSession
 import io.github.lhd980820.coup.runtime.transport.TransportException
 import io.github.lhd980820.coup.shell.lobby.GameLauncher
@@ -206,10 +206,11 @@ class WaitingRoomModelTest {
         val result = sessions.getValue("host").snapshot.await(45_000) { it?.view?.result != null }!!.view.result!!
         assertThat(result.ranking.size).isEqualTo(3)
 
-        // 정산: 각자 자기 레이팅에 한 번 반영된다
+        // 정산: 서버 판정이 기록을 다시 돌려 검증하고 모두의 레이팅에 한 번 반영한다
+        f.startJudge()
         ids.forEach { id ->
-            val outcome = accounts.getValue(id).settleGame(gameId, retryDelayMillis = 20)
-            assertThat(outcome).isNotNull().isInstanceOf(ApplyOutcome.Applied::class)
+            accounts.getValue(id).watchSettlement(gameId, retryDelayMillis = 20)
+            assertThat(accounts.getValue(id).lastSettlement.await(10_000) { it?.isFinal == true }).isNotNull().isInstanceOf(Settlement.Applied::class)
         }
         val expected = TableRatingPolicy.ratingDeltas(result.ranking)
         ids.forEach { id -> assertThat(accounts.getValue(id).profile.first { it?.plays == 1 }!!.rating).isEqualTo(1000 + expected.getValue(PlayerId(id))) }

@@ -10,7 +10,7 @@ import io.github.lhd980820.coup.account.UserProfile
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.lobby.LobbyUser
 import io.github.lhd980820.coup.lobby.RoomStatus
-import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.remote.Settlement
 import io.github.lhd980820.coup.runtime.transport.TransportException
 import io.github.lhd980820.coup.shell.account.AccountState
 import io.github.lhd980820.coup.shell.auth.AuthFormModel
@@ -58,12 +58,8 @@ internal class ShellViewModel(
     var profile by mutableStateOf<UserProfile?>(null)
         private set
 
-    /** 직전 멀티플레이 게임의 레이팅 반영 결과. 반영 전에는 null. */
-    var settlement by mutableStateOf<ApplyOutcome?>(null)
-        private set
-
-    /** 결과 문서를 끝내 못 받아 반영하지 못했다(다음 접속 때 반영된다). */
-    var settlementFailed by mutableStateOf(false)
+    /** 직전 멀티플레이 게임의 레이팅 반영 상태(서버 판정, ADR 0015). 게임이 끝나기 전에는 null. */
+    var settlement by mutableStateOf<Settlement?>(null)
         private set
 
     var screen by mutableStateOf(MultiScreen.LOBBY)
@@ -115,7 +111,6 @@ internal class ShellViewModel(
         services = null
         profile = null
         settlement = null
-        settlementFailed = false
         lobby = null
         room = null
         multiGame = null
@@ -206,19 +201,18 @@ internal class ShellViewModel(
         game.startSession(event.session)
         multiGame = MultiGame(current.roomId, event.gameId)
         opened.account.clearSettlement()
-        settlementFailed = false
-        // 게임이 끝나면 레이팅을 반영한다(화면이 닫혀도, 회전해도 이어진다)
+        // 게임이 끝나면 서버 판정을 지켜본다(반영은 서버가 한다 — 화면이 닫혀도, 앱이 꺼져도 잃지 않는다)
         val controller = game.controller ?: return
         settleJob?.cancel()
         settleJob = signedInScope?.launch {
             controller.state.first { it?.result != null }
-            if (opened.account.settleGame(event.gameId) == null) settlementFailed = true
+            opened.account.watchSettlement(event.gameId)
         }
     }
 
     /** 결과 화면에서 "대기실로" 또는 나가기: 게임 화면을 닫고 대기실로 돌아간다(방장은 방을 다음 판 준비 상태로). */
     fun finishGame() {
-        settleJob?.let { if (settlement == null) it.cancel() } // 아직 결과가 안 나온 채 나가면(기권 등) 반영은 다음 접속 때
+        settleJob?.cancel() // 결과가 나오기 전에 나가면 지켜보지 않는다(반영은 서버가 한다)
         game.quit()
         multiGame = null
         screen = MultiScreen.ROOM

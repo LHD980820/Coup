@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    `java-test-fixtures`
 }
 
 kotlin {
@@ -13,6 +14,11 @@ dependencies {
     api(project(":account"))
     api(project(":remote"))
     api(libs.kotlinx.coroutines.core)
+
+    // 테스트용 서버(결과가 생기면 판정): 다른 모듈(:shell, 앱)의 테스트가 실제 서버 대신 쓴다
+    testFixturesApi(project(":judge"))
+    testFixturesApi(testFixtures(project(":remote")))
+    testFixturesImplementation(libs.kotlinx.coroutines.core)
 
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)

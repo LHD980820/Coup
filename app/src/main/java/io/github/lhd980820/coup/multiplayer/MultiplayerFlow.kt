@@ -22,10 +22,9 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
-import io.github.lhd980820.coup.account.SkipReason
 import io.github.lhd980820.coup.game.GameScreen
 import io.github.lhd980820.coup.game.GameViewModel
-import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.remote.Settlement
 import io.github.lhd980820.coup.shell.account.AccountState
 import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 
@@ -109,16 +108,15 @@ internal fun MultiplayerGame(shell: ShellViewModel, game: GameViewModel, modifie
     )
 }
 
-/** 결과 대화상자의 레이팅 줄: 반영 중 -> 변화 / 반영 안 됨 / 지연. */
+/** 결과 대화상자의 레이팅 줄: 서버가 확인하는 중 -> 변화 / 레이팅 제외 / 무효. */
 @Composable
 private fun RatingNote(shell: ShellViewModel) {
-    val outcome = shell.settlement
-    val text = when {
-        outcome is ApplyOutcome.Applied -> stringResource(R.string.mp_result_rating, outcome.profile.rating, outcome.record.delta)
-        outcome is ApplyOutcome.Skipped && outcome.reason == SkipReason.NOT_RATED -> stringResource(R.string.mp_result_rating_unrated)
-        outcome != null -> return
-        shell.settlementFailed -> stringResource(R.string.mp_result_rating_failed)
-        else -> stringResource(R.string.mp_result_rating_pending)
+    val text = when (val s = shell.settlement) {
+        is Settlement.Applied -> stringResource(R.string.mp_result_rating, s.rating ?: shell.profile?.rating ?: 0, s.record.delta)
+        Settlement.Unrated -> stringResource(R.string.mp_result_rating_unrated)
+        Settlement.Rejected -> stringResource(R.string.mp_result_rating_rejected)
+        Settlement.NotApplied -> return
+        Settlement.Verifying, null -> stringResource(R.string.mp_result_rating_pending)
     }
     Text(text, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(FlowTags.RATING), style = MaterialTheme.typography.bodyMedium)
 }

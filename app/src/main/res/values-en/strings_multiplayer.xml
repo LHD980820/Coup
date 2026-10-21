@@ -86,7 +86,6 @@
     <string name="mp_room_error_target_not_found">Couldn\'t find that player.</string>
     <string name="mp_room_error_code_required">Private rooms need a join code.</string>
     <string name="mp_room_error_code_taken">The join code collided. Please try again.</string>
-    <string name="mp_room_error_unsettled">Your last rated game is still being settled. Try again in a moment.</string>
 
     <string name="mp_create_title">Create room</string>
     <string name="mp_create_name">Room title</string>
@@ -130,9 +129,9 @@
     <string name="mp_connection_host_lost">Lost connection to the host. You can continue when the host is back.</string>
     <string name="mp_connection_leave">To the room</string>
     <string name="mp_result_rating">Rating %1$d (%2$+d)</string>
-    <string name="mp_result_rating_pending">Updating your rating…</string>
+    <string name="mp_result_rating_pending">The server is checking this game…</string>
     <string name="mp_result_rating_unrated">This game doesn\'t count toward ratings.</string>
-    <string name="mp_result_rating_failed">Your rating update is delayed. It will apply next time you connect.</string>
+    <string name="mp_result_rating_rejected">This game couldn\'t be verified, so it doesn\'t count toward ratings.</string>
     <string name="mp_result_to_room">Back to room</string>
 
     <string name="stats_ranking_open">Ranking</string>

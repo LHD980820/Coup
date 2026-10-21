@@ -3,6 +3,7 @@ package io.github.lhd980820.coup.multiplayer
 import io.github.lhd980820.coup.engine.core.GameEngines
 import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
 import io.github.lhd980820.coup.game.GameViewModel
+import io.github.lhd980820.coup.judge.launchJudge
 import io.github.lhd980820.coup.lobby.ClientInfo
 import io.github.lhd980820.coup.lobby.LobbyUser
 import io.github.lhd980820.coup.lobby.RoomResult
@@ -110,6 +111,11 @@ internal class MpFixture(
     val backend = FakeBackend(fs, auth)
     val game = GameViewModel(scope = scope)
     val shell = ShellViewModel(backend, game, scope, activeRooms)
+
+    init {
+        // 서버 판정(실제로는 Cloud Function): 결과가 생기면 검증하고 레이팅을 반영한다(ADR 0015)
+        scope.launchJudge(fs)
+    }
 
     /** 앱 재시작: 서버와 로그인 상태, 기기에 저장한 방은 그대로이고 화면 모델과 세션은 새로 만든다. 옛 것은 [close]로 끝낸다. */
     fun restart(): MpFixture = MpFixture(fs, auth, activeRooms)

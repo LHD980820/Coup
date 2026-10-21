@@ -7,7 +7,14 @@ import assertk.assertions.isNull
 import io.github.lhd980820.coup.account.NicknameError
 import io.github.lhd980820.coup.shell.account.AccountSession
 import io.github.lhd980820.coup.shell.account.AccountState
+import io.github.lhd980820.coup.remote.FirestoreGameTransport
+import io.github.lhd980820.coup.remote.FirestoreSchema
+import io.github.lhd980820.coup.remote.Settlement
+import io.github.lhd980820.coup.remote.WriteOp
+import io.github.lhd980820.coup.remote.seedStartedRoom
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Test
 
 class AccountSessionTest {
@@ -56,10 +63,21 @@ class AccountSessionTest {
     }
 
     @Test
-    fun `결과 문서가 아직 없으면 있을 때까지 기다렸다가 반영한다`() = fixture { f ->
-        // 결과 없이 호출하면 끝내 null(정산 대기는 그대로 남아 다음 start에서 반영)
-        val account = f.signedUp("kim")
-        assertThat(account.settleGame("g-none", attempts = 3, retryDelayMillis = 5)).isNull()
+    fun `판정을 지켜본다 - 확인 중에서 판정으로, 구독이 끊겨도 다시 붙고, 지우면 멈춘다`() = fixture { f ->
+        val flaky = FlakyObserveStore(f.store("kim"))
+        val account = f.account("kim", flaky).also { it.start() }
+        f.signedUp("lee")
+        val roomId = f.fs.seedStartedRoom("g", "kim", listOf("kim", "lee"), rated = true)
+        FirestoreGameTransport(f.store("kim")).createGame("g", roomId, "kim", listOf("kim", "lee"), f.classic, rated = true)
+        assertThat(account.lastSettlement.value).isNull()
+
+        account.watchSettlement("g", retryDelayMillis = 5)
+        assertThat(account.lastSettlement.await { it != null }).isEqualTo(Settlement.Verifying)
+        flaky.breakNext = true // 다음 스냅숏에서 구독이 끊긴다 -> 다시 구독한다
+        f.fs.admin().write(listOf(WriteOp.Merge(FirestoreSchema.game("g"), buildJsonObject { put(FirestoreSchema.Game.VERDICT, FirestoreSchema.Verdict.REJECTED) })))
+        assertThat(account.lastSettlement.await { it?.isFinal == true }).isEqualTo(Settlement.Rejected)
+
+        account.clearSettlement()
         assertThat(account.lastSettlement.value).isNull()
     }
 }

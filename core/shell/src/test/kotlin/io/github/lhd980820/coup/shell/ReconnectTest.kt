@@ -14,7 +14,7 @@ import io.github.lhd980820.coup.lobby.Room
 import io.github.lhd980820.coup.lobby.RoomResult
 import io.github.lhd980820.coup.lobby.RoomStatus
 import io.github.lhd980820.coup.lobby.Visibility
-import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.remote.Settlement
 import io.github.lhd980820.coup.runtime.session.GameSession
 import io.github.lhd980820.coup.runtime.session.SubmitResult
 import io.github.lhd980820.coup.shell.lobby.WaitingRoomEvent
@@ -119,11 +119,14 @@ class ReconnectTest {
         val result = resumed.snapshot.await(40_000) { it?.view?.result != null }!!.view.result!!
         // 게스트도 같은 결과를 본다(방장이 사라진 동안 보낸 수는 복구 뒤에 처리되거나 거절되고, 게스트는 다시 둔다)
         guests.values.forEach { g -> assertThat(g.snapshot.await(10_000) { it?.view?.result != null }!!.view.result!!.ranking).isEqualTo(result.ranking) }
+        // 방장이 중간에 바뀌어도(복구) 기록이 이어지므로 서버 판정이 검증하고 반영한다
+        f.startJudge()
         val expected = TableRatingPolicy.ratingDeltas(result.ranking)
         listOf("host", "a", "b").forEach { id ->
-            val account = f.account(id).also { it.start() } // 정산 대기가 있으면 시작할 때 반영한다
-            val outcome = account.settleGame(resumed.gameId, retryDelayMillis = 20)
-            assertThat(outcome is ApplyOutcome.Applied || outcome == ApplyOutcome.Skipped(io.github.lhd980820.coup.account.SkipReason.ALREADY_APPLIED), name = "$outcome").isTrue()
+            val account = f.account(id).also { it.start() }
+            account.watchSettlement(resumed.gameId, retryDelayMillis = 20)
+            val settled = account.lastSettlement.await(10_000) { it?.isFinal == true }
+            assertThat(settled, name = "$settled").isNotNull().isInstanceOf(Settlement.Applied::class)
             assertThat(account.profile.await { it?.plays == 1 }!!.rating).isEqualTo(1000 + expected.getValue(PlayerId(id)))
         }
     }

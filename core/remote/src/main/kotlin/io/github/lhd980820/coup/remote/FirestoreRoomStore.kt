@@ -25,7 +25,6 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
 
     override suspend fun create(room: Room): RoomResult<Room> {
         require(room.hostUid == uid) { "rooms are created by their host" }
-        if (unsettled()) return RoomResult.Err(RoomError.UNSETTLED_GAME)
         return store.transaction { tx ->
             if (tx.get(FirestoreSchema.room(room.id)) != null) return@transaction RoomResult.Err(RoomError.NOT_ALLOWED)
             val code = room.joinCode?.let(JoinCodes::normalize)
@@ -49,8 +48,6 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
             is RoomResult.Ok -> r.value
         }
         if (next == current) return@transaction RoomResult.Ok(current)
-        val joining = current.humanSeats.none { it.id == uid } && next.humanSeats.any { it.id == uid }
-        if (joining && tx.get(FirestoreSchema.pendingRating(uid)) != null) return@transaction RoomResult.Err(RoomError.UNSETTLED_GAME)
         val written = RoomDocuments.encodeUpdate(doc, current, next, actorUid = uid)
         tx.write(WriteOp.Set(FirestoreSchema.room(id), written))
         // 방이 닫히면 참가 코드를 풀어 다른 방이 쓸 수 있게 한다
@@ -74,6 +71,4 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
     }
 
     override fun observe(id: String): Flow<Room?> = store.observe(FirestoreSchema.room(id)).map { it?.let { d -> RoomDocuments.decode(id, d) } }
-
-    private suspend fun unsettled(): Boolean = store.get(FirestoreSchema.pendingRating(uid)) != null
 }

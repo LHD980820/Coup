@@ -154,52 +154,16 @@ class RoomStoreTest {
         assertThat(store("host").get(r.id)!!.seats.map { it.id }).containsExactly("host", "c")
     }
 
-    // ---- 정산 게이트 --------------------------------------------------------------------------
-
-    private suspend fun markPending(uid: String) {
-        fs.admin().write(listOf(WriteOp.Set("pendingRatings/$uid", buildJsonObject { put("gameId", "old") })))
-    }
+    // ---- 옛 정산 대기(ADR 0007 -> 0015) -----------------------------------------------------------
 
     @Test
-    fun `정산하지 않은 사람은 방을 만들거나 들어갈 수 없다`(): Unit = runBlocking {
-        val r = room()
-        markPending("b")
-        assertThat(service("b").join(r.id, user("b")).err()).isEqualTo(RoomError.UNSETTLED_GAME)
-        assertThat(service("b").createRoom(user("b"), "방", Visibility.PUBLIC, 4, classic).err()).isEqualTo(RoomError.UNSETTLED_GAME)
-        // 클라이언트 검사를 건너뛰어도 규칙이 막는다
-        assertDenied { forge("b", r.id) { members { put("b", member("b", -1, 9)) }; appendOrder("b") } }
-    }
-
-    @Test
-    fun `방에 들어온 뒤 다른 게임이 끝나 정산 대기가 생기면 게임을 만들 수 없다`(): Unit = runBlocking {
+    fun `옛 정산 대기 표시가 남아 있어도 방을 만들고 들어가고 게임을 시작한다(레이팅은 서버가 반영한다)`(): Unit = runBlocking {
+        fs.admin().write(listOf(WriteOp.Set("pendingRatings/b", buildJsonObject { put("gameId", "old") })))
         val r = room()
         joinedAndReady(r.id, "b")
         val plan = service("host").start(r.id, "host").ok()
-        markPending("b")
-        assertDenied { FirestoreGameTransport(fs.storeFor("host")).createGame(plan) }
-    }
-
-    // ---- 규칙: 게스트 -------------------------------------------------------------------------
-
-    @Test
-    fun `규칙 - 게스트는 자기 자리만 바꾼다`(): Unit = runBlocking {
-        val r = room(max = 3)
-        joinedAndReady(r.id, "b")
-        val cv = (doc(r.id)[R.CONFIG_VERSION] as JsonPrimitive).content.toLong()
-        // 남을 끼워 넣기
-        assertDenied { forge("b", r.id) { members { put("victim", member("v", -1, 9)) }; appendOrder("victim") } }
-        // 룰셋·제목 바꾸기
-        assertDenied { forge("b", r.id) { put(R.RULE_SET, RoomDocuments.encodeRuleSet(classic.copy(houseRules = setOf("last_stand")))) } }
-        assertDenied { forge("b", r.id) { put(R.TITLE, JsonPrimitive("내 방")) } }
-        // 다음 설정에 미리 준비해 두기
-        assertDenied { forge("b", r.id) { members { put("b", member("이름-b", cv + 1, (get("b") as JsonObject)[FirestoreSchema.Member.SEQ]!!.let { (it as JsonPrimitive).content.toLong() })) } } }
-        // 방장의 준비 해제
-        assertDenied { forge("b", r.id) { members { put("host", member("이름-host", -1, 1)) } } }
-        // 시작하기
-        assertDenied { forge("b", r.id) { put(R.STATUS, JsonPrimitive("PLAYING")); put(R.GAME_ID, JsonPrimitive("g")) } }
-        // 남을 내보내기
-        service("c").join(r.id, user("c")).ok()
-        assertDenied { forge("b", r.id) { members { remove("c") }; put(R.MEMBER_ORDER, JsonArray(listOf(JsonPrimitive("host"), JsonPrimitive("b")))) } }
+        FirestoreGameTransport(fs.storeFor("host")).createGame(plan)
+        assertThat(service("b").createRoom(user("b"), "방", Visibility.PUBLIC, 4, classic)).isInstanceOf(RoomResult.Ok::class)
     }
 
     @Test
@@ -398,8 +362,6 @@ class RoomStoreTest {
         bad({ put(R.VERSION, JsonPrimitive(7)) })
         bad({ put(R.MAX_PLAYERS, JsonPrimitive(9)) })
         bad({ put(R.JOIN_CODE, JsonPrimitive("ABC234")) }) // 공개 방에 코드
-        markPending("a")
-        bad({ })
     }
 
     @Test
@@ -428,19 +390,7 @@ class RoomStoreTest {
     }
 
     @Test
-    fun `규칙 - 큰 방(6명)에서도 뒤쪽 좌석의 정산과 준비를 건너뛰지 않는다`(): Unit = runBlocking {
-        val others = listOf("b", "c", "d", "e", "f")
-        for (late in listOf("d", "e", "f")) { // 좌석 순서 3, 4, 5번
-            val r = service("host").createRoom(user("host"), "큰 방 $late", Visibility.PUBLIC, 6, classic).ok()
-            joinedAndReady(r.id, *others.toTypedArray())
-            markPending(late)
-            val plan = service("host").start(r.id, "host").ok()
-            assertDenied { FirestoreGameTransport(fs.storeFor("host")).createGame(plan) }
-            fs.admin().write(listOf(WriteOp.Delete("pendingRatings/$late")))
-            FirestoreGameTransport(fs.storeFor("host")).createGame(plan)
-            service("host").endGame(r.id, "host").ok()
-            service("host").leave(r.id, "host").ok()
-        }
+    fun `규칙 - 큰 방(6명)에서도 뒤쪽 좌석의 준비를 건너뛰지 않는다`(): Unit = runBlocking {
         // 준비: 마지막(6번째) 좌석만 준비하지 않은 채 시작을 강제
         val r = service("host").createRoom(user("host"), "준비", Visibility.PUBLIC, 6, classic).ok()
         joinedAndReady(r.id, "b", "c", "d", "e")

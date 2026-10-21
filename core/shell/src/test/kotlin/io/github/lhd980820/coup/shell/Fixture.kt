@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
+import io.github.lhd980820.coup.judge.launchJudge
 import kotlin.random.Random
 
 /** 규칙을 강제하는 메모리 속 Firestore 위에 사용자별 코어 객체를 만든다(실제 앱과 같은 조립). */
@@ -49,7 +50,10 @@ class Fixture(private val scope: CoroutineScope) {
 
     fun account(uid: String, store: DocumentStore = store(uid)) = AccountSession(users(uid, store), "$uid@test.co", "player", scope)
 
-    /** 프로필까지 만든 계정(정산 게이트·결과 반영에 필요). */
+    /** 서버 판정을 띄운다: 결과가 생기면 검증하고 레이팅을 반영한다(실제로는 Cloud Function, ADR 0015). */
+    fun startJudge(): kotlinx.coroutines.Job = scope.launchJudge(fs)
+
+    /** 프로필까지 만든 계정(레이팅 반영에 필요). */
     suspend fun signedUp(uid: String): AccountSession = account(uid).also { it.start() }
 
     fun launcher(uid: String, store: DocumentStore = store(uid), scope: CoroutineScope = this.scope): GameLauncher =

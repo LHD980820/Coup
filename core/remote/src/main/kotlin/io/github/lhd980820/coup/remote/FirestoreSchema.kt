@@ -11,11 +11,11 @@ package io.github.lhd980820.coup.remote
  * games/{gameId}/commands/{commandId}   게스트 명령 — 보낸 사람과 방장만 읽는다
  * results/{gameId}                      종료 결과
  * users/{uid}                           공개 프로필(닉네임·레이팅·판수·승수) — 로그인한 누구나 읽는다
- * users/{uid}/appliedResults/{gameId}   내 프로필에 반영된 결과(1회 반영 표시 + 전적) — 본인만
+ * users/{uid}/appliedResults/{gameId}   내 프로필에 반영된 결과(1회 반영 표시 + 전적) — 본인만 읽고, 서버 판정만 쓴다(ADR 0015)
  * legacyClaims/{email}                  옛 계정 이관 선점 표시(한 이메일은 한 번만 옮긴다) — 본인만
  * rooms/{roomId}                       대기실(구조화된 필드 — 규칙이 행위자별 변경을 검사한다). 공개 방만 목록 조회
  * joinCodes/{code}                      비공개 방 참가 코드 -> roomId
- * pendingRatings/{uid}                  아직 정산하지 않은 rated 게임(방장이 결과와 함께 쓰고 본인이 정산하며 지운다) — 로그인한 누구나 읽는다
+ * pendingRatings/{uid}                  옛 클라이언트 정산 대기 표시(ADR 0007, 더 이상 쓰지 않는다) — 서버 판정이 남은 것을 지운다
  * user/{email}                          옛 앱의 사용자 문서(읽기 전용, 본인 이메일만)
  * ```
  */
@@ -41,6 +41,7 @@ public object FirestoreSchema {
     public fun legacyClaim(email: String): String = "legacyClaims/$email"
     public fun pendingRating(uid: String): String = "pendingRatings/$uid"
     public const val ROOMS: String = "rooms"
+    public const val RESULTS: String = "results"
     public fun room(roomId: String): String = "rooms/$roomId"
     public fun joinCode(code: String): String = "joinCodes/$code"
     public fun legacyUser(email: String): String = "user/$email"
@@ -162,7 +163,14 @@ public object FirestoreSchema {
         public const val PLAYS: String = "plays"
     }
 
-    /** pendingRatings/{uid} 문서 필드. */
+    /** 게임 문서의 판정([Game.VERDICT]). 서버 판정만 쓴다(ADR 0015). */
+    public object Verdict {
+        public const val VERIFIED: String = "VERIFIED"
+        public const val REJECTED: String = "REJECTED"
+        public const val UNRATED: String = "UNRATED"
+    }
+
+    /** pendingRatings/{uid} 문서 필드(옛 클라이언트 정산, ADR 0007 — 서버 판정이 지우기 위해 읽는다). */
     public object Pending {
         public const val GAME_ID: String = "gameId"
     }

@@ -20,6 +20,7 @@ dependencies {
     testImplementation(libs.assertk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(testFixtures(project(":remote")))
+    testImplementation(testFixtures(project(":judge")))
 }
 
 tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>("compileTestKotlin") {

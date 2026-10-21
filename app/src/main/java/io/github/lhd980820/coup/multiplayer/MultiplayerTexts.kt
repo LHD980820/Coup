@@ -62,7 +62,6 @@ internal object MultiplayerTexts {
         RoomError.TARGET_NOT_FOUND -> R.string.mp_room_error_target_not_found
         RoomError.JOIN_CODE_REQUIRED -> R.string.mp_room_error_code_required
         RoomError.JOIN_CODE_TAKEN -> R.string.mp_room_error_code_taken
-        RoomError.UNSETTLED_GAME -> R.string.mp_room_error_unsettled
     }
 
     @StringRes

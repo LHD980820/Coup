@@ -208,18 +208,18 @@ enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
  * - games/{id}/authority/state: 읽기·쓰기 = 방장만
  * - games/{id}/commands/{cid}: 생성 = senderUid == uid 이고 방장이 아닌 좌석, 읽기 = 방장 또는 보낸 사람, 수정 = 방장, 컬렉션 조회 = 방장
  * - results/{id}: 생성 = 방장(rated면 순위 = 사람 좌석 전원, 변동량 = 레이팅 표), 읽기 = 로그인한 누구나, 수정 불가
- * - pendingRatings/{uid}: 읽기 = 로그인한 누구나. 생성 = 그 게임의 방장이 rated 결과를 만드는 같은 배치에서, 순위에 있는 uid만.
- *   삭제 = 본인, 그 게임의 반영 표시가 배치 뒤에 있을 때(= 정산). 수정 불가. 방 입장 규칙은 [isSettled]를 요구한다.
  * - users/{uid}: 읽기·조회 = 로그인한 누구나. 생성 = 본인(새 프로필은 시작값, 이관은 옛 문서 값 + 같은 배치의 선점 표시).
- *   수정 = 본인, (a) 닉네임만 또는 (b) 레이팅 반영: 표에서 계산한 변동량 + 표시 문서가 전에는 없고 배치 뒤에는 있음
- * - users/{uid}/appliedResults/{gid}: 읽기·조회 = 본인. 생성 = 본인, 같은 배치에서 사용자 문서가 이 게임을 반영할 때만. 수정 불가
+ *   수정 = 본인, 닉네임만. 레이팅은 서버 판정(관리자 권한, ADR 0015)만 바꾼다.
+ * - users/{uid}/appliedResults/{gid}: 읽기·조회 = 본인. 쓰기 = 서버만(ADR 0015)
+ * - pendingRatings/{uid}(옛 클라이언트 정산 대기, ADR 0007): 클라이언트는 읽기·쓰기 불가. 서버 판정이 남은 것을 지운다.
  * - legacyClaims/{email}: 생성 = 토큰 이메일이 같고 uid가 본인. 읽기 = 토큰 이메일이 같을 때. 수정 불가
  * - user/{email}(옛 앱): 읽기 = 토큰 이메일이 같을 때. 쓰기 불가
- * - rooms/{id} (ADR 0008): 읽기 = 로그인한 누구나(목록 조회는 공개 방만). 생성 = 방장 본인만 앉은 새 방, 정산 완료.
- *   게스트 수정 = 자기 항목만(입장·준비·퇴장), 대기 중에만, 입장은 강퇴되지 않았고 자리가 있고 정산 완료일 때.
+ * - rooms/{id} (ADR 0008): 읽기 = 로그인한 누구나(목록 조회는 공개 방만). 생성 = 방장 본인만 앉은 새 방.
+ *   게스트 수정 = 자기 항목만(입장·준비·퇴장), 대기 중에만, 입장은 강퇴되지 않았고 자리가 있을 때.
  *   방장 수정 = 사람은 뺄 수만 있다(넣을 수 없다), 룰셋·봇을 바꾸면 configVersion +1, 시작은 모든 게스트가 지금 설정에 준비했을 때.
  * - joinCodes/{code}: 읽기 = 로그인한 누구나. 생성 = 그 방을 같은 배치에서 만드는 방장. 삭제 = 방이 닫힐 때 방장.
- * - games/{id} 생성: 방이 시작 상태이고 gameId가 같고, 좌석 = 방의 사람 전원, rated = 방 구성(봇·하우스룰 없음), 좌석 전원 정산 완료.
+ * - games/{id} 생성: 방이 시작 상태이고 gameId가 같고, 좌석 = 방의 사람 전원, rated = 방 구성(봇·하우스룰 없음), 시작 시각 = 서버 시각.
+ * - games/{id} 수정: 방장, 상태·버전·생존 신호만(판정은 서버만).
  */
 object AccessPolicy {
     /** 레이팅 표(= TableRatingPolicy). 규칙 파일에도 같은 표가 있다. */
@@ -234,9 +234,7 @@ object AccessPolicy {
     private const val NICK_MIN = 2
     private const val NICK_MAX = 12
     private val PROFILE_KEYS = setOf("nickname", "rating", "plays", "wins", "createdAt", "migratedFromLegacy")
-    private val RATING_KEYS = setOf("rating", "plays", "wins", "lastAppliedResult", "lastAppliedRank")
     private val GAME_HOST_KEYS = setOf(FirestoreSchema.Game.STATUS, FirestoreSchema.Game.VERSION, FirestoreSchema.Game.HOST_HEARTBEAT_AT)
-    private val MARKER_KEYS = setOf("rank", "delta", "playerCount", "finishedAt", "appliedAt")
 
     fun check(
         auth: Auth,
@@ -270,7 +268,7 @@ object AccessPolicy {
                         val seats = seatsOf(id)
                         if (ranking.toSet() != seats.toSet() || ranking.size != seats.size) deny("rated ranking must be exactly the human seats")
                         if (data.int(FirestoreSchema.Result.PLAYER_COUNT) != ranking.size) deny("playerCount mismatch")
-                        // 변동량이 표와 다르면 아무도 정산할 수 없어 다음 게임이 막힌다 -> 쓰는 시점에 거절
+                        // 결과 화면이 보여 주는 변동량도 표와 같아야 한다(실제 반영은 서버가 다시 계산한다)
                         val deltas = data[FirestoreSchema.Result.RATING_DELTAS] as? JsonObject ?: deny("ratingDeltas missing")
                         val table = RATING_TABLE[ranking.size] ?: deny("unsupported player count")
                         if (deltas.keys != ranking.toSet() || ranking.withIndex().any { (i, u) -> deltas.int(u) != table[i] }) {
@@ -296,7 +294,6 @@ object AccessPolicy {
                     val seats = data.strings(FirestoreSchema.Game.SEATS) ?: deny("seats missing")
                     val members = room.strings(R.MEMBER_ORDER) ?: deny("memberOrder missing")
                     if (seats.toSet() != members.toSet() || seats.size != members.size) deny("seats must be exactly the room members")
-                    if (seats.any { !isSettled(it, get) }) deny("every seat must have settled their last rated game")
                     val ruleSet = room[R.RULE_SET] as? JsonObject ?: deny("ruleSet missing")
                     val roomRated = (room[R.BOTS] as? JsonArray)?.isEmpty() == true &&
                         (ruleSet[FirestoreSchema.RuleSet.HOUSE_RULES] as? JsonArray)?.isEmpty() == true &&
@@ -416,8 +413,7 @@ object AccessPolicy {
                         when {
                             changed.isEmpty() -> Unit
                             changed == setOf("nickname") -> if (!validNickname(after)) deny("invalid nickname")
-                            RATING_KEYS.containsAll(changed) -> checkRatingUpdate(uid, before, after, get, getAfter, ::deny)
-                            else -> deny("these fields cannot be changed: $changed")
+                            else -> deny("these fields cannot be changed (ratings are server-only): $changed")
                         }
                     }
                     else -> deny("not allowed")
@@ -428,23 +424,8 @@ object AccessPolicy {
                 if (kind != Access.QUERY || segments[1] != uid) deny("history is private")
             // users/{uid}/appliedResults/{gameId}
             segments.size == 4 && segments[0] == "users" && segments[2] == "appliedResults" -> {
-                val owner = segments[1]
-                val gameId = segments[3]
-                if (owner != uid) deny("history is private")
-                when (kind) {
-                    Access.READ -> Unit
-                    Access.CREATE -> {
-                        val userAfter = getAfter("users/$uid") ?: deny("no profile")
-                        if (userAfter.str("lastAppliedResult") != gameId) deny("profile must apply this game in the same batch")
-                        if (get("users/$uid")?.str("lastAppliedResult") == gameId) deny("profile already applied this game")
-                        val data = incoming ?: deny("no data")
-                        if (!MARKER_KEYS.containsAll(data.keys)) deny("unexpected marker fields: ${data.keys}")
-                        if (data.int("rank") != userAfter.int("lastAppliedRank")) deny("rank mismatch")
-                        val result = get("results/$gameId") ?: deny("no result")
-                        if (data.int("delta") != (result[FirestoreSchema.Result.RATING_DELTAS] as? JsonObject)?.int(uid)) deny("delta mismatch")
-                    }
-                    else -> deny("applied results are immutable")
-                }
+                if (segments[1] != uid) deny("history is private")
+                if (kind != Access.READ) deny("applied results are written by the server")
             }
             // legacyClaims/{email}
             segments.size == 2 && segments[0] == "legacyClaims" -> {
@@ -461,8 +442,8 @@ object AccessPolicy {
             // rooms/{id}
             segments.size == 2 && segments[0] == "rooms" -> when (kind) {
                 Access.READ -> Unit
-                Access.CREATE -> checkRoomCreate(uid, segments[1], incoming ?: deny("no data"), get, getAfter, ::deny)
-                Access.UPDATE -> checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), get, ::deny)
+                Access.CREATE -> checkRoomCreate(uid, segments[1], incoming ?: deny("no data"), getAfter, ::deny)
+                Access.UPDATE -> checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), ::deny)
                 else -> deny("rooms cannot be deleted")
             }
             // joinCodes/{code}
@@ -480,28 +461,6 @@ object AccessPolicy {
                     if (room == null || room.str(R.HOST_UID) != uid || room.str(R.STATUS) != "CLOSED") deny("codes are released when the host closes the room")
                 }
                 else -> deny("codes are immutable")
-            }
-            // pendingRatings/{uid}
-            segments.size == 2 && segments[0] == "pendingRatings" -> {
-                val owner = segments[1]
-                when (kind) {
-                    Access.READ -> Unit
-                    Access.CREATE -> {
-                        val gameId = incoming?.str(FirestoreSchema.Pending.GAME_ID) ?: deny("gameId missing")
-                        if (incoming.keys != setOf(FirestoreSchema.Pending.GAME_ID)) deny("unexpected fields")
-                        if (uid != hostOf(gameId)) deny("only the host of that game")
-                        val resultAfter = getAfter("results/$gameId") ?: deny("result must be written in the same batch")
-                        if (get("results/$gameId") != null) deny("result must be written in the same batch")
-                        if (resultAfter.bool(FirestoreSchema.Result.RATED) != true) deny("only rated games are settled")
-                        if (owner !in (resultAfter.strings(FirestoreSchema.Result.RANKING) ?: emptyList())) deny("not a participant")
-                    }
-                    Access.DELETE -> {
-                        if (owner != uid) deny("only the owner settles")
-                        val gameId = existing?.str(FirestoreSchema.Pending.GAME_ID) ?: deny("no pending game")
-                        if (getAfter("users/$owner/appliedResults/$gameId") == null) deny("settle (apply) the game first")
-                    }
-                    else -> deny("pending ratings cannot be changed")
-                }
             }
             // user/{email} (옛 앱)
             segments.size == 2 && segments[0] == "user" -> {
@@ -524,12 +483,10 @@ object AccessPolicy {
         uid: String,
         roomId: String,
         d: JsonObject,
-        get: (String) -> JsonObject?,
         getAfter: (String) -> JsonObject?,
         deny: (String) -> Nothing,
     ) {
         if (d.str(R.HOST_UID) != uid) deny("creator must be the host")
-        if (!isSettled(uid, get)) deny("settle your last rated game first")
         val members = d[R.MEMBERS] as? JsonObject ?: deny("members missing")
         if (members.keys != setOf(uid) || d.strings(R.MEMBER_ORDER) != listOf(uid)) deny("a new room holds only its host")
         if ((d[R.BOTS] as? JsonArray)?.isEmpty() != true) deny("a new room has no bots")
@@ -545,7 +502,7 @@ object AccessPolicy {
         }
     }
 
-    private fun checkRoomUpdate(uid: String, before: JsonObject, after: JsonObject, get: (String) -> JsonObject?, deny: (String) -> Nothing) {
+    private fun checkRoomUpdate(uid: String, before: JsonObject, after: JsonObject, deny: (String) -> Nothing) {
         val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
         if (before.str(R.STATUS) == "CLOSED") deny("closed rooms are frozen")
         if (after.long(R.VERSION) != before.long(R.VERSION)!! + 1) deny("version must increase by one")
@@ -597,7 +554,6 @@ object AccessPolicy {
             when {
                 uid !in mBefore -> { // 입장
                     if (uid in (before.strings(R.BANNED) ?: emptyList())) deny("kicked from this room")
-                    if (!isSettled(uid, get)) deny("settle your last rated game first")
                     if (orderAfter != orderBefore + uid) deny("joiners go to the end of memberOrder")
                     val name = entry?.str(FirestoreSchema.Member.NAME) ?: deny("name missing")
                     if (name.length !in 1..20) deny("bad name")
@@ -619,34 +575,6 @@ object AccessPolicy {
                 }
             }
         }
-    }
-
-    /** 방 입장·rated 게임 생성 규칙이 쓸 조건: 정산하지 않은 rated 게임이 없다. */
-    fun isSettled(uid: String, get: (String) -> JsonObject?): Boolean = get("pendingRatings/$uid") == null
-
-    /** 레이팅 반영 수정: 변동량은 결과 문서의 순위·인원수로 표에서 다시 계산한다. 표시 문서가 전에는 없고 배치 뒤에는 있어야 한다. */
-    private fun checkRatingUpdate(
-        uid: String,
-        before: JsonObject,
-        after: JsonObject,
-        get: (String) -> JsonObject?,
-        getAfter: (String) -> JsonObject?,
-        deny: (String) -> Nothing,
-    ) {
-        val gameId = after.str("lastAppliedResult") ?: deny("lastAppliedResult missing")
-        val rank = after.int("lastAppliedRank") ?: deny("lastAppliedRank missing")
-        val result = get("results/$gameId") ?: deny("no such result")
-        if (result.bool(FirestoreSchema.Result.RATED) != true) deny("result is not rated")
-        val ranking = result.strings(FirestoreSchema.Result.RANKING) ?: deny("ranking missing")
-        if (ranking.getOrNull(rank) != uid) deny("rank does not belong to the caller")
-        val count = result.int(FirestoreSchema.Result.PLAYER_COUNT) ?: deny("playerCount missing")
-        val delta = RATING_TABLE[count]?.getOrNull(rank) ?: deny("unsupported player count")
-        if ((result[FirestoreSchema.Result.RATING_DELTAS] as? JsonObject)?.int(uid) != delta) deny("recorded delta disagrees with the table")
-        if (after.int("rating") != before.int("rating")!! + delta) deny("rating must change by exactly the delta")
-        if (after.int("plays") != before.int("plays")!! + 1) deny("plays must increase by one")
-        if (after.int("wins") != (before.int("wins") ?: 0) + if (rank == 0) 1 else 0) deny("wins mismatch")
-        if (get("users/$uid/appliedResults/$gameId") != null) deny("result already applied")
-        if (getAfter("users/$uid/appliedResults/$gameId") == null) deny("applied marker must be written in the same batch")
     }
 
     private fun validNickname(data: JsonObject): Boolean {

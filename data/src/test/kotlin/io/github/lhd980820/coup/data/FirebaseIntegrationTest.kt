@@ -1,11 +1,11 @@
 package io.github.lhd980820.coup.data
 
 import com.google.firebase.firestore.FirebaseFirestoreException
-import io.github.lhd980820.coup.account.SkipReason
+import io.github.lhd980820.coup.account.RatingDecision
+import io.github.lhd980820.coup.account.RatingLedger
 import io.github.lhd980820.coup.ai.RandomAgent
 import io.github.lhd980820.coup.engine.core.GameEngines
 import io.github.lhd980820.coup.engine.model.PlayerId
-import io.github.lhd980820.coup.engine.rating.TableRatingPolicy
 import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
 import io.github.lhd980820.coup.lobby.ClientInfo
 import io.github.lhd980820.coup.lobby.LobbyUser
@@ -13,11 +13,14 @@ import io.github.lhd980820.coup.lobby.RoomError
 import io.github.lhd980820.coup.lobby.RoomResult
 import io.github.lhd980820.coup.lobby.RoomService
 import io.github.lhd980820.coup.lobby.Visibility
-import io.github.lhd980820.coup.remote.ApplyOutcome
+import io.github.lhd980820.coup.judge.ServerJudge
+import io.github.lhd980820.coup.judge.Verdict
 import io.github.lhd980820.coup.remote.FirestoreGameTransport
 import io.github.lhd980820.coup.remote.FirestoreRoomStore
 import io.github.lhd980820.coup.remote.FirestoreSchema
 import io.github.lhd980820.coup.remote.FirestoreUserRepository
+import io.github.lhd980820.coup.remote.Settlement
+import io.github.lhd980820.coup.remote.UserDocuments
 import io.github.lhd980820.coup.remote.WriteOp
 import io.github.lhd980820.coup.runtime.Clock
 import io.github.lhd980820.coup.runtime.SeatKind
@@ -164,22 +167,33 @@ class FirebaseIntegrationTest {
         // 보안: 게스트는 남의 좌석 뷰를 읽을 수 없다
         expectDenied { b.store.get(FirestoreSchema.view(plan.gameId, c.uid)) }
 
-        // 결과 문서와 정산 대기가 생길 때까지(방장 기기가 쓴다)
+        // 결과 문서가 생길 때까지(방장 기기가 쓴다)
         withTimeout(20_000) { while (host.store.get(FirestoreSchema.result(plan.gameId)) == null) delay(100) }
-        val expected = TableRatingPolicy.ratingDeltas(result.ranking)
+
+        // 서버 판정(ADR 0015): 실제 SDK가 쓴 기록(서버 시각 포함)을 같은 엔진으로 다시 돌리면 검증된다.
+        // 기록·실행 설정·명령 문서는 방장이 읽을 수 있으므로 방장 권한으로 판정만 해 본다(반영은 관리자 권한의 서버만 할 수 있다).
+        val verdict = ServerJudge(host.store).inspect(plan.gameId)
+        assertTrue("검증되어야 한다: $verdict", verdict is Verdict.Verified)
+        assertEquals(result.ranking.map { it.value }, (verdict as Verdict.Verified).ranking)
+        val firstLog = host.store.get(FirestoreSchema.logEntry(plan.gameId, 1))!!
+        assertTrue("기록 시각은 서버 시각(밀리초)이다: $firstLog", firstLog[FirestoreSchema.Log.AT].toString().toLong() > 0)
+
+        // 클라이언트는 표대로인 정확한 반영도 쓸 수 없고, 판정이 나기 전에는 "확인 중"이다
+        val outcome = UserDocuments.result(plan.gameId, host.store.get(FirestoreSchema.result(plan.gameId))!!)!!
         listOf(host, b, c).forEach { u ->
-            assertEquals(plan.gameId, users(u).observePending().first())
-            val outcome = users(u).applyResult(plan.gameId)
-            assertTrue("반영되어야 한다: $outcome", outcome is ApplyOutcome.Applied)
-            assertEquals(1000 + expected.getValue(PlayerId(u.uid)), users(u).observeProfile().first()!!.rating)
-            assertNull(users(u).observePending().first())
-            // 두 번째 반영은 하지 않는다
-            assertEquals(ApplyOutcome.Skipped(SkipReason.ALREADY_APPLIED), users(u).applyResult(plan.gameId))
+            val profile = users(u).observeProfile().first()!!
+            val decision = RatingLedger.decide(profile, outcome, alreadyApplied = false, now = 0) as RatingDecision.Apply
+            expectDenied { u.store.write(UserDocuments.ratingWrites(u.uid, decision)) }
+            assertEquals(Settlement.Verifying, users(u).observeSettlement(plan.gameId).first())
+            assertEquals(1000, profile.rating)
         }
-        // 랭킹(정렬 쿼리)이 실제로 읽힌다
-        val top = users(b).observeTop(10).first()
-        assertEquals(result.ranking.first().value, top.first().uid)
-        // 방은 대기실로 돌아가고 다음 판을 다시 시작할 수 있다(정산을 마쳤으므로)
+        // 방장은 판정을 쓸 수 없다
+        expectDenied {
+            host.store.write(listOf(WriteOp.Merge(FirestoreSchema.game(plan.gameId), buildJsonObject { put(FirestoreSchema.Game.VERDICT, FirestoreSchema.Verdict.VERIFIED) })))
+        }
+        // 랭킹(정렬 쿼리)이 실제로 읽힌다(아직 아무도 레이팅 게임이 반영되지 않았다)
+        assertEquals(emptyList<Any>(), users(b).observeTop(10).first())
+        // 방은 대기실로 돌아가고 다음 판을 다시 시작할 수 있다
         rooms(host).endGame(room.id, host.uid).ok()
         hostSession.close()
         guests.forEach { it.close() }

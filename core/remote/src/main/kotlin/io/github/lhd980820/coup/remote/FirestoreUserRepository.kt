@@ -10,12 +10,11 @@ import io.github.lhd980820.coup.account.ProfileSetup
 import io.github.lhd980820.coup.account.RankingEntry
 import io.github.lhd980820.coup.account.Rankings
 import io.github.lhd980820.coup.account.RatingDecision
-import io.github.lhd980820.coup.account.RatingLedger
-import io.github.lhd980820.coup.account.SkipReason
 import io.github.lhd980820.coup.account.UserProfile
 import io.github.lhd980820.coup.runtime.Clock
-import io.github.lhd980820.coup.runtime.transport.TransportException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -27,21 +26,32 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
-public sealed interface ApplyOutcome {
-    public data class Applied(val profile: UserProfile, val record: AppliedResult) : ApplyOutcome
-    public data class Skipped(val reason: SkipReason) : ApplyOutcome
+/** 끝난 게임이 내 레이팅에 어떻게 반영됐는가(서버 판정, ADR 0015). */
+public sealed interface Settlement {
+    /** 서버가 아직 판정하지 않았다(결과를 기다리거나 다시 돌려 보는 중). */
+    public data object Verifying : Settlement
 
-    /** 결과 문서가 아직 없다(방장이 아직 쓰지 않음). 결과 화면이 잠시 뒤 다시 부른다. */
-    public data object NoResultYet : ApplyOutcome
-    public data object NoProfile : ApplyOutcome
+    /** 반영됐다. [rating]은 반영 직후 내 레이팅(읽지 못하면 null). */
+    public data class Applied(val record: AppliedResult, val rating: Int?) : Settlement
+
+    /** 레이팅 대상이 아닌 판(봇·하우스룰). */
+    public data object Unrated : Settlement
+
+    /** 기록이 맞지 않아 서버가 판을 무효로 했다. 아무의 레이팅도 바뀌지 않았다. */
+    public data object Rejected : Settlement
+
+    /** 검증됐지만 내 레이팅은 이번에 바뀌지 않았다(이미 반영됨, 프로필 없음). */
+    public data object NotApplied : Settlement
+
+    public val isFinal: Boolean get() = this != Verifying
 }
 
 /**
  * 사용자·랭킹 저장소(설계 §8.5 `UserRepository`/`RankingRepository`)의 Firestore 구현. 규칙은 `:account`의 순수 함수가 정하고,
  * 이 클래스는 문서를 읽고 쓰기만 한다. 한 인스턴스는 로그인한 한 사용자([uid], 인증 토큰의 [email])로서 동작한다.
  *
- * 레이팅 반영은 **사용자 문서 갱신 + `appliedResults/{gameId}` 생성을 한 배치**로 쓴다. 보안 규칙은 표시 문서가 전에는 없었고
- * 배치 뒤에는 있으며, 변동량이 레이팅 표와 같을 때만 허용한다(ADR 0007). 다른 기기와 동시에 반영해서 거절되면 다시 읽고 판단한다.
+ * 레이팅은 쓰지 않는다: 서버 판정이 끝난 게임을 다시 돌려 검증하고 참가자 전원의 레이팅을 한 번에 반영한다(ADR 0015).
+ * 클라이언트는 그 판정과 반영 표시를 지켜볼 뿐이다([observeSettlement]).
  */
 public class FirestoreUserRepository(
     private val store: DocumentStore,
@@ -79,44 +89,27 @@ public class FirestoreUserRepository(
         return null
     }
 
-    /** 아직 정산하지 않은 rated 게임의 ID(없으면 null). 있으면 다음 rated 게임에 들어갈 수 없다. */
-    public fun observePending(userId: String = uid): Flow<String?> =
-        store.observe(FirestoreSchema.pendingRating(userId)).map { it?.str(FirestoreSchema.Pending.GAME_ID) }
-
-    private suspend fun pendingGame(): String? = store.get(FirestoreSchema.pendingRating(uid))?.str(FirestoreSchema.Pending.GAME_ID)
-
-    /** 앱 시작·로비 진입 때 부른다: 정산 대기 중인 게임이 있으면 반영한다. 없으면 null. */
-    public suspend fun settlePending(): ApplyOutcome? {
-        val gameId = pendingGame() ?: return null
-        return applyResult(gameId)
-    }
-
     /**
-     * 게임 결과를 내 프로필에 1회 반영한다. 이미 반영했거나 대상이 아니면 레이팅은 쓰지 않는다.
-     * 이 게임의 정산 대기 표시가 있으면 같은 배치로 지운다(이미 반영된 게임이면 표시만 지운다).
+     * 게임 [gameId]의 레이팅 반영 상태. 판정 표시(게임 문서)와 내 반영 표시를 함께 본다 — 서버가 둘을 한 트랜잭션으로 쓰지만
+     * 구독은 따로 도착하므로, "검증됨인데 표시가 없다"면 서버에서 다시 읽어 확인한다.
      */
-    public suspend fun applyResult(gameId: String): ApplyOutcome {
-        repeat(APPLY_ATTEMPTS) { attempt ->
-            val result = store.get(FirestoreSchema.result(gameId))?.toResult(gameId) ?: return ApplyOutcome.NoResultYet
-            val profile = store.get(FirestoreSchema.user(uid))?.toProfile(uid) ?: return ApplyOutcome.NoProfile
-            val applied = store.get(FirestoreSchema.appliedResult(uid, gameId)) != null
-            val clearPending = pendingGame() == gameId
-            when (val decision = RatingLedger.decide(profile, result, applied, clock.nowMillis())) {
-                is RatingDecision.Skip -> {
-                    if (applied && clearPending) store.write(listOf(WriteOp.Delete(FirestoreSchema.pendingRating(uid))))
-                    return ApplyOutcome.Skipped(decision.reason)
-                }
-                is RatingDecision.Apply -> try {
-                    store.write(applyOps(decision) + if (clearPending) listOf(WriteOp.Delete(FirestoreSchema.pendingRating(uid))) else emptyList())
-                    return ApplyOutcome.Applied(decision.updated, decision.record)
-                } catch (e: TransportException) {
-                    // 다른 기기가 먼저 반영했거나(표시 문서 존재) 그사이 레이팅이 바뀌었다 -> 다시 읽고 판단한다
-                    if (attempt == APPLY_ATTEMPTS - 1) throw e
-                }
+    public fun observeSettlement(gameId: String): Flow<Settlement> =
+        combine(store.observe(FirestoreSchema.game(gameId)), store.observe(FirestoreSchema.appliedResult(uid, gameId))) { game, applied ->
+            val marker = applied ?: if (game?.str(FirestoreSchema.Game.VERDICT) == FirestoreSchema.Verdict.VERIFIED) {
+                store.get(FirestoreSchema.appliedResult(uid, gameId))
+            } else {
+                null
             }
-        }
-        error("unreachable")
-    }
+            marker?.toApplied(gameId)?.let { record ->
+                return@combine Settlement.Applied(record, store.get(FirestoreSchema.user(uid))?.toProfile(uid)?.rating)
+            }
+            when (game?.str(FirestoreSchema.Game.VERDICT)) {
+                FirestoreSchema.Verdict.VERIFIED -> Settlement.NotApplied
+                FirestoreSchema.Verdict.REJECTED -> Settlement.Rejected
+                FirestoreSchema.Verdict.UNRATED -> Settlement.Unrated
+                else -> if (game?.bool(FirestoreSchema.Game.RATED) == false) Settlement.Unrated else Settlement.Verifying
+            }
+        }.distinctUntilChanged()
 
     /** 레이팅 상위 [limit]명. 아직 rated 게임을 하지 않은 사용자는 뺀다. */
     public fun observeTop(limit: Int): Flow<List<RankingEntry>> =
@@ -128,15 +121,10 @@ public class FirestoreUserRepository(
         store.observeOrdered(FirestoreSchema.appliedResults(uid), FirestoreSchema.Applied.APPLIED_AT, descending = true, limit = limit)
             .map { docs -> docs.mapNotNull { it.data.toApplied(it.id) } }
 
-    private fun applyOps(decision: RatingDecision.Apply): List<WriteOp> = ratingOps(uid, decision)
-
-    private companion object {
-        const val APPLY_ATTEMPTS = 3
-    }
 }
 
-/** 레이팅 반영 한 건의 쓰기: 프로필(레이팅·판수·승수) + 반영 표시 문서. 클라이언트 반영과 서버 판정(ADR 0015)이 같은 모양을 쓴다. */
-internal fun ratingOps(uid: String, decision: RatingDecision.Apply): List<WriteOp> {
+/** 레이팅 반영 한 건의 쓰기: 프로필(레이팅·판수·승수) + 반영 표시 문서. 서버 판정(ADR 0015)만 쓴다. */
+private fun ratingOps(uid: String, decision: RatingDecision.Apply): List<WriteOp> {
     val p = decision.updated
     val r = decision.record
     return listOf(

@@ -89,7 +89,6 @@
     <string name="mp_room_error_target_not_found">대상을 찾을 수 없어요.</string>
     <string name="mp_room_error_code_required">비공개 방에는 참가 코드가 필요해요.</string>
     <string name="mp_room_error_code_taken">참가 코드가 겹쳤어요. 다시 시도해 주세요.</string>
-    <string name="mp_room_error_unsettled">직전 레이팅 게임을 아직 정산하는 중이에요. 잠시 뒤에 다시 시도해 주세요.</string>
 
     <!-- 방 만들기 -->
     <string name="mp_create_title">방 만들기</string>
@@ -137,9 +136,9 @@
 
     <!-- 게임 결과 -->
     <string name="mp_result_rating">레이팅 %1$d (%2$+d)</string>
-    <string name="mp_result_rating_pending">레이팅을 반영하는 중…</string>
+    <string name="mp_result_rating_pending">서버가 결과를 확인하는 중…</string>
     <string name="mp_result_rating_unrated">이 판은 레이팅에 반영되지 않아요.</string>
-    <string name="mp_result_rating_failed">레이팅 반영이 늦어지고 있어요. 다음에 접속할 때 반영돼요.</string>
+    <string name="mp_result_rating_rejected">기록을 확인하지 못해 이 판은 레이팅에 반영되지 않았어요.</string>
     <string name="mp_result_to_room">대기실로</string>
 
     <!-- 랭킹·전적 -->

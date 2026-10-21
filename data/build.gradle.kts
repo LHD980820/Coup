@@ -36,6 +36,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
+    // 서버 판정(ADR 0015)으로 실제 SDK가 쓴 기록을 검증해 본다
+    testImplementation("io.github.lhd980820.coup:judge")
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)

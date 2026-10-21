@@ -89,6 +89,7 @@ dependencies {
     testImplementation(libs.robolectric)
     // 규칙을 강제하는 메모리 속 Firestore: 로그인 -> 로비 -> 대기실 -> 게임 흐름을 에뮬레이터 없이 화면에서 확인한다
     testImplementation(testFixtures("io.github.lhd980820.coup:remote"))
+    testImplementation(testFixtures("io.github.lhd980820.coup:judge"))
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)

@@ -5,6 +5,7 @@ import assertk.assertions.containsExactlyInAnyOrder
 import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNotEqualTo
+import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import io.github.lhd980820.coup.ai.RandomAgent
 import io.github.lhd980820.coup.engine.command.Command
@@ -181,6 +182,17 @@ class ServerJudgeTest {
         val t = finishedGame(policy = shortLimits, guestsPlay = false)
         assertThat(log(t).count { it.str(FirestoreSchema.Log.SOURCE) == "TIMEOUT" }).isNotEqualTo(0)
         assertThat(judge(t, shortLimits).judge(gameId)).isInstanceOf(JudgeOutcome.Verified::class)
+    }
+
+    @Test
+    fun `점검(inspect)은 판정만 하고 아무것도 쓰지 않는다`() = runTest {
+        val t = finishedGame()
+        val before = t.fs.docs.toMap()
+        assertThat(judge(t).inspect(gameId)).isNotNull().isInstanceOf(Verdict.Verified::class)
+        assertThat(t.fs.docs.toMap()).isEqualTo(before)
+        assertThat(judge(t).inspect("nope")).isNull()
+        val u = finishedGame(rated = false)
+        assertThat(judge(u).inspect(gameId)).isNull()
     }
 
     @Test
