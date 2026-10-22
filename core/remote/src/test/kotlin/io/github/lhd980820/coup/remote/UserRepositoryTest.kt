@@ -279,6 +279,47 @@ class UserRepositoryTest {
         store.write(listOf(result(listOf("b", "a"))))
     }
 
+    @Test
+    fun `규칙 - 결과의 변동량은 4~6인에서도 모든 순위가 표와 같아야 한다`(): Unit = runBlocking {
+        for (n in 4..6) {
+            val ids = List(n) { "p$it" }
+            val gameId = "big$n"
+            startGame(gameId, ids)
+            val table = AccessPolicy.RATING_TABLE.getValue(n)
+            fun result(wrongAt: Int?) = WriteOp.Set(
+                "results/$gameId",
+                buildJsonObject {
+                    put(FirestoreSchema.Result.RANKING, buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } })
+                    put(FirestoreSchema.Result.PLAYER_COUNT, n)
+                    put(FirestoreSchema.Result.RATED, true)
+                    put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { ids.forEachIndexed { i, u -> put(u, table[i] + if (i == wrongAt) 1 else 0) } })
+                },
+            )
+            val host = fs.storeFor(ids.first())
+            for (wrongAt in 0 until n) assertFailure { host.write(listOf(result(wrongAt))) }.isInstanceOf(PermissionDenied::class)
+            host.write(listOf(result(null)))
+        }
+    }
+
+    @Test
+    fun `규칙 - 게임 문서의 시작 시각은 서버 시각이어야 만들 수 있다`(): Unit = runBlocking {
+        val seats = listOf("a", "b")
+        val roomId = fs.seedStartedRoom("gt", "a", seats, rated = true)
+        fun game(createdAt: kotlinx.serialization.json.JsonElement) = WriteOp.Set(
+            "games/gt",
+            buildJsonObject {
+                put(FirestoreSchema.Game.HOST_UID, "a")
+                put(FirestoreSchema.Game.ROOM_ID, roomId)
+                put(FirestoreSchema.Game.SEATS, buildJsonArray { seats.forEach { add(JsonPrimitive(it)) } })
+                put(FirestoreSchema.Game.RATED, true)
+                put(FirestoreSchema.Game.CREATED_AT, createdAt)
+            },
+        )
+        val host = fs.storeFor("a")
+        assertFailure { host.write(listOf(game(JsonPrimitive(5L)))) }.isInstanceOf(PermissionDenied::class)
+        host.write(listOf(game(ServerValues.TIMESTAMP)))
+    }
+
     // ---- 랭킹 -------------------------------------------------------------------------------
 
     @Test

@@ -19,6 +19,8 @@ import io.github.lhd980820.coup.runtime.transport.Publication
 import io.github.lhd980820.coup.runtime.transport.ViewEnvelope
 import io.github.lhd980820.coup.engine.view.Viewer
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Test
@@ -115,6 +117,18 @@ class CommandLogTest {
         )) {
             assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), forged))) }.isInstanceOf(PermissionDenied::class)
         }
+    }
+
+    @Test
+    fun `명령 문서 - 방장은 자기 이름으로도 만들 수 없다(게스트만 보낸다)`() = runBlocking<Unit> {
+        newGame()
+        val own = buildJsonObject {
+            put(FirestoreSchema.Command.SENDER_UID, "host")
+            put(FirestoreSchema.Command.COMMAND_JSON, "{}")
+            put(FirestoreSchema.Command.STATUS, FirestoreSchema.CommandStatus.PENDING)
+        }
+        assertFailure { fs.storeFor("host").write(listOf(WriteOp.Set(FirestoreSchema.command(gameId, "mine"), own))) }.isInstanceOf(PermissionDenied::class)
+        fs.storeFor("b").write(listOf(WriteOp.Set(FirestoreSchema.command(gameId, "theirs"), JsonObject(own + (FirestoreSchema.Command.SENDER_UID to JsonPrimitive("b"))))))
     }
 
     @Test

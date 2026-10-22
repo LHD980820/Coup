@@ -45,7 +45,7 @@
 
 ## 이번 단계 메모 (Phase 7 — 서버 판정, ADR 0015)
 - 1단계: 권한자가 적용한 모든 명령을 `games/{id}/log/{version}`(서버 시각, 고칠 수 없음)에 뷰와 같은 배치로 기록, 실행 설정(시드)은 게임 생성 배치에서만 만들고 고칠 수 없음.
-- 2단계: `core/judge` — `GameVerifier`(설정·빈틈·합법·게스트 명령 문서 묶임·시간 초과(서버 시각)·순위)와 `ServerJudge`(관리자 권한, 한 트랜잭션으로 전원 반영, 판정 표시로 한 번만). 조작 15종 각각 거부, 변이 22종 중 21종 검출(1종은 중복 방어).
+- 2단계: `core/judge` — `GameVerifier`(설정·빈틈·합법·게스트 명령 문서 묶임·시간 초과(서버 시각)·순위)와 `ServerJudge`(관리자 권한, 한 트랜잭션으로 전원 반영, 판정 표시로 한 번만). 조작 15종 각각 거부, 검증기 변이 22종 중 21종 검출(1종은 중복 방어).
 - 3·4단계: 규칙 전환 — 클라이언트는 레이팅·반영 표시·판정을 쓸 수 없음, 정산 게이트(`pendingRatings`·`isSettled`·`UNSETTLED_GAME`) 제거. 앱은 판정을 지켜봄(`observeSettlement`, 결과 화면 "서버가 확인하는 중 / 레이팅 n (±d) / 제외 / 무효").
 - 5단계: `server/`(따로 빌드, `includeBuild("../core")`) — `JudgeFunction`(Cloud Functions 2세대, Java 21, `results/{gameId}` 생성 이벤트), `AdminDocumentStore`(서버 클라이언트 라이브러리). 에뮬레이터 통합 테스트 5 + 로컬 함수 실행기로 배포 JAR 확인. CI에 추가.
 - 실제 Android SDK가 쓴 기록도 검증됨(`:data` 에뮬레이터 테스트). 재접속(방장 앱 재시작) 판도 검증됨.
