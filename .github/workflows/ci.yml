@@ -76,9 +76,17 @@ jobs:
           COUP_REQUIRE_EMULATOR: "true"
         run: npx firebase --config ../firebase.json emulators:exec --only firestore,auth --project demo-coup "cd ../.. && JAVA_HOME=$JAVA_HOME_17_X64 ./gradlew :data:testDebugUnitTest"
 
+      - name: Server judge function tests on the emulator
+        working-directory: firebase/rules-test
+        env:
+          COUP_REQUIRE_EMULATOR: "true"
+        run: npx firebase --config ../firebase.json emulators:exec --only firestore --project demo-coup "cd ../../server && JAVA_HOME=$JAVA_HOME_17_X64 ./gradlew test shadowJar"
+
       - name: Upload adapter test reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: data-test-reports
-          path: data/build/reports/tests/
+          path: |
+            data/build/reports/tests/
+            server/build/reports/tests/
