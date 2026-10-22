@@ -4,7 +4,8 @@
 | 파일 | 상태 |
 |---|---|
 | `firebase.json` | 에뮬레이터: Firestore 8080, Auth 9099(어댑터 통합 테스트용) |
-| `firestore.rules` | ✅ **에뮬레이터 검증됨**(2026-10-18, Firestore 에뮬레이터 v1.22 + Java 21) — 모델의 허용/거부 판단 3,171건(거부 166건, 시나리오 70개)을 실제 규칙에 재생해 **불일치 0건**. 규칙 조건 변이 98개 중 82개 검출, 나머지 16개는 다른 조건과 겹치는 중복 방어(아래). 배포 전에는 한 번 더 돌릴 것. |
+| `firestore.rules` | ✅ **에뮬레이터 검증됨**(2026-10-22, 서버 판정 전환 후) — 모델의 허용/거부 판단 2,671건(거부 148건, 시나리오 63개)을 실제 규칙에 재생해 **불일치 0건**. 규칙 조건 변이 검증은 서버 판정 전환 뒤 다시 도는 중(아래 표는 전환 전 결과). 배포 전에는 한 번 더 돌릴 것. |
+| `../server/` | 서버 판정 Cloud Function(ADR 0015). 배포는 아래 "서버 판정 배포". |
 
 ## 규칙의 근거
 `core/remote/src/test/kotlin/io/github/lhd980820/coup/remote/FakeFirestore.kt` 의 `AccessPolicy`가 같은 접근 매트릭스를
@@ -15,22 +16,24 @@
 ## 접근 매트릭스 (설계 문서 §8.3)
 | 경로 | 읽기 | 쓰기 |
 |---|---|---|
-| `games/{id}` | 좌석 uid | 만들기: 방장, 방이 이 gameId로 시작됨 + 좌석 = 방 사람 전원 + rated = 방 구성 + 좌석 전원 정산 완료 / 수정: 방장 |
+| `games/{id}` | 좌석 uid | 만들기: 방장, 방이 이 gameId로 시작됨 + 좌석 = 방 사람 전원 + rated = 방 구성 + `createdAt` = 서버 시각 / 수정: 방장, `status`·`version`·`hostHeartbeatAt`만(판정 `verdict`는 서버만) |
 | `games/{id}/views/{uid}` | 해당 uid | 방장 |
 | `games/{id}/views/spectator` | 좌석 uid | 방장 |
 | `games/{id}/authority/state` | 방장 | 방장 |
+| `games/{id}/authority/setup` | 방장 | 게임 문서를 만드는 같은 배치에서 방장이 만들기만 / 수정·삭제 불가 |
+| `games/{id}/log/{version}` | 방장 | 방장이 만들기만, ID = 버전, `at` = 서버 시각 / 수정·삭제 불가 |
 | `games/{id}/commands/{cid}` | 방장(목록 포함), 보낸 사람(개별) | 만들기: 방장이 아닌 좌석이 자기 uid + PENDING으로 / 수정: 방장 |
 | `results/{id}` | 로그인한 누구나 | 방장이 1회. 레이팅 결과는 게임이 rated일 때만, 순위 = 사람 좌석 전원, 변동량 = 레이팅 표 |
-| `rooms/{id}` | 로그인한 누구나(목록은 공개 방만) | 만들기: 방장 혼자 앉은 새 방 + 정산 완료 / 게스트: 대기 중 자기 항목만(입장·준비·퇴장) / 방장: 사람은 빼기만, 룰셋·봇 변경 시 configVersion+1, 시작은 전원 준비 시 / 닫힌 방 불변 |
+| `rooms/{id}` | 로그인한 누구나(목록은 공개 방만) | 만들기: 방장 혼자 앉은 새 방 / 게스트: 대기 중 자기 항목만(입장·준비·퇴장) / 방장: 사람은 빼기만, 룰셋·봇 변경 시 configVersion+1, 시작은 전원 준비 시 / 닫힌 방 불변 |
 | `joinCodes/{code}` | 로그인한 누구나(개별 조회만) | 만들기: 그 방을 같은 배치에서 만드는 방장 / 지우기: 방을 닫는 방장 |
-| `users/{uid}` | 로그인한 누구나(랭킹 조회 포함) | 만들기: 본인, 시작값(레이팅 1000·0판) 또는 옛 문서 값 + 같은 배치의 이메일 선점 / 수정: 본인, 닉네임만 또는 레이팅 반영(아래) |
-| `users/{uid}/appliedResults/{gid}` | 본인 | 만들기: 본인, 같은 배치에서 프로필이 이 게임을 반영할 때만 / 수정·삭제 불가 |
-| `pendingRatings/{uid}` | 로그인한 누구나 | 만들기: 그 게임의 방장이 rated 결과를 만드는 같은 배치에서, 순위에 있는 uid에게만 / 지우기: 본인, 그 게임을 반영하는 배치에서 / 수정 불가 |
+| `users/{uid}` | 로그인한 누구나(랭킹 조회 포함) | 만들기: 본인, 시작값(레이팅 1000·0판) 또는 옛 문서 값 + 같은 배치의 이메일 선점 / 수정: 본인, 닉네임만(레이팅은 서버 판정만) |
+| `users/{uid}/appliedResults/{gid}` | 본인 | 서버 판정만 |
+| `pendingRatings/{uid}` (옛 정산 대기) | 불가 | 불가(서버 판정이 남은 것을 지운다) |
 | `legacyClaims/{email}` | 토큰 이메일이 같을 때 | 만들기: 토큰 이메일이 같고 uid가 본인 / 수정·삭제 불가 |
 | `user/{email}` (옛 앱) | 토큰 이메일이 같을 때 | 불가 |
 
-레이팅 반영 수정은 `rating`·`plays`·`wins`·`lastAppliedResult`·`lastAppliedRank`만 바꿀 수 있고, 변동량은 결과 문서의 순위·인원수로
-**레이팅 표에서 다시 계산**하며(결과 문서의 값과도 같아야 함), 반영 표시 문서가 전에는 없고 배치 뒤에는 있어야 한다(ADR 0007).
+레이팅은 **서버 판정**(Cloud Function, 관리자 권한 — 규칙을 거치지 않는다)이 끝난 게임을 기록대로 다시 돌려 검증한 뒤 참가자 전원에게 한 트랜잭션으로 반영한다(ADR 0015).
+예전의 클라이언트 반영 규칙(ADR 0007)과 정산 게이트(`pendingRatings`, `isSettled`)는 지웠다.
 
 ## 검증 방법 (`rules-test/`)
 `core/remote`의 접근 테스트가 모델([`AccessPolicy`])의 모든 판단을 `-Pruletrace=<dir>`로 기록하고, `rules-test/replay.mjs`가 같은 순서로 **실제 규칙을 에뮬레이터에서** 실행해
@@ -59,13 +62,24 @@
 - **재생 비교는 "모델이 시도한 것"만 본다**: 모델에 없는 시도(새 필드, 새 경로)는 비교되지 않는다. 규칙을 바꾸면 모델·테스트도 함께 바꿀 것.
 - **Android SDK 쪽 동작**: `:data`의 `FirebaseIntegrationTest`가 실제 Firebase SDK로 같은 에뮬레이터·규칙에 붙어 프로필·이관·방 경쟁·좌석 동의·멀티플레이 한 판(정산까지)을 확인한다(ADR 0009).
   에뮬레이터(`--only firestore,auth`)를 띄운 뒤 루트에서 `./gradlew :data:testDebugUnitTest`. 오프라인 영속 캐시와 재연결은 아직 안 봤다.
-- **레이팅은 클라이언트가 반영한다(Phase 7 전까지)**: 규칙은 "잘못 반영"(부풀리기, 두 번 반영, 남의 순위)은 막지만
-  **"반영하지 않기"는 막지 못한다** — 수정된 앱은 진 게임을 반영하지 않을 수 있다. 방장이 순위 자체를 조작하는 것도 막지 못한다.
-  → **정산 게이트**로 완화: rated 게임이 끝나면 `pendingRatings/{uid}`가 생기고, 정산(반영)해야만 지워진다. 방 입장 규칙이
-  `isSettled(uid)`를 요구하면(Firestore 방 규칙 작성 시 연결) 진 게임을 반영하지 않은 사람은 다음 rated 게임을 할 수 없다.
-  방장의 순위 조작은 서버 판정(Cloud Function)으로만 해결된다. ADR 0007 참고.
+- **레이팅은 서버 판정이 반영한다(ADR 0015)**: 방장의 순위 조작·수 위조·이른 시간 초과·진 게임 반영 안 하기는 서버가 막는다.
+  남는 위험: 방장이 남의 패를 보는 것, 게스트 명령을 일부러 처리하지 않기(시간 초과와 같음), 시작 전에 시드를 알고 판을 고르기. **규칙만 배포하고 함수를 배포하지 않으면 레이팅이 멈춘다.**
 - **게임 좌석 동의**: 게임 문서 생성 규칙이 좌석 = 방에 스스로 들어온 사람 전원을 요구한다(ADR 0008). 방장은 방에 사람을 넣을 수 없다.
-- **규칙 문서 읽기 한도**: 게임 생성 규칙은 방 1 + 정산 표시 최대 6 = 7번 문서를 읽는다(한도 10). 최대 인원을 늘리면 다시 계산할 것.
+- **규칙 문서 읽기 한도**: 게임 생성 규칙은 방 1번을 읽는다(정산 게이트를 지워 예전의 최대 7번에서 줄었다, 한도 10).
 - **배포하면 옛 앱이 멈춘다**: `user/{email}`을 읽기 전용으로 막으므로 옛 앱은 로그인·전적 기록을 할 수 없다. 새 앱 출시와 같은 시점에 배포할 것.
 - **방장 단일 장애점**: 방장이 사라지면 게임이 멈춘다(설계 R6). 하트비트로 게스트에게 `HOST_LOST`를 알릴 뿐 방장 이전(host migration)은 없다.
-- **비용**: 명령 1건당 쓰기 ≈ 좌석 수 + 관전 1 + 백업 1 + 메타 1 + 명령 상태 1 (설계 R7).
+- **비용**: 명령 1건당 쓰기 ≈ 좌석 수 + 관전 1 + 백업 1 + 메타 1 + 명령 상태 1 + 기록 1 (설계 R7). 판정은 판마다 함수 1회 + 기록 수만큼 읽기.
+
+## 서버 판정 배포 (오너 작업, ADR 0015)
+1. 프로젝트를 **Blaze** 요금제로 바꾸고 Cloud Functions·Eventarc·Cloud Build·Artifact Registry·Cloud Run API를 켠다.
+2. `cd server && ./gradlew test stageDeploy`(에뮬레이터가 떠 있으면 통합 테스트도 돈다) -> `server/build/deploy/coup-judge.jar`.
+3. 리전은 Firestore 데이터베이스 위치와 같게:
+   ```
+   gcloud functions deploy coup-judge --gen2 --runtime=java21 --region=<Firestore 위치> \
+     --source=server/build/deploy --entry-point=io.github.lhd980820.coup.server.JudgeFunction \
+     --trigger-event-filters=type=google.cloud.firestore.document.v1.created \
+     --trigger-event-filters=database='(default)' \
+     --trigger-event-filters-path-pattern=document='results/{gameId}' \
+     --retry --memory=512Mi
+   ```
+4. 순서: **함수 -> 규칙(`firebase deploy --only firestore:rules`) -> 앱**. 함수 로그에 `game …: verified, ratings applied to […]`가 찍히는지 확인.
