@@ -149,13 +149,13 @@ class FirebaseIntegrationTest {
         rooms(c).setReady(room.id, c.uid, true).ok()
         val plan = rooms(host).start(room.id, host.uid, seed = 7).ok()
         assertTrue(plan.rated)
-        FirestoreGameTransport(host.store).createGame(plan)
+        val setup = FirestoreGameTransport(host.store).createGame(plan) // 서버 생성 시각을 섞은 시드(ADR 0016)
 
         // 세션: 방장은 권위자, 게스트는 자기 뷰만 구독
         val engine = GameEngines.create()
         // 세션과 좌석 에이전트는 끝없이 구독하므로 별도 Job에서 돌리고 마지막에 취소한다(안 그러면 테스트 스코프가 끝나지 않는다)
         val sessionScope = CoroutineScope(coroutineContext + Job(coroutineContext[Job]))
-        val hostSession = HostGameSession(engine, engine.newGame(plan.setup()), plan.hostSeats(), FirestoreGameTransport(host.store).host, TimeoutPolicy.None, Clock.System, sessionScope)
+        val hostSession = HostGameSession(engine, engine.newGame(setup), plan.hostSeats(), FirestoreGameTransport(host.store).host, TimeoutPolicy.None, Clock.System, sessionScope)
         val info = plan.seats.associate { it.playerId to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
         val guests = listOf(b, c).map { u -> RemoteGameSession(plan.gameId, PlayerId(u.uid), FirestoreGameTransport(u.store).guest(u.uid), info, sessionScope) }
         (listOf<GameSession>(hostSession) + guests).forEach { drive(it, sessionScope) }

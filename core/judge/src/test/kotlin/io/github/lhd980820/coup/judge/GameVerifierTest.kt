@@ -10,11 +10,16 @@ import io.github.lhd980820.coup.engine.core.GameSetup
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
 import io.github.lhd980820.coup.engine.view.Viewer
+import io.github.lhd980820.coup.remote.GameSeeds
 import io.github.lhd980820.coup.runtime.CommandSource
 import org.junit.jupiter.api.Test
 
 /** 검증기 자체(저장소 없이). 서버 판정 경로로는 닿지 않는 경우 — 봇이 있는 비레이팅 판의 설정 검사 — 를 본다. */
 class GameVerifierTest {
+    private companion object {
+        const val CREATED_AT = 1_700_000_000_123L
+    }
+
     private val engine = GameEngines.create()
     private val verifier = GameVerifier(engine)
     private val config = BuiltinRules.classicConfig().copy(houseRules = setOf("last_stand"))
@@ -22,7 +27,7 @@ class GameVerifierTest {
 
     /** 봇 둘과 방장이 끝까지 둔 판(모두 방장 기기의 좌석이므로 명령 문서가 없다). */
     private val record: GameRecord = run {
-        var state = engine.newGame(setup)
+        var state = engine.newGame(GameSeeds.effective(setup, CREATED_AT))
         val agents = setup.seats.associateWith { RandomAgent(it.value.hashCode().toLong()) }
         val log = mutableListOf<LogRecord>()
         while (!state.isOver) {
@@ -38,12 +43,21 @@ class GameVerifierTest {
             humanSeats = listOf("host"),
             rated = false,
             ruleSetConfig = config,
-            createdAt = 0,
+            createdAt = CREATED_AT,
             setup = setup,
             log = log,
             guestCommands = emptyMap(),
             resultRanking = checkNotNull(engine.view(state, Viewer.Spectator).result).ranking.map { it.value },
         )
+    }
+
+    @Test
+    fun `시드 섞기 - 같은 입력이면 같고, 생성 시각이 1ms만 달라도 다르다`() {
+        assertThat(GameSeeds.mix(3, CREATED_AT)).isEqualTo(GameSeeds.mix(3, CREATED_AT))
+        assertThat(GameSeeds.mix(3, CREATED_AT + 1) == GameSeeds.mix(3, CREATED_AT)).isEqualTo(false)
+        assertThat(GameSeeds.mix(4, CREATED_AT) == GameSeeds.mix(3, CREATED_AT)).isEqualTo(false)
+        // 생성 시각이 다르게 적힌 기록(= 다른 시드로 둔 판)은 다시 돌리면 어긋난다
+        assertThat(verifier.verify(record.copy(createdAt = CREATED_AT + 1))).isInstanceOf(Verdict.Rejected::class)
     }
 
     private fun rejected(r: GameRecord) = (verifier.verify(r) as Verdict.Rejected).reason

@@ -65,8 +65,9 @@ public class FirestoreGameLauncher(
     private val transport = FirestoreGameTransport(store, clock, hostLostAfter = hostLostAfter, connectionTick = connectionTick)
 
     override suspend fun host(plan: GameStartPlan): GameSession {
-        transport.createGame(plan)
-        return HostGameSession(engine, engine.newGame(plan.setup()), plan.hostSeats(), transport.host, timeoutPolicy, clock, scope)
+        // 시드는 서버가 매긴 게임 생성 시각과 섞인다 — 방장이 미리 고를 수 없다(ADR 0016)
+        val setup = transport.createGame(plan)
+        return HostGameSession(engine, engine.newGame(setup), plan.hostSeats(), transport.host, timeoutPolicy, clock, scope)
     }
 
     override suspend fun join(room: Room, me: PlayerId): GameSession {

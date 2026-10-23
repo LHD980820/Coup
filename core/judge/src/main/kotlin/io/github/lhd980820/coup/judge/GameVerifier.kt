@@ -11,6 +11,7 @@ import io.github.lhd980820.coup.engine.rating.TableRatingPolicy
 import io.github.lhd980820.coup.engine.rules.RuleSetConfig
 import io.github.lhd980820.coup.engine.serialization.EngineJson
 import io.github.lhd980820.coup.engine.view.Viewer
+import io.github.lhd980820.coup.remote.GameSeeds
 import io.github.lhd980820.coup.runtime.CommandSource
 import io.github.lhd980820.coup.runtime.SeatKind
 import io.github.lhd980820.coup.runtime.TimeoutPolicy
@@ -33,7 +34,7 @@ public data class GameRecord(
     val ruleSetConfig: RuleSetConfig,
     /** 게임 문서를 만든 서버 시각. 첫 결정의 시간 초과 기준. */
     val createdAt: Long,
-    /** 실행 설정(시드). 게임 문서와 같은 배치에서만 만들 수 있고 고칠 수 없다. */
+    /** 실행 설정(방장 시드). 게임 문서와 같은 배치에서만 만들 수 있고 고칠 수 없다. 실제 시드는 [createdAt]과 섞는다(ADR 0016). */
     val setup: GameSetup?,
     val log: List<LogRecord>,
     val guestCommands: Map<String, GuestCommand>,
@@ -84,7 +85,8 @@ public class GameVerifier(
         checkSetup(record, setup)?.let { return it }
 
         var state = try {
-            engine.newGame(setup)
+            // 방장 시드에 게임 문서의 서버 생성 시각을 섞은 시드로 둔다(ADR 0016) — 섞지 않고 둔 판은 기록이 맞지 않는다
+            engine.newGame(GameSeeds.effective(setup, record.createdAt))
         } catch (e: IllegalArgumentException) {
             return reject(RejectReason.SETUP_MISMATCH, "setup does not build a game: ${e.message}")
         }

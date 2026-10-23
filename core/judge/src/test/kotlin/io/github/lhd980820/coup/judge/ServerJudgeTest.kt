@@ -73,6 +73,7 @@ class ServerJudgeTest {
         policy: TimeoutPolicy = TimeoutPolicy.None,
         seed: Long = 11,
         firstPlayer: String = players.first(),
+        mixSeed: Boolean = true,
     ): Table {
         // 서버 시각이 0이 아닌 때 시작한다(게임 시작 시각을 기준으로 재는지 확인할 수 있게)
         advanceTimeBy(START_AT)
@@ -82,9 +83,10 @@ class ServerJudgeTest {
         val config = BuiltinRules.classicConfig().let { if (rated) it else it.copy(houseRules = setOf("last_stand")) }
         val setup = GameSetup(gameId, players.map(::PlayerId), config, seed, firstPlayer = PlayerId(firstPlayer))
         val hostTransport = FirestoreGameTransport(fs.storeFor(players.first()), clock())
-        hostTransport.createGame(gameId, roomId, players.first(), players, config, rated, setup = setup)
+        // 실제로 둘 설정 = 서버 생성 시각을 섞은 시드(ADR 0016). [mixSeed]가 false면 섞지 않은 시드로 두는 방장을 흉내 낸다.
+        val effective = checkNotNull(hostTransport.createGame(gameId, roomId, players.first(), players, config, rated, setup = setup))
         val seats = players.mapIndexed { i, id -> if (i == 0) HostSeat.Local(PlayerId(id), id) else HostSeat.Remote(PlayerId(id), id) }
-        val host = HostGameSession(engine, engine.newGame(setup), seats, hostTransport.host, policy, clock(), backgroundScope)
+        val host = HostGameSession(engine, engine.newGame(if (mixSeed) effective else setup), seats, hostTransport.host, policy, clock(), backgroundScope)
         val info = seats.associate { it.id to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
         val guests = players.drop(1).map { id ->
             RemoteGameSession(gameId, PlayerId(id), FirestoreGameTransport(fs.storeFor(id), clock()).guest(id), info, backgroundScope)
@@ -114,8 +116,9 @@ class ServerJudgeTest {
         guestsPlay: Boolean = true,
         players: List<String> = uids,
         firstPlayer: String = players.first(),
+        mixSeed: Boolean = true,
     ): Table {
-        val t = table(players, rated, policy, firstPlayer = firstPlayer)
+        val t = table(players, rated, policy, firstPlayer = firstPlayer, mixSeed = mixSeed)
         drive(if (guestsPlay) listOf<GameSession>(t.host) + t.guests else listOf(t.host))
         runCurrent()
         val start = testScheduler.currentTime
@@ -348,6 +351,12 @@ class ServerJudgeTest {
         val u = finishedGame()
         u.admin(WriteOp.Delete(FirestoreSchema.setup(gameId)))
         assertThat(rejectedFor(u)).isEqualTo(RejectReason.NO_SETUP)
+    }
+
+    @Test
+    fun `시드에 서버 시각을 섞지 않고 둔 판은(방장이 미리 고른 시드) 다시 돌리면 어긋나 거부`() = runTest {
+        val t = finishedGame(mixSeed = false)
+        assertThat(rejectedFor(t)).isNotEqualTo(RejectReason.NO_SETUP)
     }
 
     @Test

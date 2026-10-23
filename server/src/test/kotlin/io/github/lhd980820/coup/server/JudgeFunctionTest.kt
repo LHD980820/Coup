@@ -170,11 +170,11 @@ class JudgeFunctionTest {
         val gameId = "g-${System.nanoTime()}"
         PLAYERS.forEach { FirestoreUserRepository(store, it, null).ensureProfile("player-$it") }
         val setup = GameSetup(gameId, PLAYERS.map(::PlayerId), BuiltinRules.classicConfig(), seed = 21, firstPlayer = PlayerId(PLAYERS.first()))
-        FirestoreGameTransport(store).createGame(gameId, "room-$gameId", PLAYERS.first(), PLAYERS, BuiltinRules.classicConfig(), rated = true, setup = setup)
+        val effective = checkNotNull(FirestoreGameTransport(store).createGame(gameId, "room-$gameId", PLAYERS.first(), PLAYERS, BuiltinRules.classicConfig(), rated = true, setup = setup))
         val scope = CoroutineScope(Dispatchers.Default + Job())
         try {
             val seats = PLAYERS.mapIndexed { i, id -> if (i == 0) HostSeat.Local(PlayerId(id), id) else HostSeat.Remote(PlayerId(id), id) }
-            val host = HostGameSession(engine, engine.newGame(setup), seats, FirestoreGameTransport(store).host, TimeoutPolicy.None, Clock.System, scope)
+            val host = HostGameSession(engine, engine.newGame(effective), seats, FirestoreGameTransport(store).host, TimeoutPolicy.None, Clock.System, scope)
             val info = seats.associate { it.id to SeatInfo(it.displayName, SeatKind.REMOTE_HUMAN) }
             val guests = PLAYERS.drop(1).map { RemoteGameSession(gameId, PlayerId(it), FirestoreGameTransport(store).guest(it), info, scope) }
             (listOf<GameSession>(host) + guests).forEach { drive(it, scope) }

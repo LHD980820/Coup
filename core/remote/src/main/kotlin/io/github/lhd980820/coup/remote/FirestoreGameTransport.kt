@@ -60,7 +60,7 @@ public class FirestoreGameTransport(
     /**
      * 게임 문서를 만든다(방장이 방을 시작한 뒤 한 번). [seats]는 모든 사람 좌석의 uid(방장 포함, 봇 제외)다.
      * 보안 규칙은 이 목록으로 "누가 이 게임에 접근할 수 있는가"를 판단하고, 이 목록이 [roomId] 방에 스스로 들어온 사람과 같은지,
-     * [rated]가 방 구성과 맞는지, 모두 정산을 마쳤는지 검사한다(ADR 0008).
+     * [rated]가 방 구성과 맞는지 검사한다(ADR 0008). [setup]을 주면 같은 배치로 실행 설정을 남기고, **실제로 둘 설정**(서버 시각을 섞은 시드)을 돌려준다.
      */
     public suspend fun createGame(
         gameId: String,
@@ -70,7 +70,7 @@ public class FirestoreGameTransport(
         ruleSetConfig: RuleSetConfig,
         rated: Boolean,
         setup: GameSetup? = null,
-    ) {
+    ): GameSetup? {
         require(hostUid in seats) { "the host must be one of the seats" }
         require(setup == null || setup.gameId == gameId) { "the setup belongs to another game" }
         guarded {
@@ -94,10 +94,24 @@ public class FirestoreGameTransport(
                 ),
             )
         }
+        return setup?.let { effectiveSetup(it) }
+    }
+
+    /**
+     * 실제로 둘 설정: 서버가 매긴 게임 문서 생성 시각을 다시 읽어 시드에 섞는다(ADR 0016). 서버 판정도 같은 값으로 다시 돌린다.
+     * 방금 만든 문서라 보통 바로 읽히지만, 읽지 못하면 잠시 뒤 다시 읽는다(시각 없이 시작하면 판 전체가 무효가 된다).
+     */
+    public suspend fun effectiveSetup(setup: GameSetup): GameSetup {
+        repeat(CREATED_AT_ATTEMPTS) { attempt ->
+            val createdAt = guarded { store.get(FirestoreSchema.game(setup.gameId)) }?.long(FirestoreSchema.Game.CREATED_AT)
+            if (createdAt != null) return GameSeeds.effective(setup, createdAt)
+            if (attempt < CREATED_AT_ATTEMPTS - 1) kotlinx.coroutines.delay(CREATED_AT_RETRY_MILLIS)
+        }
+        throw TransportException("the game ${setup.gameId} has no server start time")
     }
 
     /** 방 시작 계획([io.github.lhd980820.coup.lobby.GameStartPlan])으로 게임 문서와 실행 설정을 만든다. 게임 문서의 좌석은 사람만. */
-    public suspend fun createGame(plan: io.github.lhd980820.coup.lobby.GameStartPlan) {
+    public suspend fun createGame(plan: io.github.lhd980820.coup.lobby.GameStartPlan): GameSetup = checkNotNull(
         createGame(
             gameId = plan.gameId,
             roomId = plan.roomId,
@@ -106,8 +120,8 @@ public class FirestoreGameTransport(
             ruleSetConfig = plan.ruleSetConfig,
             rated = plan.rated,
             setup = plan.setup(),
-        )
-    }
+        ),
+    )
 
     private fun setupOp(setup: GameSetup): WriteOp = WriteOp.Set(
         FirestoreSchema.setup(setup.gameId),
@@ -347,4 +361,9 @@ public class FirestoreGameTransport(
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
     private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
+
+    private companion object {
+        const val CREATED_AT_ATTEMPTS = 5
+        const val CREATED_AT_RETRY_MILLIS = 200L
+    }
 }
