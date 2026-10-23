@@ -87,7 +87,11 @@ public class RoomService(
     public suspend fun startBlockers(roomId: String): List<RoomError> =
         store.get(roomId)?.let { RoomRules.startBlockers(it, registry) } ?: listOf(RoomError.ROOM_NOT_FOUND)
 
-    public suspend fun listOpen(): List<RoomSummary> = store.listOpen().map { r ->
+    /** 방장이 대기실에 아직 있다고 알린다(ADR 0016). */
+    public suspend fun keepAlive(roomId: String, byUid: String): RoomResult<Room> = store.touch(roomId, byUid)
+
+    /** 공개 대기실 목록. 방장이 [RoomLiveness.STALE_AFTER_MILLIS] 넘게 알리지 않은 방(방장이 사라졌다)은 뺀다 — 서버가 곧 닫는다. */
+    public suspend fun listOpen(): List<RoomSummary> = store.listOpen().filter { clock.nowMillis() - it.updatedAt <= RoomLiveness.STALE_AFTER_MILLIS }.map { r ->
         RoomSummary(
             id = r.id,
             title = r.title,

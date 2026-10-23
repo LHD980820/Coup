@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import io.github.lhd980820.coup.lobby.RoomLiveness
 
 public data class WaitingSeat(
     val id: String,
@@ -94,6 +96,7 @@ public class WaitingRoomModel(
     private val service: RoomService,
     private val registry: RuleSetRegistry,
     private val launcher: GameLauncher,
+    private val keepAliveMillis: Long = RoomLiveness.KEEP_ALIVE_MILLIS,
 ) {
     private val _state = MutableStateFlow<WaitingRoomUiState?>(null)
 
@@ -121,6 +124,21 @@ public class WaitingRoomModel(
     /** 화면이 보이는 동안 방을 구독한다. 방이 닫히거나 내가 나가면 끝난다. */
     public suspend fun run() {
         coroutineScope {
+            // 방장이 대기실에 있는 동안 "아직 있다"고 알린다(ADR 0016) — 안 그러면 로비에서 숨고 서버가 방을 닫는다
+            val keepAlive = launch {
+                while (true) {
+                    delay(keepAliveMillis)
+                    val room = lastRoom ?: continue
+                    if (room.hostUid != me.uid || room.status != RoomStatus.WAITING) continue
+                    try {
+                        service.keepAlive(roomId, me.uid)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: TransportException) {
+                        // 다음 주기에 다시 알린다
+                    }
+                }
+            }
             service.observe(roomId)
                 .takeWhile { room ->
                     val seated = room?.seats?.any { it.id == me.uid } == true
@@ -154,6 +172,7 @@ public class WaitingRoomModel(
                         launch { enterGame(room, gameId) }
                     }
                 }
+            keepAlive.cancel()
         }
     }
 

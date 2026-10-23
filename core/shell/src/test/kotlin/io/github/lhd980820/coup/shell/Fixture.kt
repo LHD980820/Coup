@@ -62,8 +62,8 @@ class Fixture(private val scope: CoroutineScope) {
     /** 기기 하나의 수명(프로세스). 취소하면 그 기기의 세션·구독이 모두 멈춘다(앱 종료 흉내). */
     fun device(): CoroutineScope = CoroutineScope(scope.coroutineContext + kotlinx.coroutines.SupervisorJob(scope.coroutineContext[kotlinx.coroutines.Job]))
 
-    fun waitingRoom(roomId: String, uid: String, launcher: GameLauncher = launcher(uid), store: DocumentStore = store(uid)) =
-        WaitingRoomModel(roomId, user(uid), roomService(uid, store), registry, launcher)
+    fun waitingRoom(roomId: String, uid: String, launcher: GameLauncher = launcher(uid), store: DocumentStore = store(uid), keepAliveMillis: Long = 60_000) =
+        WaitingRoomModel(roomId, user(uid), roomService(uid, store), registry, launcher, keepAliveMillis)
 }
 
 /** 조건이 될 때까지 기다린다(시간 초과면 실패). */

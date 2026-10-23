@@ -235,6 +235,7 @@ service cloud.firestore {
         && d.version == 1
         && d.configVersion == 0
         && d.maxPlayers >= 2 && d.maxPlayers <= 6
+        && d.updatedAt == request.time
         && ((d.visibility == 'PUBLIC' && !('joinCode' in d))
             || (d.visibility == 'PRIVATE' && d.joinCode is string
                 && getAfter(/databases/$(database)/documents/joinCodes/$(d.joinCode)).data.roomId == roomId));
@@ -256,7 +257,7 @@ service cloud.firestore {
       let m = a.members.diff(b.members);
       let configChanged = changed.hasAny(['ruleSet', 'bots']);
       return changed.hasOnly(['title', 'maxPlayers', 'ruleSet', 'bots', 'configVersion', 'status', 'gameId',
-                              'banned', 'members', 'memberOrder', 'version'])
+                              'banned', 'members', 'memberOrder', 'version', 'updatedAt'])
         // 사람은 뺄 수만 있다(강퇴). 넣거나 고칠 수 없다.
         && m.addedKeys().size() == 0
         && m.changedKeys().size() == 0
@@ -264,7 +265,7 @@ service cloud.firestore {
         // 룰셋·봇을 바꾸면 게스트 준비를 푼다
         && (a.configVersion == b.configVersion || a.configVersion == b.configVersion + 1)
         && (!configChanged || a.configVersion == b.configVersion + 1)
-        && (b.status == 'WAITING' || changed.hasOnly(['status', 'gameId', 'configVersion', 'version']))
+        && (b.status == 'WAITING' || changed.hasOnly(['status', 'gameId', 'configVersion', 'version', 'updatedAt']))
         && (a.status == 'CLOSED'
             || (b.status == 'WAITING' && a.status == 'WAITING' && !changed.hasAny(['gameId']))
             || (b.status == 'WAITING' && a.status == 'PLAYING' && a.gameId is string && !configChanged && guestsReady(a))
@@ -277,7 +278,7 @@ service cloud.firestore {
       let a = request.resource.data;
       let uid = request.auth.uid;
       let m = a.members.diff(b.members);
-      return a.diff(b).affectedKeys().hasOnly(['members', 'memberOrder', 'version'])
+      return a.diff(b).affectedKeys().hasOnly(['members', 'memberOrder', 'version', 'updatedAt'])
         && b.status == 'WAITING'
         && m.affectedKeys().hasOnly([uid])
         && m.affectedKeys().size() == 1
@@ -316,6 +317,8 @@ service cloud.firestore {
       allow update: if signedIn()
                     && resource.data.status != 'CLOSED'
                     && request.resource.data.version == resource.data.version + 1
+                    // 모든 쓰기에 서버 시각(ADR 0016): 오래 안 바뀐 대기실은 서버가 닫는다. 방장은 몇 분마다 시각만 새로 쓴다.
+                    && request.resource.data.updatedAt == request.time
                     && !request.resource.data.diff(resource.data).affectedKeys()
                          .hasAny(['hostUid', 'createdAt', 'minAppVersion', 'visibility', 'joinCode'])
                     && roomShapeOk()

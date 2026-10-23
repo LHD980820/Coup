@@ -214,7 +214,7 @@ enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
  * - pendingRatings/{uid}(옛 클라이언트 정산 대기, ADR 0007): 클라이언트는 읽기·쓰기 불가. 서버 판정이 남은 것을 지운다.
  * - legacyClaims/{email}: 생성 = 토큰 이메일이 같고 uid가 본인. 읽기 = 토큰 이메일이 같을 때. 수정 불가
  * - user/{email}(옛 앱): 읽기 = 토큰 이메일이 같을 때. 쓰기 불가
- * - rooms/{id} (ADR 0008): 읽기 = 로그인한 누구나(목록 조회는 공개 방만). 생성 = 방장 본인만 앉은 새 방.
+ * - rooms/{id} (ADR 0008): 읽기 = 로그인한 누구나(목록 조회는 공개 방만). 생성 = 방장 본인만 앉은 새 방. 모든 쓰기에 `updatedAt` = 서버 시각(ADR 0016).
  *   게스트 수정 = 자기 항목만(입장·준비·퇴장), 대기 중에만, 입장은 강퇴되지 않았고 자리가 있을 때.
  *   방장 수정 = 사람은 뺄 수만 있다(넣을 수 없다), 룰셋·봇을 바꾸면 configVersion +1, 시작은 모든 게스트가 지금 설정에 준비했을 때.
  * - joinCodes/{code}: 읽기 = 로그인한 누구나. 생성 = 그 방을 같은 배치에서 만드는 방장. 삭제 = 방이 닫힐 때 방장.
@@ -452,8 +452,14 @@ object AccessPolicy {
             // rooms/{id}
             segments.size == 2 && segments[0] == "rooms" -> when (kind) {
                 Access.READ -> Unit
-                Access.CREATE -> checkRoomCreate(uid, segments[1], incoming ?: deny("no data"), getAfter, ::deny)
-                Access.UPDATE -> checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), ::deny)
+                Access.CREATE -> {
+                    checkRoomCreate(uid, segments[1], incoming ?: deny("no data"), getAfter, ::deny)
+                    if (requestTime == null || incoming.long(R.UPDATED_AT) != requestTime) deny("updatedAt must be the server time")
+                }
+                Access.UPDATE -> {
+                    checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), ::deny)
+                    if (requestTime == null || incoming.long(R.UPDATED_AT) != requestTime) deny("updatedAt must be the server time")
+                }
                 else -> deny("rooms cannot be deleted")
             }
             // joinCodes/{code}
@@ -483,9 +489,9 @@ object AccessPolicy {
 
     private val R = FirestoreSchema.Room
     private val ROOM_IMMUTABLE = setOf(R.HOST_UID, R.CREATED_AT, R.MIN_APP_VERSION, R.VISIBILITY, R.JOIN_CODE)
-    private val GUEST_KEYS = setOf(R.MEMBERS, R.MEMBER_ORDER, R.VERSION)
+    private val GUEST_KEYS = setOf(R.MEMBERS, R.MEMBER_ORDER, R.VERSION, R.UPDATED_AT)
     private val HOST_KEYS = setOf(
-        R.TITLE, R.MAX_PLAYERS, R.RULE_SET, R.BOTS, R.CONFIG_VERSION, R.STATUS, R.GAME_ID, R.BANNED, R.MEMBERS, R.MEMBER_ORDER, R.VERSION,
+        R.TITLE, R.MAX_PLAYERS, R.RULE_SET, R.BOTS, R.CONFIG_VERSION, R.STATUS, R.GAME_ID, R.BANNED, R.MEMBERS, R.MEMBER_ORDER, R.VERSION, R.UPDATED_AT,
     )
     private const val MAX_SEATS = 6
 
@@ -539,7 +545,7 @@ object AccessPolicy {
             if (configChanged && cAfter != cBefore + 1) deny("changing rules or bots must reset readiness (configVersion + 1)")
             val sBefore = before.str(R.STATUS)
             val sAfter = after.str(R.STATUS)
-            if (sBefore != "WAITING" && changed.any { it !in setOf(R.STATUS, R.GAME_ID, R.CONFIG_VERSION, R.VERSION) }) deny("only status changes while playing")
+            if (sBefore != "WAITING" && changed.any { it !in setOf(R.STATUS, R.GAME_ID, R.CONFIG_VERSION, R.VERSION, R.UPDATED_AT) }) deny("only status changes while playing")
             when {
                 sAfter == "CLOSED" -> Unit
                 sBefore == "WAITING" && sAfter == "WAITING" -> if (R.GAME_ID in changed) deny("gameId is set by starting")

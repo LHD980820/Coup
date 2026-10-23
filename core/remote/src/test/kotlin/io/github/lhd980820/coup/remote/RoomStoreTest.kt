@@ -32,6 +32,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import io.github.lhd980820.coup.lobby.RoomLiveness
+import assertk.assertions.isEmpty
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 import io.github.lhd980820.coup.remote.FirestoreSchema.Room as R
@@ -63,6 +65,7 @@ class RoomStoreTest {
     private suspend fun forge(uid: String, roomId: String, change: MutableMap<String, JsonElement>.() -> Unit) {
         val d = doc(roomId).toMutableMap()
         d[R.VERSION] = JsonPrimitive((d[R.VERSION] as JsonPrimitive).content.toLong() + 1)
+        d[R.UPDATED_AT] = ServerValues.TIMESTAMP // 정상 앱의 모든 쓰기처럼(ADR 0016). 꾸민 시각은 따로 시험한다
         d.change()
         fs.storeFor(uid).write(listOf(WriteOp.Set("rooms/$roomId", JsonObject(d))))
     }
@@ -152,6 +155,41 @@ class RoomStoreTest {
         fs.beforeNextCommit = { service("c").join(r.id, user("c")).ok() }
         assertThat(service("b").join(r.id, user("b")).err()).isEqualTo(RoomError.ROOM_FULL)
         assertThat(store("host").get(r.id)!!.seats.map { it.id }).containsExactly("host", "c")
+    }
+
+    // ---- 대기실 생존(ADR 0016) ----------------------------------------------------------------------
+
+    @Test
+    fun `대기실 생존 - 방장이 알리면 서버 시각과 버전만 바뀌고, 게스트·닫힌 방은 안 된다, 시각을 꾸밀 수 없다`(): Unit = runBlocking {
+        var now = 5_000_000L
+        fs.now = { now }
+        val r = room()
+        assertThat(store("host").get(r.id)!!.updatedAt).isEqualTo(5_000_000L)
+        joinedAndReady(r.id, "b")
+        now += 60_000
+        val touched = service("host").keepAlive(r.id, "host").ok()
+        val stored = store("host").get(r.id)!!
+        assertThat(stored.updatedAt).isEqualTo(now)
+        assertThat(stored.version).isEqualTo(touched.version)
+        assertThat(stored.copy(version = 0, updatedAt = 0)).isEqualTo(store("host").get(r.id)!!.copy(version = 0, updatedAt = 0))
+        assertThat(stored.seats.single { it.id == "b" }.ready).isEqualTo(true) // 내용(준비 포함)은 그대로
+        assertThat(service("b").keepAlive(r.id, "b").err()).isEqualTo(RoomError.NOT_HOST)
+        // 조작된 클라이언트가 시각을 꾸미면 규칙이 거절한다
+        assertDenied { forge("host", r.id) { put(R.UPDATED_AT, JsonPrimitive(now + 3_600_000)) } }
+        assertDenied { forge("b", r.id) { members { put("b", member("이름-b", -1, (doc(r.id)[R.MEMBERS] as JsonObject)["b"]!!.let { (it as JsonObject)[FirestoreSchema.Member.SEQ]!!.toString().toLong() })) }; put(R.UPDATED_AT, JsonPrimitive(1L)) } }
+        service("host").leave(r.id, "host").ok()
+        assertThat(service("host").keepAlive(r.id, "host").err()).isEqualTo(RoomError.NOT_ALLOWED)
+        assertThat(service("host").keepAlive("nope", "host").err()).isEqualTo(RoomError.ROOM_NOT_FOUND)
+    }
+
+    @Test
+    fun `로비 - 방장이 오래 알리지 않은 대기실은 목록에서 숨긴다`(): Unit = runBlocking {
+        fs.now = { 5_000_000L }
+        val r = room()
+        fun at(t: Long) = RoomService(store("x"), registry, ClientInfo(10, registry), Clock { t }, Random(1))
+        assertThat(at(5_000_000L + 60_000).listOpen().map { it.id }).containsExactly(r.id)
+        assertThat(at(5_000_000L + RoomLiveness.STALE_AFTER_MILLIS).listOpen().map { it.id }).containsExactly(r.id)
+        assertThat(at(5_000_000L + RoomLiveness.STALE_AFTER_MILLIS + 1).listOpen()).isEmpty()
     }
 
     // ---- 옛 정산 대기(ADR 0007 -> 0015) -----------------------------------------------------------
@@ -355,6 +393,7 @@ class RoomStoreTest {
             fs.storeFor(as_).write(listOf(WriteOp.Set("rooms/r8", JsonObject(d))))
         }
         bad({ put(R.HOST_UID, JsonPrimitive("z")) })
+        bad({ put(R.UPDATED_AT, JsonPrimitive(5L)) }) // 꾸민 시각(오래 살아 있는 척, 또는 곧 닫히게)
         bad({ put(R.BOTS, JsonArray(listOf(buildJsonObject { put("id", "bot-1") }))) })
         bad({ put(R.STATUS, JsonPrimitive("PLAYING")) })
         bad({ put(R.GAME_ID, JsonPrimitive("g")) })

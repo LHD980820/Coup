@@ -30,6 +30,7 @@ import io.github.lhd980820.coup.shell.lobby.WaitingRoomModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import org.junit.jupiter.api.Test
 
@@ -39,6 +40,28 @@ class WaitingRoomModelTest {
         val room = (roomService(host).createRoom(user(host), "방", Visibility.PUBLIC, max, classic) as RoomResult.Ok).value
         guests.forEach { roomService(it).join(room.id, user(it)) }
         return room
+    }
+
+    @Test
+    fun `대기실 방장은 몇 분마다 살아 있다고 알리고, 서버가 오래된 방을 닫으면 게스트는 로비로 돌아간다`() = fixture { f ->
+        val room = f.room("host", "a")
+        val host = f.waitingRoom(room.id, "host", keepAliveMillis = 30)
+        watch(host)
+        val before = f.roomService("host").get(room.id)!!.version
+        // 아무 조작이 없어도 방장 모델이 방을 새로 쓴다(버전 + 서버 시각)
+        f.roomService("a").observe(room.id).await { (it?.version ?: 0) >= before + 2 }
+        host.state.first { it != null }
+
+        // 방장이 사라진(모델이 멈춘) 방은 서버 정리가 닫고, 게스트 화면은 "방이 닫혔다"를 받는다
+        val guest = f.waitingRoom(room.id, "a")
+        watch(guest)
+        guest.state.first { it != null }
+        coroutineContext.cancelChildren() // 방장 모델(과 게스트 구독)을 멈춘다
+        val guestAgain = f.waitingRoom(room.id, "a")
+        watch(guestAgain)
+        guestAgain.state.first { it != null }
+        io.github.lhd980820.coup.judge.RoomSweeper(f.fs.admin(), io.github.lhd980820.coup.runtime.Clock { System.currentTimeMillis() + 60 * 60_000L }).sweepRoom(room.id)
+        assertThat(guestAgain.events.first()).isEqualTo(WaitingRoomEvent.RoomClosed)
     }
 
     /** 모델의 방 구독을 시작한다. */

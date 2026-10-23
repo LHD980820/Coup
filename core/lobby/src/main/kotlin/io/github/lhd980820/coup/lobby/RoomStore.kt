@@ -25,10 +25,16 @@ public interface RoomStore {
     public suspend fun findByJoinCode(code: String): Room?
 
     public fun observe(id: String): Flow<Room?>
+
+    /**
+     * 방장이 "아직 있다"고 알린다(ADR 0016): 내용은 그대로 두고 version과 [Room.updatedAt]만 새로 쓴다.
+     * 대기실 방장이 몇 분마다 부른다 — 오래 안 바뀐 방은 로비에서 숨고 서버가 닫는다. 닫힌 방이거나 방장이 아니면 오류.
+     */
+    public suspend fun touch(id: String, byUid: String): RoomResult<Room>
 }
 
-/** 테스트/오프라인용 구현. */
-public class InMemoryRoomStore : RoomStore {
+/** 테스트/오프라인용 구현. [clock]은 [Room.updatedAt]을 매긴다. */
+public class InMemoryRoomStore(private val clock: io.github.lhd980820.coup.runtime.Clock = io.github.lhd980820.coup.runtime.Clock.System) : RoomStore {
     private val mutex = Mutex()
     private val rooms = MutableStateFlow<Map<String, Room>>(emptyMap())
 
@@ -39,7 +45,7 @@ public class InMemoryRoomStore : RoomStore {
         if (code != null && all.values.any { it.status != RoomStatus.CLOSED && it.joinCode?.let(JoinCodes::normalize) == JoinCodes.normalize(code) }) {
             return RoomResult.Err(RoomError.JOIN_CODE_TAKEN)
         }
-        val saved = room.copy(version = 1)
+        val saved = room.copy(version = 1, updatedAt = clock.nowMillis())
         rooms.value = all + (saved.id to saved)
         RoomResult.Ok(saved)
     }
@@ -55,7 +61,7 @@ public class InMemoryRoomStore : RoomStore {
                 if (next == current) {
                     RoomResult.Ok(current)
                 } else {
-                    val saved = next.copy(version = current.version + 1)
+                    val saved = next.copy(version = current.version + 1, updatedAt = clock.nowMillis())
                     rooms.value = rooms.value + (id to saved)
                     RoomResult.Ok(saved)
                 }
@@ -73,4 +79,13 @@ public class InMemoryRoomStore : RoomStore {
     }
 
     override fun observe(id: String): Flow<Room?> = rooms.map { it[id] }
+
+    override suspend fun touch(id: String, byUid: String): RoomResult<Room> = mutex.withLock {
+        val current = rooms.value[id] ?: return RoomResult.Err(RoomError.ROOM_NOT_FOUND)
+        if (current.status == RoomStatus.CLOSED) return RoomResult.Err(RoomError.NOT_ALLOWED)
+        if (current.hostUid != byUid) return RoomResult.Err(RoomError.NOT_HOST)
+        val saved = current.copy(version = current.version + 1, updatedAt = clock.nowMillis())
+        rooms.value = rooms.value + (id to saved)
+        RoomResult.Ok(saved)
+    }
 }

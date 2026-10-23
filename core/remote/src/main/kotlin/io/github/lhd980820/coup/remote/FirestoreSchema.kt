@@ -204,6 +204,9 @@ public object FirestoreSchema {
         public const val MEMBER_ORDER: String = "memberOrder"
         public const val CONFIG_VERSION: String = "configVersion"
         public const val VERSION: String = "version"
+
+        /** 마지막으로 고친 서버 시각(모든 쓰기에 `request.time`, ADR 0016). */
+        public const val UPDATED_AT: String = "updatedAt"
     }
 
     /** members.{uid} 항목. */

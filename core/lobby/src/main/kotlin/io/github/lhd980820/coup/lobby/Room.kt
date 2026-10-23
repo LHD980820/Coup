@@ -66,6 +66,8 @@ public data class Room(
     /** 방장이 내보낸 사용자. 같은 방에 다시 들어올 수 없다. */
     public val bannedUids: Set<String> = emptySet(),
     public val version: Long = 0,
+    /** 마지막으로 방을 고친 시각(Firestore에서는 서버 시각, ADR 0016). 오래 안 바뀐 대기실은 로비에서 숨기고 서버가 닫는다. */
+    public val updatedAt: Long = createdAt,
 ) {
     public val humanSeats: List<RoomSeat> get() = seats.filter { it.kind == SeatKind.HUMAN }
     public val botSeats: List<RoomSeat> get() = seats.filter { it.kind == SeatKind.BOT }
@@ -74,6 +76,15 @@ public data class Room(
     /** 게임 결과가 레이팅에 반영되는 구성인가(D5): 봇·하우스룰·파라미터 변경이 모두 없을 때. */
     public val isRated: Boolean
         get() = botSeats.isEmpty() && ruleSetConfig.houseRules.isEmpty() && ruleSetConfig.paramOverrides.isEmpty()
+}
+
+/**
+ * 대기실 생존(ADR 0016): 방장은 [KEEP_ALIVE_MILLIS]마다 방을 새로 쓰고([RoomService.keepAlive]),
+ * [STALE_AFTER_MILLIS] 넘게 아무도 안 고친 대기실은 로비에서 숨기고 서버가 닫는다.
+ */
+public object RoomLiveness {
+    public const val KEEP_ALIVE_MILLIS: Long = 3 * 60_000L
+    public const val STALE_AFTER_MILLIS: Long = 15 * 60_000L
 }
 
 /** 방 목록 한 줄. */

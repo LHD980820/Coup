@@ -63,6 +63,8 @@ internal object RoomDocuments {
             gameId = doc.str(F.GAME_ID),
             bannedUids = (doc[F.BANNED] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.toSet() ?: emptySet(),
             version = doc.long(F.VERSION) ?: return null,
+            // 서버 시각(쓴 직후의 문서는 아직 표식이라 읽을 수 없다 -> 만든 시각으로 본다)
+            updatedAt = doc.long(F.UPDATED_AT) ?: doc.long(F.CREATED_AT) ?: return null,
         )
     }
 
@@ -152,6 +154,8 @@ internal object RoomDocuments {
             },
         )
         out[F.VERSION] = JsonPrimitive(oldVersion + 1)
+        // 모든 쓰기에 서버 시각을 남긴다(규칙이 == request.time을 요구) — 오래 안 바뀐 방을 서버가 닫는다(ADR 0016)
+        out[F.UPDATED_AT] = ServerValues.TIMESTAMP
         return JsonObject(out)
     }
 

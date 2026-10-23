@@ -71,4 +71,15 @@ public class FirestoreRoomStore(private val store: DocumentStore, private val ui
     }
 
     override fun observe(id: String): Flow<Room?> = store.observe(FirestoreSchema.room(id)).map { it?.let { d -> RoomDocuments.decode(id, d) } }
+
+    override suspend fun touch(id: String, byUid: String): RoomResult<Room> = store.transaction { tx ->
+        val doc = tx.get(FirestoreSchema.room(id)) ?: return@transaction RoomResult.Err(RoomError.ROOM_NOT_FOUND)
+        val current = RoomDocuments.decode(id, doc) ?: return@transaction RoomResult.Err(RoomError.ROOM_NOT_FOUND)
+        if (current.status == RoomStatus.CLOSED) return@transaction RoomResult.Err(RoomError.NOT_ALLOWED)
+        if (current.hostUid != byUid || byUid != uid) return@transaction RoomResult.Err(RoomError.NOT_HOST)
+        // 내용은 그대로 — version과 서버 시각만 바뀐다
+        val written = RoomDocuments.encodeUpdate(doc, current, current, actorUid = uid)
+        tx.write(WriteOp.Set(FirestoreSchema.room(id), written))
+        RoomResult.Ok(checkNotNull(RoomDocuments.decode(id, written)))
+    }
 }
