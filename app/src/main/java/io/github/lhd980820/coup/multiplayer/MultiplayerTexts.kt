@@ -87,5 +87,6 @@ internal object MultiplayerTexts {
     fun notice(notice: RoomNotice): Int = when (notice) {
         RoomNotice.CLOSED -> R.string.mp_notice_closed
         RoomNotice.KICKED -> R.string.mp_notice_kicked
+        RoomNotice.GAME_ABANDONED -> R.string.mp_notice_abandoned
     }
 }

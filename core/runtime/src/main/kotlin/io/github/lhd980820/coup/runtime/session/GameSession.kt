@@ -25,7 +25,15 @@ public sealed interface SubmitResult {
     public data object NetworkError : SubmitResult
 }
 
-public enum class ConnectionState { CONNECTED, RECONNECTING, HOST_LOST, CLOSED }
+public enum class ConnectionState {
+    CONNECTED,
+    RECONNECTING,
+    HOST_LOST,
+    CLOSED,
+
+    /** 방장이 오래 돌아오지 않아 서버가 판을 끝냈다(ADR 0016). 더 둘 수 없고, 다시 연결되지도 않는다. */
+    ABANDONED,
+}
 
 /**
  * UI(ViewModel)가 보는 유일한 게임 인터페이스(설계 §6.3). 싱글플레이·멀티 호스트·멀티 게스트를 구분하지 않는다.

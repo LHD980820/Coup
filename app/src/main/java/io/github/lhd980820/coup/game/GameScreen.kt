@@ -86,6 +86,8 @@ internal object GameTags {
     const val RESULT_AGAIN = "result_again"
     const val CONNECTION = "game_connection"
     const val CONNECTION_LEAVE = "game_connection_leave"
+    const val ABANDONED = "game_abandoned"
+    const val ABANDONED_LEAVE = "game_abandoned_leave"
     const val CONCEDE = "concede"
     const val CONCEDE_CONFIRM = "concede_confirm"
     const val WAITING = "waiting"
@@ -124,6 +126,8 @@ internal fun GameScreen(
     @StringRes playAgainLabel: Int = R.string.game_result_again,
     /** 뒤로 가기를 기권 확인으로 받는다(멀티플레이: 화면을 그냥 닫으면 내 차례가 시간 초과로 흘러간다). 결과가 나온 뒤에는 [onExit]. */
     backConcedes: Boolean = false,
+    /** 서버가 버려진 판으로 끝낸 게임에서 나간다(ADR 0016). 멀티플레이는 로비로 — 그 방은 곧 닫힌다. */
+    onAbandoned: () -> Unit = onExit,
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -135,7 +139,9 @@ internal fun GameScreen(
         }
     }
     var confirmConcede by remember { mutableStateOf(false) }
-    BackHandler(enabled = backConcedes && state.result == null) { confirmConcede = true }
+    // 방장이 오래 돌아오지 않아 서버가 판을 끝냈다: 더 둘 수 없으므로 기권 대신 안내하고 나가게 한다
+    val abandoned = state.connection == ConnectionState.ABANDONED && state.result == null
+    BackHandler(enabled = backConcedes && state.result == null) { if (abandoned) onAbandoned() else confirmConcede = true }
     BackHandler(enabled = backConcedes && state.result != null) { onExit() }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -153,7 +159,7 @@ internal fun GameScreen(
                 DecisionPanel(state, texts, actions, guide?.expect)
                 if (guide != null) {
                     TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
-                } else if (state.result == null) {
+                } else if (state.result == null && !abandoned) {
                     TextButton(onClick = { confirmConcede = true }, modifier = Modifier.testTag(GameTags.CONCEDE)) {
                         Text(stringResource(R.string.game_concede))
                     }
@@ -163,7 +169,19 @@ internal fun GameScreen(
         }
     }
 
-    if (confirmConcede) {
+    if (abandoned) {
+        AlertDialog(
+            onDismissRequest = {},
+            modifier = Modifier.testTag(GameTags.ABANDONED),
+            title = { Text(stringResource(R.string.mp_abandoned_title)) },
+            text = { Text(stringResource(R.string.mp_abandoned_body)) },
+            confirmButton = {
+                Button(onClick = onAbandoned, modifier = Modifier.testTag(GameTags.ABANDONED_LEAVE)) { Text(stringResource(R.string.mp_abandoned_leave)) }
+            },
+        )
+    }
+
+    if (confirmConcede && !abandoned) {
         AlertDialog(
             onDismissRequest = { confirmConcede = false },
             text = { Text(stringResource(R.string.game_concede_confirm)) },
@@ -212,7 +230,8 @@ private fun ConnectionBanner(connection: ConnectionState, onLeave: () -> Unit) {
     val message = when (connection) {
         ConnectionState.RECONNECTING -> R.string.mp_connection_reconnecting
         ConnectionState.HOST_LOST -> R.string.mp_connection_host_lost
-        ConnectionState.CONNECTED, ConnectionState.CLOSED -> return
+        // 버려진 판은 배너 대신 안내 대화상자로 알린다
+        ConnectionState.CONNECTED, ConnectionState.CLOSED, ConnectionState.ABANDONED -> return
     }
     Card(
         Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }.testTag(GameTags.CONNECTION),

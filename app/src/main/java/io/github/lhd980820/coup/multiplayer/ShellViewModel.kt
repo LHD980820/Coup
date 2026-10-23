@@ -29,7 +29,13 @@ import kotlinx.coroutines.launch
 internal enum class MultiScreen { LOBBY, CREATE, ROOM }
 
 /** 방에서 사라진 이유(로비에 한 번 보여준다). */
-internal enum class RoomNotice { CLOSED, KICKED }
+internal enum class RoomNotice {
+    CLOSED,
+    KICKED,
+
+    /** 방장이 오래 돌아오지 않아 서버가 판을 끝냈다(ADR 0016). */
+    GAME_ABANDONED,
+}
 
 /** 지금 하고 있는 멀티플레이 게임. */
 internal class MultiGame(val roomId: String, val gameId: String)
@@ -218,6 +224,17 @@ internal class ShellViewModel(
         screen = MultiScreen.ROOM
         val model = room ?: return
         signedInScope?.launch { model.gameFinished() }
+    }
+
+    /**
+     * 서버가 버려진 판으로 끝낸 게임에서 나간다(ADR 0016). 그 방은 게임 중인 채로 남았다가 서버가 닫으므로(게스트는 게임 중인 방을 떠날 수 없다)
+     * 대기실이 아니라 로비로 가고, 다시 켜도 그 방으로 돌아가지 않게 기억해 둔 방을 지운다.
+     */
+    fun leaveAbandonedGame() {
+        settleJob?.cancel()
+        game.quit()
+        multiGame = null
+        leaveRoomScreen(RoomNotice.GAME_ABANDONED)
     }
 
     override fun onCleared() {

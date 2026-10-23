@@ -20,6 +20,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import io.github.lhd980820.coup.R
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -139,6 +140,52 @@ class ReconnectScreenTest : MpScreenTest() {
         waitFor(GameTags.CONCEDE, timeoutMillis = 20_000)
         compose.waitUntil(20_000) { !exists(GameTags.CONNECTION) } // 방장 생존 신호가 다시 오면 배너가 사라진다
         back.device.cancel()
+    }
+
+    /** 방장이 사라진 뒤 서버 정리가 그 판을 버려진 판으로 끝낸다(시계를 11분 뒤로, ADR 0016). */
+    private fun serverAbandons(gameId: String) = runBlocking {
+        io.github.lhd980820.coup.judge.GameSweeper(fx.fs.admin(), clock = io.github.lhd980820.coup.runtime.Clock { System.currentTimeMillis() + 11 * 60_000L })
+            .sweepGame(gameId)
+    }
+
+    @Test
+    fun `버려진 판 - 서버가 판을 끝내면 안내를 띄우고 로비로 보내며, 다시 켜도 그 판으로 돌아가지 않는다`() {
+        val (host, _) = guestInGame()
+        val gameId = fx.shell.multiGame!!.gameId
+        host.device.cancel() // 방장 앱이 꺼졌고 돌아오지 않는다
+        assertTrue(serverAbandons(gameId) is io.github.lhd980820.coup.judge.GameSweep.Abandoned)
+
+        waitFor(GameTags.ABANDONED, timeoutMillis = 20_000)
+        assertShown(string(R.string.mp_abandoned_body))
+        assertTrue("더 둘 수 없으므로 기권 버튼이 없다", !exists(GameTags.CONCEDE))
+        assertTrue("배너 대신 안내 대화상자", !exists(GameTags.CONNECTION))
+
+        click(GameTags.ABANDONED_LEAVE)
+        waitFor(LobbyTags.NOTICE)
+        assertText(LobbyTags.NOTICE, string(R.string.mp_notice_abandoned))
+        assertEquals(null, fx.activeRooms.get("kim"))
+        assertEquals(null, fx.shell.multiGame)
+
+        restartApp()
+        waitFor(ShellTags.HOME_MULTI)
+        click(ShellTags.HOME_MULTI)
+        waitFor(LobbyTags.CREATE)
+        assertTrue("버려진 판으로 다시 들어가지 않는다", !exists(GameTags.ABANDONED) && fx.shell.multiGame == null)
+    }
+
+    @Test
+    fun `버려진 판 - 뒤로 가기는 기권을 묻지 않고 로비로 나간다`() {
+        val (host, _) = guestInGame()
+        val gameId = fx.shell.multiGame!!.gameId
+        host.device.cancel()
+        serverAbandons(gameId)
+        waitFor(GameTags.ABANDONED, timeoutMillis = 20_000)
+        compose.runOnUiThread {
+            @Suppress("UNCHECKED_CAST")
+            (compose as AndroidComposeTestRule<*, androidx.activity.ComponentActivity>).activity.onBackPressedDispatcher.onBackPressed()
+        }
+        waitFor(LobbyTags.NOTICE)
+        assertTrue(!exists(GameTags.CONCEDE_CONFIRM))
     }
 
     @Test

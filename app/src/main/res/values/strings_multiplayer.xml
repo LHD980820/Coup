@@ -70,6 +70,7 @@
     <string name="mp_room_join">입장</string>
     <string name="mp_notice_closed">방이 닫혔어요.</string>
     <string name="mp_notice_kicked">방장이 나를 내보냈어요.</string>
+    <string name="mp_notice_abandoned">방장이 돌아오지 않아 판이 끝났어요. 내 레이팅은 그대로예요.</string>
     <string name="mp_problem_network">서버에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요.</string>
     <string name="mp_room_error_not_found">방을 찾을 수 없어요.</string>
     <string name="mp_room_error_not_waiting">이미 게임이 시작된 방이에요.</string>
@@ -133,6 +134,9 @@
     <string name="mp_connection_reconnecting">연결이 불안정해요. 다시 연결하는 중…</string>
     <string name="mp_connection_host_lost">방장과 연결이 끊겼어요. 방장이 돌아오면 이어서 할 수 있어요.</string>
     <string name="mp_connection_leave">대기실로</string>
+    <string name="mp_abandoned_title">판이 끝났어요</string>
+    <string name="mp_abandoned_body">방장이 오래 돌아오지 않아 서버가 이 판을 끝냈어요. 이 판은 내 레이팅에 반영되지 않아요.</string>
+    <string name="mp_abandoned_leave">로비로</string>
 
     <!-- 게임 결과 -->
     <string name="mp_result_rating">레이팅 %1$d (%2$+d)</string>

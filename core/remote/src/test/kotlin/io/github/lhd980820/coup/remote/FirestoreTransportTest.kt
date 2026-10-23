@@ -376,6 +376,24 @@ class FirestoreTransportTest {
     }
 
     @Test
+    fun `서버가 버려진 판으로 끝내면 게스트 연결은 ABANDONED가 되고 다시 바뀌지 않는다`() = runTest {
+        val t = table(humans = 2)
+        val guest = t.guests.getValue(pid(1))
+        runCurrent()
+        assertThat(guest.connection.value).isEqualTo(ConnectionState.CONNECTED)
+        fun status(s: String) = WriteOp.Merge(FirestoreSchema.game(gameId), JsonObject(mapOf(FirestoreSchema.Game.STATUS to JsonPrimitive(s))))
+        t.backend.admin().write(listOf(status(FirestoreSchema.GameStatus.ABANDONED)))
+        runCurrent()
+        assertThat(guest.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        // 끝난 판은 되살아나지 않는다(방장의 생존 신호가 와도, 문서가 바뀌어도)
+        t.backend.admin().write(listOf(status(FirestoreSchema.GameStatus.PLAYING)))
+        advanceTimeBy(15_000)
+        runCurrent()
+        assertThat(guest.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        t.host.close()
+    }
+
+    @Test
     fun `게스트 뷰 구독은 자기 좌석이 아니면 거절된다`() = runTest {
         val t = table(humans = 3)
         val transport = FirestoreGameTransport(t.backend.storeFor(uid(1)), clock()).guest(uid(1))

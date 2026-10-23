@@ -87,7 +87,8 @@ public class RemoteGameSession(
     }
 
     private fun refreshConnection() {
-        if (_connection.value == ConnectionState.CLOSED) return
+        // 닫혔거나 서버가 끝낸 판은 되돌아가지 않는다(뷰 구독이 그 뒤에 끊겨도 "다시 연결 중"으로 바꾸지 않는다)
+        if (_connection.value == ConnectionState.CLOSED || _connection.value == ConnectionState.ABANDONED) return
         _connection.value = if (viewBroken && transportState == ConnectionState.CONNECTED) ConnectionState.RECONNECTING else transportState
     }
 

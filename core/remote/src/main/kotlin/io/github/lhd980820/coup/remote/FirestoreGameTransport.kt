@@ -343,7 +343,11 @@ public class FirestoreGameTransport(
 
     private fun connectionOf(game: JsonObject?): ConnectionState {
         if (game == null) return ConnectionState.RECONNECTING
-        if (game.string(FirestoreSchema.Game.STATUS) == FirestoreSchema.GameStatus.FINISHED) return ConnectionState.CLOSED
+        when (game.string(FirestoreSchema.Game.STATUS)) {
+            FirestoreSchema.GameStatus.FINISHED -> return ConnectionState.CLOSED
+            // 서버가 버려진 판으로 끝냈다(ADR 0016) — 방장의 생존 신호와 상관없이 끝
+            FirestoreSchema.GameStatus.ABANDONED -> return ConnectionState.ABANDONED
+        }
         val heartbeat = game.long(FirestoreSchema.Game.HOST_HEARTBEAT_AT) ?: return ConnectionState.RECONNECTING
         return if (clock.nowMillis() - heartbeat > hostLostAfter.inWholeMilliseconds) ConnectionState.HOST_LOST else ConnectionState.CONNECTED
     }
