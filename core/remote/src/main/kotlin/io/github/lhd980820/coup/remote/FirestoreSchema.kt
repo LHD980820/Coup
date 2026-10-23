@@ -41,6 +41,7 @@ public object FirestoreSchema {
     public fun legacyClaim(email: String): String = "legacyClaims/$email"
     public fun pendingRating(uid: String): String = "pendingRatings/$uid"
     public const val ROOMS: String = "rooms"
+    public const val GAMES: String = "games"
     public const val RESULTS: String = "results"
     public fun room(roomId: String): String = "rooms/$roomId"
     public fun joinCode(code: String): String = "joinCodes/$code"
@@ -89,6 +90,9 @@ public object FirestoreSchema {
     public object GameStatus {
         public const val PLAYING: String = "PLAYING"
         public const val FINISHED: String = "FINISHED"
+
+        /** 진행이 오래 멈춰 서버가 끝낸 판(ADR 0016). 방장은 더 이상 고칠 수 없다. */
+        public const val ABANDONED: String = "ABANDONED"
     }
 
     /** views/{viewerId} 문서 필드. */
@@ -168,6 +172,9 @@ public object FirestoreSchema {
         public const val VERIFIED: String = "VERIFIED"
         public const val REJECTED: String = "REJECTED"
         public const val UNRATED: String = "UNRATED"
+
+        /** 방장이 판을 버렸다: 방장만 패배로 반영(ADR 0016). */
+        public const val ABANDONED: String = "ABANDONED"
     }
 
     /** pendingRatings/{uid} 문서 필드(옛 클라이언트 정산, ADR 0007 — 서버 판정이 지우기 위해 읽는다). */

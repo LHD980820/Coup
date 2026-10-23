@@ -55,6 +55,12 @@ public enum class RejectReason {
     RANKING_MISMATCH,
 }
 
+/** 기록을 다시 돌린 결과: 마지막 상태, 또는 거부. */
+public sealed interface Replay {
+    public data class Ok(val state: GameState) : Replay
+    public data class Failed(val verdict: Verdict.Rejected) : Replay
+}
+
 public sealed interface Verdict {
     /** 검증됨. [ranking]과 [ratingDeltas]는 서버가 다시 돌려 얻은 값이다(방장이 적은 값이 아니다). */
     public data class Verified(val ranking: List<String>, val ratingDeltas: Map<String, Int>) : Verdict
@@ -81,14 +87,30 @@ public class GameVerifier(
     private val ratingPolicy: RatingPolicy = TableRatingPolicy,
 ) {
     public fun verify(record: GameRecord): Verdict {
-        val setup = record.setup ?: return reject(RejectReason.NO_SETUP, "no setup document")
-        checkSetup(record, setup)?.let { return it }
+        val state = when (val replayed = replay(record)) {
+            is Replay.Failed -> return replayed.verdict
+            is Replay.Ok -> replayed.state
+        }
+        if (!state.isOver) return reject(RejectReason.NOT_FINISHED, "the replayed game is not over (v${state.version})")
+        val ranking = checkNotNull(engine.view(state, Viewer.Spectator).result).ranking.map { it.value }
+        if (ranking != record.resultRanking) return reject(RejectReason.RANKING_MISMATCH, "replayed $ranking but the result says ${record.resultRanking}")
+        val deltas = if (record.rated) ratingPolicy.ratingDeltas(ranking.map(::PlayerId)).mapKeys { it.key.value } else emptyMap()
+        return Verdict.Verified(ranking, deltas)
+    }
+
+    /**
+     * 확인 1~4(설정·빈틈·합법·게스트 명령·시간 초과)를 하며 기록을 끝까지 다시 돌린다. 끝난 판인지·순위는 보지 않는다 —
+     * 버려진 판(ADR 0016)은 기록이 있는 데까지만 검증한다.
+     */
+    public fun replay(record: GameRecord): Replay {
+        val setup = record.setup ?: return failed(RejectReason.NO_SETUP, "no setup document")
+        checkSetup(record, setup)?.let { return Replay.Failed(it) }
 
         var state = try {
             // 방장 시드에 게임 문서의 서버 생성 시각을 섞은 시드로 둔다(ADR 0016) — 섞지 않고 둔 판은 기록이 맞지 않는다
             engine.newGame(GameSeeds.effective(setup, record.createdAt))
         } catch (e: IllegalArgumentException) {
-            return reject(RejectReason.SETUP_MISMATCH, "setup does not build a game: ${e.message}")
+            return failed(RejectReason.SETUP_MISMATCH, "setup does not build a game: ${e.message}")
         }
         val humans = record.humanSeats.toSet()
         val guests = humans - record.hostUid
@@ -97,36 +119,36 @@ public class GameVerifier(
         decisions.update(state, record.createdAt)
 
         record.log.sortedBy { it.version }.forEachIndexed { i, entry ->
-            if (entry.version != i + 1L) return reject(RejectReason.LOG_GAP, "expected v${i + 1} but found v${entry.version}")
+            if (entry.version != i + 1L) return failed(RejectReason.LOG_GAP, "expected v${i + 1} but found v${entry.version}")
             val actor = entry.command.actor
-            if (actor !in setup.seats) return reject(RejectReason.UNKNOWN_ACTOR, "v${entry.version}: ${actor.value} is not a seat")
+            if (actor !in setup.seats) return failed(RejectReason.UNKNOWN_ACTOR, "v${entry.version}: ${actor.value} is not a seat")
             when (entry.source) {
                 CommandSource.SEAT -> if (actor.value in guests) {
-                    val ref = entry.ref ?: return reject(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: a guest move without its command document")
-                    val sent = record.guestCommands[ref] ?: return reject(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref does not exist")
-                    if (sent.senderUid != actor.value) return reject(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref was sent by ${sent.senderUid}")
-                    if (!sameMove(sent.command, entry.command)) return reject(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: the logged move differs from command $ref")
-                    if (!usedRefs.add(ref)) return reject(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref used twice")
+                    val ref = entry.ref ?: return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: a guest move without its command document")
+                    val sent = record.guestCommands[ref] ?: return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref does not exist")
+                    if (sent.senderUid != actor.value) return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref was sent by ${sent.senderUid}")
+                    if (!sameMove(sent.command, entry.command)) return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: the logged move differs from command $ref")
+                    if (!usedRefs.add(ref)) return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: command $ref used twice")
                 }
                 CommandSource.TIMEOUT -> {
-                    if (actor !in engine.pendingDeciders(state)) return reject(RejectReason.BAD_TIMEOUT, "v${entry.version}: ${actor.value} had no decision")
-                    if (entry.command != engine.timeoutCommand(state, actor)) return reject(RejectReason.BAD_TIMEOUT, "v${entry.version}: not the engine's default move")
+                    if (actor !in engine.pendingDeciders(state)) return failed(RejectReason.BAD_TIMEOUT, "v${entry.version}: ${actor.value} had no decision")
+                    if (entry.command != engine.timeoutCommand(state, actor)) return failed(RejectReason.BAD_TIMEOUT, "v${entry.version}: not the engine's default move")
                     if (actor.value in guests) {
-                        val request = engine.legalOptions(state, actor) ?: return reject(RejectReason.BAD_TIMEOUT, "v${entry.version}: no decision")
+                        val request = engine.legalOptions(state, actor) ?: return failed(RejectReason.BAD_TIMEOUT, "v${entry.version}: no decision")
                         val limit = timeoutPolicy.durationFor(request, SeatKind.REMOTE_HUMAN)
-                            ?: return reject(RejectReason.BAD_TIMEOUT, "v${entry.version}: this decision has no time limit")
+                            ?: return failed(RejectReason.BAD_TIMEOUT, "v${entry.version}: this decision has no time limit")
                         val waited = entry.at - decisions.startedAt(actor)
                         if (waited < limit.inWholeMilliseconds - slackMillis) {
-                            return reject(RejectReason.EARLY_TIMEOUT, "v${entry.version}: ${actor.value} timed out after ${waited}ms (limit $limit)")
+                            return failed(RejectReason.EARLY_TIMEOUT, "v${entry.version}: ${actor.value} timed out after ${waited}ms (limit $limit)")
                         }
                     }
                 }
             }
             when (val applied = engine.apply(state, entry.command)) {
-                is ApplyResult.Rejected -> return reject(RejectReason.ILLEGAL_COMMAND, "v${entry.version}: ${applied.reason}")
+                is ApplyResult.Rejected -> return failed(RejectReason.ILLEGAL_COMMAND, "v${entry.version}: ${applied.reason}")
                 is ApplyResult.Accepted -> {
                     if (applied.state.version != entry.version) {
-                        return reject(RejectReason.ILLEGAL_COMMAND, "v${entry.version}: replay reached v${applied.state.version}")
+                        return failed(RejectReason.ILLEGAL_COMMAND, "v${entry.version}: replay reached v${applied.state.version}")
                     }
                     state = applied.state
                 }
@@ -134,11 +156,7 @@ public class GameVerifier(
             decisions.update(state, entry.at)
         }
 
-        if (!state.isOver) return reject(RejectReason.NOT_FINISHED, "the replayed game is not over (v${state.version})")
-        val ranking = checkNotNull(engine.view(state, Viewer.Spectator).result).ranking.map { it.value }
-        if (ranking != record.resultRanking) return reject(RejectReason.RANKING_MISMATCH, "replayed $ranking but the result says ${record.resultRanking}")
-        val deltas = if (record.rated) ratingPolicy.ratingDeltas(ranking.map(::PlayerId)).mapKeys { it.key.value } else emptyMap()
-        return Verdict.Verified(ranking, deltas)
+        return Replay.Ok(state)
     }
 
     private fun checkSetup(record: GameRecord, setup: GameSetup): Verdict.Rejected? {
@@ -164,6 +182,7 @@ public class GameVerifier(
         JsonObject(EngineJson.json.encodeToJsonElement(Command.serializer(), c).jsonObject - "expectedVersion")
 
     private fun reject(reason: RejectReason, detail: String) = Verdict.Rejected(reason, detail)
+    private fun failed(reason: RejectReason, detail: String) = Replay.Failed(reject(reason, detail))
 
     public companion object {
         /** 방장 기기에서 상태가 바뀐 때와 그 게시가 서버에 닿은 때의 차이를 너그럽게 봐 준다. */

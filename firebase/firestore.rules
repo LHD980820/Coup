@@ -33,8 +33,15 @@ service cloud.firestore {
       allow create: if signedIn() && validGameCreate(gameId);
       // 방장은 진행 상태·버전·생존 신호만 바꾼다(ADR 0015). 좌석·rated·시작 시각은 만들 때 정해지고,
       // 판정(verdict)은 서버(관리자 권한)만 쓴다 — 방장이 진 판을 미리 "무효"로 적어 두지 못하게.
+      // 진행 중인 판만 고칠 수 있고(서버가 버려진 판으로 끝낸 뒤에는 되살릴 수 없다), "끝남"은 결과 문서를 만드는 같은 배치에서만 —
+      // 결과 없이 끝난 척해서 버려진 판 정리(ADR 0016)를 피하지 못하게.
       allow update: if isHost(gameId)
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'version', 'hostHeartbeatAt']);
+                    && resource.data.status == 'PLAYING'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'version', 'hostHeartbeatAt'])
+                    && (request.resource.data.status == 'PLAYING'
+                        || (request.resource.data.status == 'FINISHED'
+                            && !exists(/databases/$(database)/documents/results/$(gameId))
+                            && existsAfter(/databases/$(database)/documents/results/$(gameId))));
       allow delete: if false;
 
       // 좌석별 뷰: 자기 것만 읽는다. 관전 뷰는 좌석이면 읽는다. 쓰기는 방장만.
@@ -92,6 +99,7 @@ service cloud.firestore {
     match /results/{gameId} {
       allow read: if signedIn();
       allow create: if isHost(gameId)
+                    && gameData(gameId).status == 'PLAYING'
                     && (request.resource.data.rated != true
                         || (gameData(gameId).rated == true
                             && request.resource.data.ranking.toSet() == gameData(gameId).seats.toSet()

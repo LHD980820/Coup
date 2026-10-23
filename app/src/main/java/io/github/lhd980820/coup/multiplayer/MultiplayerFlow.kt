@@ -115,7 +115,7 @@ private fun RatingNote(shell: ShellViewModel) {
         is Settlement.Applied -> stringResource(R.string.mp_result_rating, s.rating ?: shell.profile?.rating ?: 0, s.record.delta)
         Settlement.Unrated -> stringResource(R.string.mp_result_rating_unrated)
         Settlement.Rejected -> stringResource(R.string.mp_result_rating_rejected)
-        Settlement.NotApplied -> return
+        Settlement.NotApplied, Settlement.Abandoned -> return
         Settlement.Verifying, null -> stringResource(R.string.mp_result_rating_pending)
     }
     Text(text, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(FlowTags.RATING), style = MaterialTheme.typography.bodyMedium)

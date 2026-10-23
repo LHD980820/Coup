@@ -82,7 +82,8 @@ public class FirestoreGameLauncher(
     override suspend fun resumeHost(room: Room): GameSession? {
         val gameId = room.gameId ?: throw TransportException("the room has no game")
         val game = store.get(FirestoreSchema.game(gameId)) ?: throw TransportException("the game does not exist")
-        if (game.string(FirestoreSchema.Game.STATUS) == FirestoreSchema.GameStatus.FINISHED) return null
+        // 끝났거나 서버가 버려진 판으로 끝낸 게임은 이어 가지 않는다(ADR 0016)
+        if (game.string(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) return null
         val backup = store.get(FirestoreSchema.authority(gameId))?.string(FirestoreSchema.Authority.BACKUP_JSON)
             ?: throw TransportException("no authority backup for $gameId")
         val state = try {

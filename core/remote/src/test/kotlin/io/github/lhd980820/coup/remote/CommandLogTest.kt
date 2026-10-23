@@ -108,7 +108,6 @@ class CommandLogTest {
         newGame()
         val host = fs.storeFor("host")
         host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.VERSION, 3); put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, 5L) })))
-        host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.FINISHED) })))
         for (forged in listOf(
             buildJsonObject { put(FirestoreSchema.Game.RATED, false) },
             buildJsonObject { put(FirestoreSchema.Game.VERDICT, "REJECTED") },
@@ -129,6 +128,59 @@ class CommandLogTest {
         }
         assertFailure { fs.storeFor("host").write(listOf(WriteOp.Set(FirestoreSchema.command(gameId, "mine"), own))) }.isInstanceOf(PermissionDenied::class)
         fs.storeFor("b").write(listOf(WriteOp.Set(FirestoreSchema.command(gameId, "theirs"), JsonObject(own + (FirestoreSchema.Command.SENDER_UID to JsonPrimitive("b"))))))
+    }
+
+    @Test
+    fun `게임 문서 - 끝남은 결과와 함께만, 끝난 판과 버려진 판은 방장이 고치거나 결과를 쓸 수 없다`() = runBlocking<Unit> {
+        newGame()
+        val host = fs.storeFor("host")
+        fun status(s: String) = WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, s) })
+        // 결과 없이 끝난 척(버려진 판 정리를 피하려고) / 다른 상태로
+        assertFailure { host.write(listOf(status(FirestoreSchema.GameStatus.FINISHED))) }.isInstanceOf(PermissionDenied::class)
+        assertFailure { host.write(listOf(status(FirestoreSchema.GameStatus.ABANDONED))) }.isInstanceOf(PermissionDenied::class)
+        // 결과와 함께면 끝낼 수 있다
+        val record = io.github.lhd980820.coup.runtime.transport.GameResultRecord(
+            ranking = seats.map(::PlayerId), ruleSetConfig = BuiltinRules.classicConfig(), rated = true,
+            ratingDeltas = io.github.lhd980820.coup.engine.rating.TableRatingPolicy.ratingDeltas(seats.map(::PlayerId)),
+        )
+        transport("host").host.finish(gameId, record)
+        // 끝난 판은 더 고칠 수 없다
+        assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.VERSION, 9) }))) }.isInstanceOf(PermissionDenied::class)
+    }
+
+    @Test
+    fun `게임 문서 - 서버가 버려진 판으로 끝내면 방장은 되살리거나 결과를 쓸 수 없다`() = runBlocking<Unit> {
+        newGame()
+        fs.admin().write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.ABANDONED) })))
+        val host = fs.storeFor("host")
+        assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.PLAYING) }))) }
+            .isInstanceOf(PermissionDenied::class)
+        assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, 1L) }))) }
+            .isInstanceOf(PermissionDenied::class)
+        val record = io.github.lhd980820.coup.runtime.transport.GameResultRecord(
+            ranking = seats.map(::PlayerId), ruleSetConfig = BuiltinRules.classicConfig(), rated = true,
+            ratingDeltas = io.github.lhd980820.coup.engine.rating.TableRatingPolicy.ratingDeltas(seats.map(::PlayerId)),
+        )
+        assertFailure { transport("host").host.finish(gameId, record) }.isInstanceOf(io.github.lhd980820.coup.runtime.transport.TransportException::class)
+        // 게임 문서는 건드리지 않고 결과만 따로 써도 안 된다
+        assertFailure { host.write(listOf(WriteOp.Set(FirestoreSchema.result(gameId), resultDoc()))) }.isInstanceOf(PermissionDenied::class)
+    }
+
+    @Test
+    fun `게임 문서 - 결과를 먼저 따로 썼으면 나중에 끝남으로 바꿀 수 없다(같은 배치에서만)`() = runBlocking<Unit> {
+        newGame()
+        val host = fs.storeFor("host")
+        host.write(listOf(WriteOp.Set(FirestoreSchema.result(gameId), resultDoc())))
+        assertFailure {
+            host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.FINISHED) })))
+        }.isInstanceOf(PermissionDenied::class)
+    }
+
+    private fun resultDoc() = buildJsonObject {
+        put(FirestoreSchema.Result.RANKING, kotlinx.serialization.json.buildJsonArray { seats.forEach { add(JsonPrimitive(it)) } })
+        put(FirestoreSchema.Result.PLAYER_COUNT, seats.size)
+        put(FirestoreSchema.Result.RATED, true)
+        put(FirestoreSchema.Result.RATING_DELTAS, buildJsonObject { put("host", 30); put("b", -20) })
     }
 
     @Test

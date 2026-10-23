@@ -43,6 +43,9 @@ public sealed interface Settlement {
     /** 검증됐지만 내 레이팅은 이번에 바뀌지 않았다(이미 반영됨, 프로필 없음). */
     public data object NotApplied : Settlement
 
+    /** 방장이 판을 버려 서버가 끝냈다. 방장만 패배로 반영되고 나머지는 그대로다(ADR 0016). */
+    public data object Abandoned : Settlement
+
     public val isFinal: Boolean get() = this != Verifying
 }
 
@@ -107,6 +110,7 @@ public class FirestoreUserRepository(
                 FirestoreSchema.Verdict.VERIFIED -> Settlement.NotApplied
                 FirestoreSchema.Verdict.REJECTED -> Settlement.Rejected
                 FirestoreSchema.Verdict.UNRATED -> Settlement.Unrated
+                FirestoreSchema.Verdict.ABANDONED -> Settlement.Abandoned
                 else -> if (game?.bool(FirestoreSchema.Game.RATED) == false) Settlement.Unrated else Settlement.Verifying
             }
         }.distinctUntilChanged()

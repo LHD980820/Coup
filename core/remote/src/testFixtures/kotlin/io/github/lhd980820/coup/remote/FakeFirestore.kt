@@ -219,7 +219,8 @@ enum class Access { READ, QUERY, CREATE, UPDATE, DELETE }
  *   방장 수정 = 사람은 뺄 수만 있다(넣을 수 없다), 룰셋·봇을 바꾸면 configVersion +1, 시작은 모든 게스트가 지금 설정에 준비했을 때.
  * - joinCodes/{code}: 읽기 = 로그인한 누구나. 생성 = 그 방을 같은 배치에서 만드는 방장. 삭제 = 방이 닫힐 때 방장.
  * - games/{id} 생성: 방이 시작 상태이고 gameId가 같고, 좌석 = 방의 사람 전원, rated = 방 구성(봇·하우스룰 없음), 시작 시각 = 서버 시각.
- * - games/{id} 수정: 방장, 상태·버전·생존 신호만(판정은 서버만).
+ * - games/{id} 수정: 방장, 진행 중인 판만, 상태·버전·생존 신호만, "끝남"은 결과를 만드는 같은 배치에서만(판정·버려진 판 처리는 서버만).
+ * - results/{id} 생성은 진행 중인 판에서만(서버가 버려진 판으로 끝낸 뒤에는 결과를 쓸 수 없다).
  */
 object AccessPolicy {
     /** 레이팅 표(= TableRatingPolicy). 규칙 파일에도 같은 표가 있다. */
@@ -261,6 +262,7 @@ object AccessPolicy {
                 Access.CREATE -> {
                     val id = segments[1]
                     if (uid != hostOf(id)) deny("only the host may write results")
+                    if (game(id).str(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) deny("the game is no longer in progress")
                     val data = incoming ?: deny("no data")
                     if (data.bool(FirestoreSchema.Result.RATED) == true) {
                         if (game(id).bool(FirestoreSchema.Game.RATED) != true) deny("an unrated game cannot have a rated result")
@@ -306,7 +308,15 @@ object AccessPolicy {
                     val before = existing ?: deny("no game")
                     val after = incoming ?: deny("no data")
                     val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+                    if (before.str(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) deny("the game is no longer in progress")
                     if (!GAME_HOST_KEYS.containsAll(changed)) deny("the host may only change ${GAME_HOST_KEYS}, not ${changed - GAME_HOST_KEYS}")
+                    when (after.str(FirestoreSchema.Game.STATUS)) {
+                        FirestoreSchema.GameStatus.PLAYING -> Unit
+                        // 끝남은 결과 문서를 만드는 같은 배치에서만(결과 없이 끝난 척해 버려진 판 정리를 피하지 못하게)
+                        FirestoreSchema.GameStatus.FINISHED ->
+                            if (get("results/${segments[1]}") != null || getAfter("results/${segments[1]}") == null) deny("finish together with the result")
+                        else -> deny("bad game status")
+                    }
                 }
                 else -> deny("not allowed")
             }

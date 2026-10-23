@@ -69,6 +69,31 @@ public object RatingLedger {
         )
     }
 
+    /**
+     * 버려진 판(ADR 0016): 판을 버린 방장 한 사람에게만 [rank](0부터) 자리의 변동량을 반영한다. 다른 참가자의 레이팅은 그대로다.
+     * 변동량은 [playerCount]명 판의 레이팅 표에서 그 자리 값이다.
+     */
+    public fun forfeit(
+        profile: UserProfile,
+        gameId: String,
+        rank: Int,
+        playerCount: Int,
+        finishedAt: Long,
+        alreadyApplied: Boolean,
+        now: Long,
+        policy: RatingPolicy = TableRatingPolicy,
+    ): RatingDecision {
+        if (alreadyApplied) return RatingDecision.Skip(SkipReason.ALREADY_APPLIED)
+        if (rank !in 0 until playerCount) return RatingDecision.Skip(SkipReason.INCONSISTENT)
+        // 자리마다의 변동량은 누가 앉았는지와 상관없다 — 자리표시 순위로 표를 읽는다
+        val seats = List(playerCount) { PlayerId("#$it") }
+        val delta = runCatching { policy.ratingDeltas(seats) }.getOrNull()?.get(seats[rank]) ?: return RatingDecision.Skip(SkipReason.INCONSISTENT)
+        return RatingDecision.Apply(
+            updated = profile.copy(rating = profile.rating + delta, plays = profile.plays + 1, wins = profile.wins + if (rank == 0) 1 else 0),
+            record = AppliedResult(gameId, rank, delta, playerCount, finishedAt, now),
+        )
+    }
+
     /** 순위·인원수가 올바르면 표에서 계산한 변동량, 아니면 null. */
     private fun expectedDeltas(result: GameResult, policy: RatingPolicy): Map<String, Int>? {
         if (result.playerCount != result.ranking.size) return null
