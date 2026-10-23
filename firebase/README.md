@@ -5,7 +5,7 @@
 |---|---|
 | `firebase.json` | 에뮬레이터: Firestore 8080, Auth 9099(어댑터 통합 테스트용) |
 | `firestore.rules` | ✅ **에뮬레이터 검증됨**(2026-10-22, 서버 판정 전환 후) — 모델의 허용/거부 판단 2,703건(거부 165건, 시나리오 66개)을 실제 규칙에 재생해 **불일치 0건**. 규칙 조건 변이 86개 중 71개 검출, 나머지 15개는 다른 조건과 겹치는 중복 방어(아래). 배포 전에는 한 번 더 돌릴 것. |
-| `../server/` | 서버 판정 Cloud Function(ADR 0015). 배포는 아래 "서버 판정 배포". |
+| `../server/` | 서버 판정·정리 Cloud Function(ADR 0015, 0016). 배포는 아래 "서버 판정 배포". |
 
 ## 규칙의 근거
 `core/remote/src/test/kotlin/io/github/lhd980820/coup/remote/FakeFirestore.kt` 의 `AccessPolicy`가 같은 접근 매트릭스를
@@ -16,15 +16,15 @@
 ## 접근 매트릭스 (설계 문서 §8.3)
 | 경로 | 읽기 | 쓰기 |
 |---|---|---|
-| `games/{id}` | 좌석 uid | 만들기: 방장, 방이 이 gameId로 시작됨 + 좌석 = 방 사람 전원 + rated = 방 구성 + `createdAt` = 서버 시각 / 수정: 방장, `status`·`version`·`hostHeartbeatAt`만(판정 `verdict`는 서버만) |
+| `games/{id}` | 좌석 uid | 만들기: 방장, 방이 이 gameId로 시작됨 + 좌석 = 방 사람 전원 + rated = 방 구성 + `createdAt` = 서버 시각 / 수정: 방장, 진행 중인 판만, `status`·`version`·`hostHeartbeatAt`만, 끝남(`FINISHED`)은 결과를 만드는 같은 배치에서만(판정 `verdict`·버려진 판 처리는 서버만, ADR 0016) |
 | `games/{id}/views/{uid}` | 해당 uid | 방장 |
 | `games/{id}/views/spectator` | 좌석 uid | 방장 |
 | `games/{id}/authority/state` | 방장 | 방장 |
 | `games/{id}/authority/setup` | 방장 | 게임 문서를 만드는 같은 배치에서 방장이 만들기만 / 수정·삭제 불가 |
 | `games/{id}/log/{version}` | 방장 | 방장이 만들기만, ID = 버전, `at` = 서버 시각 / 수정·삭제 불가 |
 | `games/{id}/commands/{cid}` | 방장(목록 포함), 보낸 사람(개별) | 만들기: 방장이 아닌 좌석이 자기 uid + PENDING으로 / 수정: 방장 |
-| `results/{id}` | 로그인한 누구나 | 방장이 1회. 레이팅 결과는 게임이 rated일 때만, 순위 = 사람 좌석 전원, 변동량 = 레이팅 표 |
-| `rooms/{id}` | 로그인한 누구나(목록은 공개 방만) | 만들기: 방장 혼자 앉은 새 방 / 게스트: 대기 중 자기 항목만(입장·준비·퇴장) / 방장: 사람은 빼기만, 룰셋·봇 변경 시 configVersion+1, 시작은 전원 준비 시 / 닫힌 방 불변 |
+| `results/{id}` | 로그인한 누구나 | 방장이 1회, 진행 중인 판에서만. 레이팅 결과는 게임이 rated일 때만, 순위 = 사람 좌석 전원, 변동량 = 레이팅 표 |
+| `rooms/{id}` | 로그인한 누구나(목록은 공개 방만) | 모든 쓰기에 `updatedAt` = 서버 시각(ADR 0016) / 만들기: 방장 혼자 앉은 새 방 / 게스트: 대기 중 자기 항목만(입장·준비·퇴장) / 방장: 사람은 빼기만, 룰셋·봇 변경 시 configVersion+1, 시작은 전원 준비 시 / 닫힌 방 불변 |
 | `joinCodes/{code}` | 로그인한 누구나(개별 조회만) | 만들기: 그 방을 같은 배치에서 만드는 방장 / 지우기: 방을 닫는 방장 |
 | `users/{uid}` | 로그인한 누구나(랭킹 조회 포함) | 만들기: 본인, 시작값(레이팅 1000·0판) 또는 옛 문서 값 + 같은 배치의 이메일 선점 / 수정: 본인, 닉네임만(레이팅은 서버 판정만) |
 | `users/{uid}/appliedResults/{gid}` | 본인 | 서버 판정만 |
@@ -66,11 +66,13 @@
 - **Android SDK 쪽 동작**: `:data`의 `FirebaseIntegrationTest`가 실제 Firebase SDK로 같은 에뮬레이터·규칙에 붙어 프로필·이관·방 경쟁·좌석 동의·멀티플레이 한 판(정산까지)을 확인한다(ADR 0009).
   에뮬레이터(`--only firestore,auth`)를 띄운 뒤 루트에서 `./gradlew :data:testDebugUnitTest`. 오프라인 영속 캐시와 재연결은 아직 안 봤다.
 - **레이팅은 서버 판정이 반영한다(ADR 0015)**: 방장의 순위 조작·수 위조·이른 시간 초과·진 게임 반영 안 하기는 서버가 막는다.
-  남는 위험: 방장이 남의 패를 보는 것, 게스트 명령을 일부러 처리하지 않기(시간 초과와 같음), 시작 전에 시드를 알고 판을 고르기. **규칙만 배포하고 함수를 배포하지 않으면 레이팅이 멈춘다.**
+  시드는 서버 생성 시각과 섞여 방장이 고를 수 없고, 판을 버린 방장은 서버 정리가 패배로 반영한다(ADR 0016).
+  남는 위험: 방장이 남의 패를 보는 것, 게스트 명령을 일부러 처리하지 않기(시간 초과와 같음). **규칙만 배포하고 함수를 배포하지 않으면 레이팅이 멈춘다.**
 - **게임 좌석 동의**: 게임 문서 생성 규칙이 좌석 = 방에 스스로 들어온 사람 전원을 요구한다(ADR 0008). 방장은 방에 사람을 넣을 수 없다.
 - **규칙 문서 읽기 한도**: 게임 생성 규칙은 방 1번을 읽는다(정산 게이트를 지워 예전의 최대 7번에서 줄었다, 한도 10).
 - **배포하면 옛 앱이 멈춘다**: `user/{email}`을 읽기 전용으로 막으므로 옛 앱은 로그인·전적 기록을 할 수 없다. 새 앱 출시와 같은 시점에 배포할 것.
 - **방장 단일 장애점**: 방장이 사라지면 게임이 멈춘다(설계 R6). 하트비트로 게스트에게 `HOST_LOST`를 알릴 뿐 방장 이전(host migration)은 없다.
+  10분 넘게 멈춘 판은 서버 정리가 끝내고(방장만 패배), 방은 15분 뒤 닫힌다(ADR 0016).
 - **비용**: 명령 1건당 쓰기 ≈ 좌석 수 + 관전 1 + 백업 1 + 메타 1 + 명령 상태 1 + 기록 1 (설계 R7). 판정은 판마다 함수 1회 + 기록 수만큼 읽기.
 
 ## 서버 판정 배포 (오너 작업, ADR 0015)
@@ -85,4 +87,13 @@
      --trigger-event-filters-path-pattern=document='results/{gameId}' \
      --retry --memory=512Mi
    ```
-4. 순서: **함수 -> 규칙(`firebase deploy --only firestore:rules`) -> 앱**. 함수 로그에 `game …: verified, ratings applied to […]`가 찍히는지 확인.
+4. 정리 함수(ADR 0016): 버려진 판·방을 5분마다 정리한다.
+   ```
+   gcloud pubsub topics create coup-sweep
+   gcloud functions deploy coup-sweep --gen2 --runtime=java21 --region=<Firestore 위치> \
+     --source=server/build/deploy --entry-point=io.github.lhd980820.coup.server.SweepFunction \
+     --trigger-topic=coup-sweep --memory=512Mi
+   gcloud scheduler jobs create pubsub coup-sweep --location=<Firestore 위치> \
+     --schedule="*/5 * * * *" --topic=coup-sweep --message-body=sweep
+   ```
+5. 순서: **함수 둘 -> 규칙(`firebase deploy --only firestore:rules`) -> 앱**. 판정 함수 로그에 `game …: verified, ratings applied to […]`, 정리 함수 로그에 `swept … games`가 찍히는지 확인.

@@ -208,6 +208,13 @@ class GameSweeperTest {
         assertThat(fs.status("g-live")).isEqualTo(FirestoreSchema.GameStatus.PLAYING)
         assertThat(sweeper(fs).sweepGame("g-done")).isEqualTo(GameSweep.NotPlaying)
         assertThat(sweeper(fs).sweepGame("nope")).isEqualTo(GameSweep.NotPlaying)
+        // 한 판을 읽다가 저장소 오류가 나도 나머지 판은 살핀다
+        val flaky = object : io.github.lhd980820.coup.remote.DocumentStore by fs.admin() {
+            override suspend fun get(path: String) =
+                if (path == FirestoreSchema.game("g-live")) throw io.github.lhd980820.coup.runtime.transport.TransportException("boom") else fs.admin().get(path)
+        }
+        val withFailure = GameSweeper(flaky, engine, clock = clock()).sweepGames()
+        assertThat(withFailure.getValue("g-live")).isInstanceOf(GameSweep.Failed::class)
         live.host.close()
     }
 }

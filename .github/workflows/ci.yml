@@ -76,7 +76,7 @@ jobs:
           COUP_REQUIRE_EMULATOR: "true"
         run: npx firebase --config ../firebase.json emulators:exec --only firestore,auth --project demo-coup "cd ../.. && JAVA_HOME=$JAVA_HOME_17_X64 ./gradlew :data:testDebugUnitTest"
 
-      - name: Server judge function tests on the emulator
+      - name: Server function tests (judge, sweep) on the emulator
         working-directory: firebase/rules-test
         env:
           COUP_REQUIRE_EMULATOR: "true"

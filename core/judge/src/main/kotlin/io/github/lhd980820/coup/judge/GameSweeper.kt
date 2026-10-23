@@ -11,6 +11,7 @@ import io.github.lhd980820.coup.remote.ServerValues
 import io.github.lhd980820.coup.remote.UserDocuments
 import io.github.lhd980820.coup.remote.WriteOp
 import io.github.lhd980820.coup.runtime.Clock
+import io.github.lhd980820.coup.runtime.transport.TransportException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -29,6 +30,9 @@ public sealed interface GameSweep {
      * (기록을 다시 돌리지 못했으면 그 이유 — 그때도 방장은 꼴찌로 처리한다).
      */
     public data class Abandoned(val rated: Boolean, val hostRank: Int?, val applied: Boolean, val note: String) : GameSweep
+
+    /** 저장소 오류로 이번에는 살피지 못했다(다음 정리 때 다시 본다). */
+    public data class Failed(val error: String) : GameSweep
 }
 
 /**
@@ -47,10 +51,16 @@ public class GameSweeper(
     private val clock: Clock = Clock.System,
     private val abandonAfter: Duration = DEFAULT_ABANDON_AFTER,
 ) {
-    /** 진행 중인 모든 판을 살펴 버려진 판을 끝낸다. */
+    /** 진행 중인 모든 판을 살펴 버려진 판을 끝낸다. 한 판의 저장소 오류는 그 판만 건너뛴다. */
     public suspend fun sweepGames(): Map<String, GameSweep> =
         store.observeWhere(FirestoreSchema.GAMES, FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.PLAYING).first()
-            .associate { it.id to sweepGame(it.id) }
+            .associate { doc ->
+                doc.id to try {
+                    sweepGame(doc.id)
+                } catch (e: TransportException) {
+                    GameSweep.Failed(e.message ?: e.toString())
+                }
+            }
 
     public suspend fun sweepGame(gameId: String): GameSweep {
         val game = store.get(FirestoreSchema.game(gameId)) ?: return GameSweep.NotPlaying

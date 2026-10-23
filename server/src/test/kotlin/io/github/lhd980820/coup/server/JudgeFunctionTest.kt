@@ -6,7 +6,6 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isInstanceOf
 import assertk.assertions.isNull
 import com.google.cloud.firestore.Firestore
-import com.google.cloud.firestore.FirestoreOptions
 import io.cloudevents.core.builder.CloudEventBuilder
 import io.github.lhd980820.coup.ai.RandomAgent
 import io.github.lhd980820.coup.engine.core.GameEngines
@@ -46,14 +45,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.net.HttpURLConnection
-import java.net.Socket
 import java.net.URI
-import java.time.Duration
 
 /**
  * 서버 판정 함수를 **Firestore 에뮬레이터 + 서버 클라이언트 라이브러리**로 돌린다(ADR 0015).
@@ -67,11 +62,7 @@ class JudgeFunctionTest {
 
     @BeforeEach
     fun connect() {
-        val running = runCatching { Socket(HOST, PORT).close() }.isSuccess
-        if (System.getProperty("coup.requireEmulator") == "true") check(running) { "Firestore emulator is not running (firebase/rules-test: npm run emulators)" }
-        assumeTrue(running, "Firestore emulator is not running")
-        clearEmulator()
-        db = FirestoreOptions.newBuilder().setProjectId(PROJECT).setEmulatorHost("$HOST:$PORT").build().service
+        db = EmulatorFirestore.connectFresh()
         store = AdminDocumentStore(db)
     }
 
@@ -198,19 +189,8 @@ class JudgeFunctionTest {
         }
     }
 
-    private fun clearEmulator() {
-        val url = URI.create("http://$HOST:$PORT/emulator/v1/projects/$PROJECT/databases/(default)/documents").toURL()
-        val conn = url.openConnection() as HttpURLConnection
-        conn.requestMethod = "DELETE"
-        conn.connectTimeout = Duration.ofSeconds(5).toMillis().toInt()
-        check(conn.responseCode in 200..299) { "could not clear the emulator: ${conn.responseCode}" }
-        conn.disconnect()
-    }
-
     private companion object {
-        const val HOST = "127.0.0.1"
-        const val PORT = 8080
-        const val PROJECT = "demo-coup"
+        const val PROJECT = EmulatorFirestore.PROJECT
         val PLAYERS = listOf("host", "b", "c")
     }
 }

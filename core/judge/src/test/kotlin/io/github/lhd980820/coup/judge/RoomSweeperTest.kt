@@ -111,9 +111,22 @@ class RoomSweeperTest {
         now += stale + 1_000
         service("h2").keepAlive(fresh.id, "h2").ok()
 
-        val report = sweeper().sweepRooms()
+        // 한 방을 읽다가 저장소 오류가 나도 나머지는 정리한다
+        val broken = service("h4").createRoom(LobbyUser("h4", "넷"), "고장", Visibility.PUBLIC, 4, BuiltinRules.classicConfig()).ok()
+        val flaky = object : io.github.lhd980820.coup.remote.DocumentStore by fs.admin() {
+            override suspend fun <T> transaction(block: suspend (io.github.lhd980820.coup.remote.DocumentTransaction) -> T): T = fs.admin().transaction { tx ->
+                block(object : io.github.lhd980820.coup.remote.DocumentTransaction by tx {
+                    override suspend fun get(path: String) =
+                        if (path == FirestoreSchema.room(broken.id)) throw io.github.lhd980820.coup.runtime.transport.TransportException("boom") else tx.get(path)
+                })
+            }
+        }
+        val report = sweeper().sweepRooms() - broken.id
         assertThat(report.keys).isEqualTo(setOf(r.id, fresh.id))
         assertThat(report.getValue(r.id)).isEqualTo(RoomSweep.Closed("the game never started"))
         assertThat(report.getValue(fresh.id)).isEqualTo(RoomSweep.Active)
+        val withFailure = RoomSweeper(flaky, Clock { now }).sweepRooms()
+        assertThat(withFailure.getValue(broken.id)).isInstanceOf(RoomSweep.Failed::class)
+        assertThat(withFailure.getValue(fresh.id)).isEqualTo(RoomSweep.Active)
     }
 }

@@ -7,6 +7,7 @@ import io.github.lhd980820.coup.remote.FirestoreSchema
 import io.github.lhd980820.coup.remote.ServerValues
 import io.github.lhd980820.coup.remote.WriteOp
 import io.github.lhd980820.coup.runtime.Clock
+import io.github.lhd980820.coup.runtime.transport.TransportException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -19,6 +20,9 @@ public sealed interface RoomSweep {
     public data object NotOpen : RoomSweep
 
     public data class Closed(val reason: String) : RoomSweep
+
+    /** 저장소 오류로 이번에는 살피지 못했다(다음 정리 때 다시 본다). */
+    public data class Failed(val error: String) : RoomSweep
 }
 
 /**
@@ -37,7 +41,13 @@ public class RoomSweeper(
         val open = listOf(RoomStatus.WAITING, RoomStatus.PLAYING).flatMap { status ->
             store.observeWhere(FirestoreSchema.ROOMS, FirestoreSchema.Room.STATUS, status.name).first().map { it.id }
         }
-        return open.associateWith { sweepRoom(it) }
+        return open.associateWith { id ->
+            try {
+                sweepRoom(id)
+            } catch (e: TransportException) {
+                RoomSweep.Failed(e.message ?: e.toString())
+            }
+        }
     }
 
     public suspend fun sweepRoom(roomId: String): RoomSweep = store.transaction { tx ->

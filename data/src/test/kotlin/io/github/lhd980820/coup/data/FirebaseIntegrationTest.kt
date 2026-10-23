@@ -131,7 +131,9 @@ class FirebaseIntegrationTest {
         val plan = rooms(host).start(room.id, host.uid).ok()
         val transport = FirestoreGameTransport(host.store)
         expectDenied { transport.createGame(plan.gameId, room.id, host.uid, listOf(host.uid, b.uid, victim.uid), plan.ruleSetConfig, rated = true) }
-        transport.createGame(plan)
+        // 정상 좌석이면 만들어지고, 둘 설정의 시드는 서버 생성 시각과 섞인 값이다(ADR 0016)
+        val setup = transport.createGame(plan)
+        assertTrue("시드는 섞여야 한다", setup.seed != plan.setup().seed)
     }
 
     @Test
