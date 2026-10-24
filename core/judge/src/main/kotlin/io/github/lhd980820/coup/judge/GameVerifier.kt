@@ -18,8 +18,11 @@ import io.github.lhd980820.coup.runtime.TimeoutPolicy
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
-/** 기록 한 건(서버가 읽은 그대로). [at]은 그 기록을 쓴 배치의 서버 시각(epoch millis). */
-public data class LogRecord(val version: Long, val command: Command, val source: CommandSource, val ref: String?, val at: Long)
+/**
+ * 기록 한 건(서버가 읽은 그대로). [at]은 그 기록을 쓴 배치의 서버 시각(epoch millis).
+ * [writer]는 그 기록을 쓴 방장(ADR 0017, 규칙이 쓴 사람과 같음을 보장) — 방장이 바뀐 판에서 구간마다 누가 방장이었는지 안다. 없으면(옛 기록) 게임 문서의 방장.
+ */
+public data class LogRecord(val version: Long, val command: Command, val source: CommandSource, val ref: String?, val at: Long, val writer: String? = null)
 
 /** 게스트가 직접 쓴 명령 문서. 보안 규칙이 [senderUid] = 쓴 사람임을 보장한다. */
 public data class GuestCommand(val id: String, val senderUid: String, val command: Command)
@@ -113,7 +116,6 @@ public class GameVerifier(
             return failed(RejectReason.SETUP_MISMATCH, "setup does not build a game: ${e.message}")
         }
         val humans = record.humanSeats.toSet()
-        val guests = humans - record.hostUid
         val usedRefs = mutableSetOf<String>()
         val decisions = DecisionClock(engine)
         decisions.update(state, record.createdAt)
@@ -122,6 +124,10 @@ public class GameVerifier(
             if (entry.version != i + 1L) return failed(RejectReason.LOG_GAP, "expected v${i + 1} but found v${entry.version}")
             val actor = entry.command.actor
             if (actor !in setup.seats) return failed(RejectReason.UNKNOWN_ACTOR, "v${entry.version}: ${actor.value} is not a seat")
+            // 이 기록을 쓴 방장 — 그 사람의 수만 명령 문서 없이 받아들인다. 방장은 사람 좌석이어야 한다.
+            val writer = entry.writer ?: record.hostUid
+            if (writer !in humans) return failed(RejectReason.UNKNOWN_ACTOR, "v${entry.version}: written by ${writer}, who is not a human seat")
+            val guests = humans - writer
             when (entry.source) {
                 CommandSource.SEAT -> if (actor.value in guests) {
                     val ref = entry.ref ?: return failed(RejectReason.FORGED_GUEST_COMMAND, "v${entry.version}: a guest move without its command document")

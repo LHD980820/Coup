@@ -133,7 +133,7 @@
 
     <string name="mp_rejoin">게임으로 돌아가기</string>
     <string name="mp_connection_reconnecting">연결이 불안정해요. 다시 연결하는 중…</string>
-    <string name="mp_connection_host_lost">방장과 연결이 끊겼어요. 방장이 돌아오면 이어서 할 수 있어요.</string>
+    <string name="mp_connection_host_lost">방장과 연결이 끊겼어요. 돌아오지 않으면 잠시 뒤 다른 참가자가 방장을 이어받아 계속해요.</string>
     <string name="mp_connection_leave">대기실로</string>
     <string name="mp_abandoned_title">판이 끝났어요</string>
     <string name="mp_abandoned_body">방장이 오래 돌아오지 않아 서버가 이 판을 끝냈어요. 이 판은 내 레이팅에 반영되지 않아요.</string>

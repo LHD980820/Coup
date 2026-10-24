@@ -128,7 +128,7 @@
 
     <string name="mp_rejoin">Back to the game</string>
     <string name="mp_connection_reconnecting">Connection is unstable. Reconnecting…</string>
-    <string name="mp_connection_host_lost">Lost connection to the host. You can continue when the host is back.</string>
+    <string name="mp_connection_host_lost">Lost connection to the host. If they don\'t come back, another player will take over as host shortly.</string>
     <string name="mp_connection_leave">To the room</string>
     <string name="mp_abandoned_title">Game over</string>
     <string name="mp_abandoned_body">The host was gone for too long, so the server ended this game. It doesn\'t count toward your rating.</string>

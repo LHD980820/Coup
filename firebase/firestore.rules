@@ -26,6 +26,33 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in gameData(gameId).seats;
     }
 
+    // 방장 생존 신호는 서버 시각이다(ADR 0017). 바꿀 때마다 request.time이어야 한다 — 꾸며서 이어받기를 막거나 앞당기지 못하게.
+    function heartbeatIsServerTime() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hostHeartbeatAt'])
+        || request.resource.data.hostHeartbeatAt == request.time;
+    }
+
+    // 방장이 60초 넘게 조용하다. 실제로는 서버 시각(timestamp)이고, 관리자가 쓴 옛 문서·검증용 문서는 밀리초 숫자일 수 있다.
+    function hostSilent(b) {
+      return (b.hostHeartbeatAt is timestamp && request.time > b.hostHeartbeatAt + duration.value(60, 's'))
+        || (b.hostHeartbeatAt is int && request.time.toMillis() - b.hostHeartbeatAt > 60000);
+    }
+
+    // 방장 이어받기(ADR 0017): 방장이 사라진 진행 중인 판을 좌석에 앉은 다른 사람이 이어 간다. 방장만 바뀌고(생존 신호는 지금 서버 시각),
+    // 그 사람은 이때부터 권한자 백업(모든 패)을 읽고 판을 돌린다. 방장이 살아 있는 동안에는 할 수 없다.
+    function validTakeover() {
+      let b = resource.data;
+      let a = request.resource.data;
+      return signedIn()
+        && b.status == 'PLAYING'
+        && request.auth.uid in b.seats
+        && request.auth.uid != b.hostUid
+        && a.hostUid == request.auth.uid
+        && a.diff(b).affectedKeys().hasOnly(['hostUid', 'hostHeartbeatAt'])
+        && a.hostHeartbeatAt == request.time
+        && hostSilent(b);
+    }
+
     // 게임 문서: 좌석이면 읽기, 방장만 수정. 만드는 사람이 곧 방장이어야 한다.
     match /games/{gameId} {
       allow read: if isSeat(gameId);
@@ -35,13 +62,15 @@ service cloud.firestore {
       // 판정(verdict)은 서버(관리자 권한)만 쓴다 — 방장이 진 판을 미리 "무효"로 적어 두지 못하게.
       // 진행 중인 판만 고칠 수 있고(서버가 버려진 판으로 끝낸 뒤에는 되살릴 수 없다), "끝남"은 결과 문서를 만드는 같은 배치에서만 —
       // 결과 없이 끝난 척해서 버려진 판 정리(ADR 0016)를 피하지 못하게.
-      allow update: if isHost(gameId)
-                    && resource.data.status == 'PLAYING'
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'version', 'hostHeartbeatAt'])
-                    && (request.resource.data.status == 'PLAYING'
-                        || (request.resource.data.status == 'FINISHED'
-                            && !exists(/databases/$(database)/documents/results/$(gameId))
-                            && existsAfter(/databases/$(database)/documents/results/$(gameId))));
+      allow update: if (isHost(gameId)
+                        && resource.data.status == 'PLAYING'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'version', 'hostHeartbeatAt'])
+                        && heartbeatIsServerTime()
+                        && (request.resource.data.status == 'PLAYING'
+                            || (request.resource.data.status == 'FINISHED'
+                                && !exists(/databases/$(database)/documents/results/$(gameId))
+                                && existsAfter(/databases/$(database)/documents/results/$(gameId)))))
+                    || validTakeover();
       allow delete: if false;
 
       // 좌석별 뷰: 자기 것만 읽는다. 관전 뷰는 좌석이면 읽는다. 쓰기는 방장만.
@@ -68,9 +97,11 @@ service cloud.firestore {
 
       // 명령 기록(ADR 0015): 방장이 게시와 같은 배치로 만들기만. 문서 ID = 버전, 시각 = 서버 시각(꾸밀 수 없다). 고칠 수 없다.
       // 교환에서 고른 카드 같은 비공개 정보가 들어 있으므로 방장만 읽는다.
+      // 기록마다 쓴 방장(host)을 남긴다 — 방장이 바뀐 판에서 서버가 구간마다 누구의 수를 명령 문서로 확인할지 안다(ADR 0017).
       match /log/{version} {
         allow read: if isHost(gameId);
         allow create: if isHost(gameId)
+                      && request.resource.data.host == request.auth.uid
                       && request.resource.data.version is int
                       && string(request.resource.data.version) == version
                       && request.resource.data.at == request.time;
@@ -208,7 +239,8 @@ service cloud.firestore {
         && d.rated == (room.bots.size() == 0
                        && room.ruleSet.houseRules.size() == 0
                        && room.ruleSet.paramOverrides.size() == 0)
-        && d.createdAt == request.time;
+        && d.createdAt == request.time
+        && d.hostHeartbeatAt == request.time;
     }
 
     function readyAt(a, i) {
@@ -273,6 +305,18 @@ service cloud.firestore {
             || (b.status == 'PLAYING' && a.status == 'PLAYING' && !changed.hasAny(['gameId'])));
     }
 
+    // 방장 이어받기(ADR 0017): 게임 중인 방의 방장은, 그 방의 게임 방장을 이어받은 사람(같은 배치이거나 이미)에게 넘어간다.
+    // 판이 끝나면 새 방장이 방을 대기실로 돌리고 다음 판을 연다.
+    function roomTakeover() {
+      let b = resource.data;
+      let a = request.resource.data;
+      return b.status == 'PLAYING'
+        && a.diff(b).affectedKeys().hasOnly(['hostUid', 'version', 'updatedAt'])
+        && a.hostUid == request.auth.uid
+        && request.auth.uid in b.members
+        && getAfter(/databases/$(database)/documents/games/$(b.gameId)).data.hostUid == request.auth.uid;
+    }
+
     function guestRoomUpdate() {
       let b = resource.data;
       let a = request.resource.data;
@@ -319,10 +363,11 @@ service cloud.firestore {
                     && request.resource.data.version == resource.data.version + 1
                     // 모든 쓰기에 서버 시각(ADR 0016): 오래 안 바뀐 대기실은 서버가 닫는다. 방장은 몇 분마다 시각만 새로 쓴다.
                     && request.resource.data.updatedAt == request.time
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['hostUid', 'createdAt', 'minAppVersion', 'visibility', 'joinCode'])
                     && roomShapeOk()
-                    && (resource.data.hostUid == request.auth.uid ? hostRoomUpdate() : guestRoomUpdate());
+                    && (roomTakeover()
+                        || (!request.resource.data.diff(resource.data).affectedKeys()
+                              .hasAny(['hostUid', 'createdAt', 'minAppVersion', 'visibility', 'joinCode'])
+                            && (resource.data.hostUid == request.auth.uid ? hostRoomUpdate() : guestRoomUpdate())));
       allow delete: if false;
     }
 

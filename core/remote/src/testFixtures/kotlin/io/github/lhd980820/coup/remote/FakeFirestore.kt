@@ -302,12 +302,19 @@ object AccessPolicy {
                         (ruleSet[FirestoreSchema.RuleSet.PARAM_OVERRIDES] as? JsonObject)?.isEmpty() == true
                     if (data.bool(FirestoreSchema.Game.RATED) != roomRated) deny("rated must match the room setup")
                     if (requestTime == null || data.long(FirestoreSchema.Game.CREATED_AT) != requestTime) deny("createdAt must be the server time")
+                    if (data.long(FirestoreSchema.Game.HOST_HEARTBEAT_AT) != requestTime) deny("the heartbeat must be the server time")
                 }
                 Access.UPDATE -> {
-                    if (uid != hostOf(segments[1])) deny("only the host may update the game")
                     val before = existing ?: deny("no game")
                     val after = incoming ?: deny("no data")
                     val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+                    if (uid != hostOf(segments[1])) {
+                        checkTakeover(uid, before, after, changed, requestTime, ::deny)
+                        return
+                    }
+                    if (FirestoreSchema.Game.HOST_HEARTBEAT_AT in changed && after.long(FirestoreSchema.Game.HOST_HEARTBEAT_AT) != requestTime) {
+                        deny("the heartbeat must be the server time")
+                    }
                     if (before.str(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) deny("the game is no longer in progress")
                     if (!GAME_HOST_KEYS.containsAll(changed)) deny("the host may only change ${GAME_HOST_KEYS}, not ${changed - GAME_HOST_KEYS}")
                     when (after.str(FirestoreSchema.Game.STATUS)) {
@@ -360,6 +367,7 @@ object AccessPolicy {
                     Access.CREATE -> {
                         if (uid != hostOf(id)) deny("only the host writes the log")
                         val data = incoming ?: deny("no data")
+                        if (data.str(FirestoreSchema.Log.HOST) != uid) deny("a log entry names the host who wrote it")
                         if (data.long(FirestoreSchema.Log.VERSION)?.toString() != segments[3]) deny("log id must be its version")
                         if (requestTime == null || data.long(FirestoreSchema.Log.AT) != requestTime) deny("log time must be the server time")
                     }
@@ -457,8 +465,15 @@ object AccessPolicy {
                     if (requestTime == null || incoming.long(R.UPDATED_AT) != requestTime) deny("updatedAt must be the server time")
                 }
                 Access.UPDATE -> {
-                    checkRoomUpdate(uid, existing!!, incoming ?: deny("no data"), ::deny)
-                    if (requestTime == null || incoming.long(R.UPDATED_AT) != requestTime) deny("updatedAt must be the server time")
+                    val before = existing!!
+                    val after = incoming ?: deny("no data")
+                    if (requestTime == null || after.long(R.UPDATED_AT) != requestTime) deny("updatedAt must be the server time")
+                    if (isRoomTakeover(uid, before, after, getAfter)) {
+                        if (after.long(R.VERSION) != before.long(R.VERSION)!! + 1) deny("version must increase by one")
+                        if (before.str(R.STATUS) == "CLOSED") deny("closed rooms are frozen")
+                        return
+                    }
+                    checkRoomUpdate(uid, before, after, ::deny)
                 }
                 else -> deny("rooms cannot be deleted")
             }
@@ -494,6 +509,30 @@ object AccessPolicy {
         R.TITLE, R.MAX_PLAYERS, R.RULE_SET, R.BOTS, R.CONFIG_VERSION, R.STATUS, R.GAME_ID, R.BANNED, R.MEMBERS, R.MEMBER_ORDER, R.VERSION, R.UPDATED_AT,
     )
     private const val MAX_SEATS = 6
+
+    /** 방장 이어받기(ADR 0017): 생존 신호가 60초 넘게 끊긴 진행 중인 판을 좌석의 다른 사람이 이어받는다. 방장·생존 신호만 바뀐다. */
+    private fun checkTakeover(uid: String, before: JsonObject, after: JsonObject, changed: Set<String>, requestTime: Long?, deny: (String) -> Nothing) {
+        if (before.str(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) deny("only a game in progress can be taken over")
+        if (uid !in (before.strings(FirestoreSchema.Game.SEATS) ?: emptyList())) deny("only a seat may take over")
+        if (after.str(FirestoreSchema.Game.HOST_UID) != uid) deny("you can only take over for yourself")
+        if (!setOf(FirestoreSchema.Game.HOST_UID, FirestoreSchema.Game.HOST_HEARTBEAT_AT).containsAll(changed)) deny("a takeover changes only the host and heartbeat")
+        if (requestTime == null || after.long(FirestoreSchema.Game.HOST_HEARTBEAT_AT) != requestTime) deny("the new heartbeat must be the server time")
+        val last = before.long(FirestoreSchema.Game.HOST_HEARTBEAT_AT) ?: deny("no heartbeat")
+        if (requestTime - last <= HOST_SILENT_MILLIS) deny("the host is still here")
+    }
+
+    /** 게임 중인 방의 방장 이어받기: 그 방 게임의 방장(이 배치 뒤)이 나이고, 방장·버전·시각만 바뀐다. */
+    private fun isRoomTakeover(uid: String, before: JsonObject, after: JsonObject, getAfter: (String) -> JsonObject?): Boolean {
+        val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+        if (before.str(R.STATUS) != "PLAYING" || after.str(R.HOST_UID) != uid) return false
+        if (!setOf(R.HOST_UID, R.VERSION, R.UPDATED_AT).containsAll(changed)) return false
+        if (uid !in ((before[R.MEMBERS] as? JsonObject)?.keys ?: emptySet())) return false
+        val gameId = before.str(R.GAME_ID) ?: return false
+        return getAfter("games/$gameId")?.str(FirestoreSchema.Game.HOST_UID) == uid
+    }
+
+    /** 규칙의 hostSilent와 같은 값. */
+    const val HOST_SILENT_MILLIS: Long = 60_000
 
     private fun checkRoomCreate(
         uid: String,

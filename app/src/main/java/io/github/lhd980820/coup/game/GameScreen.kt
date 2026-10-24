@@ -237,7 +237,8 @@ internal fun GameScreen(
 @Composable
 private fun ConnectionBanner(connection: ConnectionState, onLeave: () -> Unit) {
     val message = when (connection) {
-        ConnectionState.RECONNECTING -> R.string.mp_connection_reconnecting
+        // 방장 자리가 옮겨 가는 중(ADR 0017)도 잠깐 다시 연결하는 것으로 보인다
+        ConnectionState.RECONNECTING, ConnectionState.HOST_MOVED -> R.string.mp_connection_reconnecting
         ConnectionState.HOST_LOST -> R.string.mp_connection_host_lost
         // 버려진 판은 배너 대신 안내 대화상자로 알린다
         ConnectionState.CONNECTED, ConnectionState.CLOSED, ConnectionState.ABANDONED -> return

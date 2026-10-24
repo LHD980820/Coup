@@ -43,7 +43,7 @@ class CommandLogTest {
     private fun publication(version: Long, log: List<AppliedCommand>): Publication {
         val state = engine.newGame(setup)
         val envelope = ViewEnvelope(version, engine.view(state, Viewer.Player(PlayerId("b"))), emptyList(), emptyMap())
-        return Publication(version, mapOf(PlayerId("b") to envelope), envelope, EngineJson.encodeState(state), log)
+        return Publication(version, mapOf(PlayerId("b") to envelope), envelope, EngineJson.encodeState(state), log, publisher = "host")
     }
 
     private val income = AppliedCommand(1, Command.DeclareAction(PlayerId("host"), ActionId("income")), CommandSource.SEAT)
@@ -107,7 +107,9 @@ class CommandLogTest {
     fun `게임 문서 - 방장은 상태·버전·생존 신호만 바꾸고, 좌석·rated·판정·시작 시각은 못 바꾼다`() = runBlocking<Unit> {
         newGame()
         val host = fs.storeFor("host")
-        host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.VERSION, 3); put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, 5L) })))
+        host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.VERSION, 3); put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP) })))
+        // 생존 신호를 꾸밀 수 없다(이어받기를 막거나 앞당기지 못하게, ADR 0017)
+        assertFailure { host.write(listOf(WriteOp.Merge(FirestoreSchema.game(gameId), buildJsonObject { put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, 5L) }))) }.isInstanceOf(PermissionDenied::class)
         for (forged in listOf(
             buildJsonObject { put(FirestoreSchema.Game.RATED, false) },
             buildJsonObject { put(FirestoreSchema.Game.VERDICT, "REJECTED") },

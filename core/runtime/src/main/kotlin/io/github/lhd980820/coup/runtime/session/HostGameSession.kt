@@ -107,6 +107,7 @@ public class HostGameSession(
     private var heartbeat: Job? = null
     private var republish: Job? = null
     private var serverEnd: Job? = null
+    private var hostWatch: Job? = null
     private val publishLock = Mutex()
 
     @Volatile
@@ -155,7 +156,20 @@ public class HostGameSession(
         serverEnd = scope.launch {
             while (true) {
                 try {
-                    if (transport.endedByServer(gameId).firstOrNull { it } == true) endedByServer()
+                    if (transport.endedByServer(gameId).firstOrNull { it } == true) stopAs(ConnectionState.ABANDONED)
+                    return@launch
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: TransportException) {
+                    delay(retryInterval)
+                }
+            }
+        }
+        // 끊긴 사이 다른 참가자가 방장을 이어받았을 수 있다(ADR 0017). 알게 되면 이 세션은 멈춘다 — 이제 게스트다.
+        hostWatch = scope.launch {
+            while (true) {
+                try {
+                    if (transport.currentHost(gameId).firstOrNull { it != me.value } != null) stopAs(ConnectionState.HOST_MOVED)
                     return@launch
                 } catch (e: CancellationException) {
                     throw e
@@ -228,6 +242,7 @@ public class HostGameSession(
             spectator = envelope(Viewer.Spectator),
             authorityBackup = EngineJson.encodeState(state),
             log = synchronized(unpublishedLog) { unpublishedLog.filter { it.version <= state.version } },
+            publisher = me.value,
         )
         val delivery = Delivery(publication, if (state.isOver) resultOf(state) else null)
         republish?.cancel()
@@ -236,14 +251,14 @@ public class HostGameSession(
             if (_connection.value == ConnectionState.RECONNECTING) _connection.value = ConnectionState.CONNECTED
             return
         }
-        if (_connection.value == ConnectionState.ABANDONED) return // 서버가 끝낸 판은 다시 게시하지 않는다
+        if (stopped) return // 서버가 끝냈거나 다른 사람이 이어받은 판은 다시 게시하지 않는다
         // 게시하지 못했다. 다음 상태 변경을 기다리면 안 된다 — 모두가 이 상태를 보고 움직여야 하는 경우(게스트 차례) 영영 멈춘다.
         // 최신 상태를 성공할 때까지 다시 게시한다. 그사이 새 상태가 오면 그것이 이 일을 넘겨받는다.
         _connection.value = ConnectionState.RECONNECTING
         republish = scope.launch {
-            while (latest === delivery && _connection.value != ConnectionState.ABANDONED) {
+            while (latest === delivery && !stopped) {
                 delay(retryInterval)
-                if (latest === delivery && _connection.value != ConnectionState.ABANDONED && deliver(delivery)) {
+                if (latest === delivery && !stopped && deliver(delivery)) {
                     _connection.value = ConnectionState.CONNECTED
                     return@launch
                 }
@@ -251,10 +266,13 @@ public class HostGameSession(
         }
     }
 
-    /** 서버가 이 판을 끝냈다: 권위자·수신·게시·생존 신호를 모두 멈추고 연결 상태를 [ConnectionState.ABANDONED]로 둔다(되돌아가지 않는다). */
-    private fun endedByServer() {
-        if (_connection.value == ConnectionState.CLOSED) return
-        _connection.value = ConnectionState.ABANDONED
+    /** 서버가 끝냈거나([ConnectionState.ABANDONED]) 다른 사람이 이어받은([ConnectionState.HOST_MOVED]) 판인가 — 더 두거나 쓰지 않는다. */
+    private val stopped: Boolean get() = _connection.value == ConnectionState.ABANDONED || _connection.value == ConnectionState.HOST_MOVED
+
+    /** 권위자·수신·게시·생존 신호를 모두 멈추고 연결 상태를 [state]로 둔다(되돌아가지 않는다). */
+    private fun stopAs(state: ConnectionState) {
+        if (_connection.value == ConnectionState.CLOSED || stopped) return
+        _connection.value = state
         intake?.cancel()
         heartbeat?.cancel()
         republish?.cancel()
@@ -306,6 +324,7 @@ public class HostGameSession(
         heartbeat?.cancel()
         republish?.cancel()
         serverEnd?.cancel()
+        hostWatch?.cancel()
         authority.stop()
         _connection.value = ConnectionState.CLOSED
     }

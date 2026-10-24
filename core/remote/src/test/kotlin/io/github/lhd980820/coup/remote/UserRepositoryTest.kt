@@ -313,10 +313,15 @@ class UserRepositoryTest {
                 put(FirestoreSchema.Game.SEATS, buildJsonArray { seats.forEach { add(JsonPrimitive(it)) } })
                 put(FirestoreSchema.Game.RATED, true)
                 put(FirestoreSchema.Game.CREATED_AT, createdAt)
+                put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP)
             },
         )
         val host = fs.storeFor("a")
         assertFailure { host.write(listOf(game(JsonPrimitive(5L)))) }.isInstanceOf(PermissionDenied::class)
+        // 생존 신호도 서버 시각이어야 한다(옛 시각으로 만들어 곧바로 이어받게 하지 못하게, ADR 0017)
+        assertFailure {
+            host.write(listOf(WriteOp.Set("games/gt", JsonObject(game(ServerValues.TIMESTAMP).data + (FirestoreSchema.Game.HOST_HEARTBEAT_AT to JsonPrimitive(1L))))))
+        }.isInstanceOf(PermissionDenied::class)
         host.write(listOf(game(ServerValues.TIMESTAMP)))
     }
 

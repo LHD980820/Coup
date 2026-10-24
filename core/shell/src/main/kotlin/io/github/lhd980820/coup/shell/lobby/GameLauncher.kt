@@ -61,16 +61,42 @@ public class FirestoreGameLauncher(
     hostLostAfter: Duration = 30.seconds,
     connectionTick: Duration = 5.seconds,
     private val ackTimeout: Duration = 10.seconds,
+    /** 방장 이어받기(ADR 0017): 방장 끊김을 이만큼 본 뒤 시도한다. 끊김 판단(30초) + 이것이 규칙의 60초를 넘도록. */
+    takeoverAfter: Duration = 35.seconds,
+    takeoverStagger: Duration = 10.seconds,
+    takeoverRetry: Duration = 5.seconds,
 ) : GameLauncher {
     private val transport = FirestoreGameTransport(store, clock, hostLostAfter = hostLostAfter, connectionTick = connectionTick)
+    private val rooms = io.github.lhd980820.coup.remote.FirestoreRoomStore(store, uid)
+    private val timing = HandoverTiming(takeoverAfter, takeoverStagger, takeoverRetry)
 
     override suspend fun host(plan: GameStartPlan): GameSession {
         // 시드는 서버가 매긴 게임 생성 시각과 섞인다 — 방장이 미리 고를 수 없다(ADR 0016)
         val setup = transport.createGame(plan)
-        return HostGameSession(engine, engine.newGame(setup), plan.hostSeats(), transport.host, timeoutPolicy, clock, scope)
+        return handover(HostGameSession(engine, engine.newGame(setup), plan.hostSeats(), transport.host, timeoutPolicy, clock, scope), plan.roomId, plan.gameId)
     }
 
-    override suspend fun join(room: Room, me: PlayerId): GameSession {
+    override suspend fun join(room: Room, me: PlayerId): GameSession = handover(openGuest(room, me), room.id, checkNotNull(room.gameId))
+
+    override suspend fun resumeHost(room: Room): GameSession? =
+        openHost(room)?.let { handover(it, room.id, checkNotNull(room.gameId)) }
+
+    /** 방장 이어받기를 품은 세션으로 감싼다(ADR 0017). 화면은 이 세션만 보고, 안에서 게스트·방장 세션이 바뀐다. */
+    private fun handover(session: GameSession, roomId: String, gameId: String): GameSession =
+        HandoverSession(session, Ops(roomId, gameId), timing, scope)
+
+    private inner class Ops(private val roomId: String, private val gameId: String) : HandoverOps {
+        private suspend fun room(): Room = rooms.get(roomId) ?: throw TransportException("the room is gone")
+        override suspend fun takeOver(): Boolean = transport.takeOver(gameId, roomId, uid)
+        override suspend fun openHost(): GameSession? = openHost(room().copy(hostUid = uid)) // 이어받은 직후의 방 스냅숏이 늦을 수 있다
+        override suspend fun openGuest(): GameSession = openGuest(room(), PlayerId(uid))
+        override suspend fun rank(): Int {
+            val room = room()
+            return room.seats.filter { it.kind == SeatKind.HUMAN && it.id != room.hostUid }.indexOfFirst { it.id == uid }.coerceAtLeast(0)
+        }
+    }
+
+    private suspend fun openGuest(room: Room, me: PlayerId): GameSession {
         val gameId = room.gameId ?: throw TransportException("the room has no game yet")
         waitForGame(gameId)
         val info = room.seats.associate {
@@ -79,7 +105,7 @@ public class FirestoreGameLauncher(
         return RemoteGameSession(gameId, me, transport.guest(uid), info, scope, ackTimeout = ackTimeout)
     }
 
-    override suspend fun resumeHost(room: Room): GameSession? {
+    private suspend fun openHost(room: Room): GameSession? {
         val gameId = room.gameId ?: throw TransportException("the room has no game")
         val game = store.get(FirestoreSchema.game(gameId)) ?: throw TransportException("the game does not exist")
         // 끝났거나 서버가 버려진 판으로 끝낸 게임은 이어 가지 않는다(ADR 0016)

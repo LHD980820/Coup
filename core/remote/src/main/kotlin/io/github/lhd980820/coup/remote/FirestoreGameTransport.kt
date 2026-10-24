@@ -84,7 +84,7 @@ public class FirestoreGameTransport(
                             put(FirestoreSchema.Game.SEATS, buildJsonArray { seats.forEach { add(JsonPrimitive(it)) } })
                             put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.PLAYING)
                             put(FirestoreSchema.Game.VERSION, 0L)
-                            put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis())
+                            put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP)
                             put(FirestoreSchema.Game.RULE_SET_CONFIG_JSON, json.encodeToString(RuleSetConfig.serializer(), ruleSetConfig))
                             put(FirestoreSchema.Game.RATED, rated)
                             put(FirestoreSchema.Game.ROOM_ID, roomId)
@@ -108,6 +108,41 @@ public class FirestoreGameTransport(
             if (attempt < CREATED_AT_ATTEMPTS - 1) kotlinx.coroutines.delay(CREATED_AT_RETRY_MILLIS)
         }
         throw TransportException("the game ${setup.gameId} has no server start time")
+    }
+
+    /**
+     * 방장 이어받기(ADR 0017): 방장이 사라진 진행 중인 판을 [uid]가 이어받는다. 게임 문서의 방장(+ 지금 서버 시각의 생존 신호)과
+     * 방의 방장을 **한 트랜잭션**으로 바꾼다. 규칙이 "방장이 60초 넘게 조용함"을 확인하므로, 아직 살아 있으면 거부되어 false.
+     * 이어받았으면 true — 그다음 권한자 백업에서 판을 이어 간다(재접속과 같은 경로).
+     */
+    public suspend fun takeOver(gameId: String, roomId: String, uid: String): Boolean = try {
+        guarded {
+            store.transaction { tx ->
+                val game = tx.get(FirestoreSchema.game(gameId)) ?: return@transaction false
+                if (game.string(FirestoreSchema.Game.STATUS) != FirestoreSchema.GameStatus.PLAYING) return@transaction false
+                val roomDoc = tx.get(FirestoreSchema.room(roomId)) ?: return@transaction false
+                val room = RoomDocuments.decode(roomId, roomDoc) ?: return@transaction false
+                if (room.gameId != gameId) return@transaction false
+                // 게임은 이미 내가 이어받았는데 방은 아직이면(따로 쓰였다) 방만 넘겨받는다
+                if (game.string(FirestoreSchema.Game.HOST_UID) != uid) {
+                    tx.write(
+                        WriteOp.Merge(
+                            FirestoreSchema.game(gameId),
+                            buildJsonObject {
+                                put(FirestoreSchema.Game.HOST_UID, uid)
+                                put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP)
+                            },
+                        ),
+                    )
+                }
+                if (room.hostUid != uid) {
+                    tx.write(WriteOp.Set(FirestoreSchema.room(roomId), RoomDocuments.encodeUpdate(roomDoc, room, room.copy(hostUid = uid), actorUid = uid)))
+                }
+                true
+            }
+        }
+    } catch (e: TransportException) {
+        false // 방장이 아직 살아 있다(규칙 거부) 또는 연결 오류 — 잠시 뒤 다시 시도한다
     }
 
     /** 방 시작 계획([io.github.lhd980820.coup.lobby.GameStartPlan])으로 게임 문서와 실행 설정을 만든다. 게임 문서의 좌석은 사람만. */
@@ -205,13 +240,16 @@ public class FirestoreGameTransport(
             it?.string(FirestoreSchema.Game.STATUS) == FirestoreSchema.GameStatus.ABANDONED
         }
 
+        override fun currentHost(gameId: String): Flow<String> =
+            store.observe(FirestoreSchema.game(gameId)).transform { doc -> doc?.string(FirestoreSchema.Game.HOST_UID)?.let { emit(it) } }.distinctUntilChanged()
+
         override suspend fun heartbeat(gameId: String) {
             guarded {
                 store.write(
                     listOf(
                         WriteOp.Merge(
                             FirestoreSchema.game(gameId),
-                            buildJsonObject { put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis()) },
+                            buildJsonObject { put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP) },
                         ),
                     ),
                 )
@@ -241,6 +279,7 @@ public class FirestoreGameTransport(
                         put(FirestoreSchema.Log.COMMAND_JSON, json.encodeToString(Command.serializer(), entry.command))
                         put(FirestoreSchema.Log.SOURCE, entry.source.name)
                         entry.ref?.let { put(FirestoreSchema.Log.REF, it) }
+                        publication.publisher?.let { put(FirestoreSchema.Log.HOST, it) }
                         put(FirestoreSchema.Log.AT, ServerValues.TIMESTAMP)
                     },
                 ),
@@ -251,7 +290,7 @@ public class FirestoreGameTransport(
                 FirestoreSchema.game(gameId),
                 buildJsonObject {
                     put(FirestoreSchema.Game.VERSION, publication.version)
-                    put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, clock.nowMillis())
+                    put(FirestoreSchema.Game.HOST_HEARTBEAT_AT, ServerValues.TIMESTAMP)
                 },
             ),
         )

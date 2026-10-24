@@ -70,6 +70,8 @@ class FirestoreTransportTest {
         policy: TimeoutPolicy = TimeoutPolicy.None,
         createDoc: Boolean = true,
     ): Table {
+        // 생존 신호가 서버 시각이므로 저장소의 시계도 가상 시간을 따른다(ADR 0017)
+        backend.now = { testScheduler.currentTime }
         val ids = List(humans) { pid(it) }
         val setup = GameSetup(gameId, ids, BuiltinRules.classicConfig(), seed, firstPlayer = ids.first())
         val state = initial ?: engine.newGame(setup)

@@ -37,6 +37,8 @@ public class Publication(
      * 뷰·백업과 **같은 배치**로 써야 한다 — 그래야 백업과 기록이 어긋나지 않는다. 호스트 외에는 읽을 수 없어야 한다(교환에서 고른 카드 등 비공개 정보).
      */
     public val log: List<io.github.lhd980820.coup.runtime.AppliedCommand> = emptyList(),
+    /** 이 게시를 하는 방장(uid). 기록마다 남긴다 — 방장이 바뀐 판에서도 누가 어느 구간을 돌렸는지 안다(ADR 0017). */
+    public val publisher: String? = null,
 )
 
 /** [senderUid]는 전송 계층이 인증한 발신자다. 명령 안의 `actor`는 신뢰하지 않는다. */
@@ -79,6 +81,12 @@ public interface GameTransport {
          * 서버가 없는 전송(메모리)은 아무것도 내보내지 않는다.
          */
         public fun endedByServer(gameId: String): Flow<Boolean> = emptyFlow()
+
+        /**
+         * 지금 이 판의 방장(uid). 다른 사람이 이어받으면 그 uid를 내보낸다(ADR 0017) — 그때부터 이 기기는 방장이 아니다.
+         * 서버가 없는 전송(메모리)은 아무것도 내보내지 않는다.
+         */
+        public fun currentHost(gameId: String): Flow<String> = emptyFlow()
     }
 
     public interface Guest {

@@ -49,6 +49,7 @@ internal object GameRecords {
                     ?: return Loaded.Broken(RejectReason.ILLEGAL_COMMAND, "log ${doc.id}: unknown source"),
                 ref = d.str(FirestoreSchema.Log.REF),
                 at = d.long(FirestoreSchema.Log.AT) ?: return Loaded.Broken(RejectReason.LOG_GAP, "log ${doc.id} without a time"),
+                writer = d.str(FirestoreSchema.Log.HOST),
             )
         }
         val guestCommands = log.mapNotNull { it.ref }.distinct().mapNotNull { ref ->

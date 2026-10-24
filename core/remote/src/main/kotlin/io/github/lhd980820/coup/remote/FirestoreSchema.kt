@@ -83,6 +83,9 @@ public object FirestoreSchema {
         /** 원격 사람 명령이면 그 명령 문서 ID. */
         public const val REF: String = "ref"
 
+        /** 이 기록을 쓴 방장(ADR 0017). 방장이 바뀐 판에서 서버가 구간마다 누구의 수를 명령 문서로 확인할지 안다. */
+        public const val HOST: String = "host"
+
         /** 서버 시각(쓴 배치의 `request.time`). 시간 초과 검증의 근거. */
         public const val AT: String = "at"
     }

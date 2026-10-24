@@ -51,7 +51,8 @@ class Fixture(private val scope: CoroutineScope) {
     fun account(uid: String, store: DocumentStore = store(uid)) = AccountSession(users(uid, store), "$uid@test.co", "player", scope)
 
     /** 서버 판정을 띄운다: 결과가 생기면 검증하고 레이팅을 반영한다(실제로는 Cloud Function, ADR 0015). */
-    fun startJudge(): kotlinx.coroutines.Job = scope.launchJudge(fs)
+    fun startJudge(judge: io.github.lhd980820.coup.judge.ServerJudge = io.github.lhd980820.coup.judge.ServerJudge(fs.admin())): kotlinx.coroutines.Job =
+        scope.launchJudge(fs, judge)
 
     /** 프로필까지 만든 계정(레이팅 반영에 필요). */
     suspend fun signedUp(uid: String): AccountSession = account(uid).also { it.start() }
