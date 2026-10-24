@@ -88,5 +88,6 @@ internal object MultiplayerTexts {
         RoomNotice.CLOSED -> R.string.mp_notice_closed
         RoomNotice.KICKED -> R.string.mp_notice_kicked
         RoomNotice.GAME_ABANDONED -> R.string.mp_notice_abandoned
+        RoomNotice.GAME_ABANDONED_AS_HOST -> R.string.mp_notice_abandoned_host
     }
 }

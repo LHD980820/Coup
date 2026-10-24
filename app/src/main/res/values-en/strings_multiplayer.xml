@@ -68,6 +68,7 @@
     <string name="mp_notice_closed">The room was closed.</string>
     <string name="mp_notice_kicked">The host removed you from the room.</string>
     <string name="mp_notice_abandoned">The host didn\'t come back, so the game ended. Your rating is unchanged.</string>
+    <string name="mp_notice_abandoned_host">You were disconnected for too long, so the server ended the game.</string>
     <string name="mp_problem_network">Couldn\'t reach the server. Please try again in a moment.</string>
     <string name="mp_room_error_not_found">That room doesn\'t exist.</string>
     <string name="mp_room_error_not_waiting">That game has already started.</string>
@@ -131,6 +132,7 @@
     <string name="mp_connection_leave">To the room</string>
     <string name="mp_abandoned_title">Game over</string>
     <string name="mp_abandoned_body">The host was gone for too long, so the server ended this game. It doesn\'t count toward your rating.</string>
+    <string name="mp_abandoned_body_host">You were disconnected for too long, so the server ended this game. A host who leaves a game takes the loss. Other players\' ratings are unchanged.</string>
     <string name="mp_abandoned_leave">To the lobby</string>
     <string name="mp_result_rating">Rating %1$d (%2$+d)</string>
     <string name="mp_result_rating_pending">The server is checking this game…</string>

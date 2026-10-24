@@ -394,6 +394,29 @@ class FirestoreTransportTest {
     }
 
     @Test
+    fun `서버가 판을 끝내면 방장 세션은 ABANDONED가 되어 더 두거나 게시하지 않고, 되돌아가지 않는다`() = runTest {
+        val t = table(humans = 2)
+        runCurrent()
+        assertThat(t.host.connection.value).isEqualTo(ConnectionState.CONNECTED)
+        t.backend.admin().write(
+            listOf(WriteOp.Merge(FirestoreSchema.game(gameId), JsonObject(mapOf(FirestoreSchema.Game.STATUS to JsonPrimitive(FirestoreSchema.GameStatus.ABANDONED))))),
+        )
+        runCurrent()
+        assertThat(t.host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+
+        // 끝난 판에는 더 쓰지 않는다: 수가 와도 새 기록·게시가 없고, 생존 신호도 멈춘다
+        val logsBefore = t.backend.docs.keys.count { it.startsWith("games/$gameId/log/") }
+        val heartbeatBefore = t.backend.doc(FirestoreSchema.game(gameId))[FirestoreSchema.Game.HOST_HEARTBEAT_AT]
+        t.host.submit(Command.DeclareAction(pid(0), ActionId("income")))
+        advanceTimeBy(60_000)
+        runCurrent()
+        assertThat(t.backend.docs.keys.count { it.startsWith("games/$gameId/log/") }).isEqualTo(logsBefore)
+        assertThat(t.backend.doc(FirestoreSchema.game(gameId))[FirestoreSchema.Game.HOST_HEARTBEAT_AT]).isEqualTo(heartbeatBefore)
+        assertThat(t.host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        assertThat(t.guests.getValue(pid(1)).connection.value).isEqualTo(ConnectionState.ABANDONED)
+    }
+
+    @Test
     fun `게스트 뷰 구독은 자기 좌석이 아니면 거절된다`() = runTest {
         val t = table(humans = 3)
         val transport = FirestoreGameTransport(t.backend.storeFor(uid(1)), clock()).guest(uid(1))

@@ -35,6 +35,9 @@ internal enum class RoomNotice {
 
     /** 방장이 오래 돌아오지 않아 서버가 판을 끝냈다(ADR 0016). */
     GAME_ABANDONED,
+
+    /** 이 기기가 방장일 때: 연결이 오래 끊겨 서버가 판을 끝냈다. */
+    GAME_ABANDONED_AS_HOST,
 }
 
 /** 지금 하고 있는 멀티플레이 게임. */
@@ -76,6 +79,9 @@ internal class ShellViewModel(
         private set
     var multiGame by mutableStateOf<MultiGame?>(null)
         private set
+
+    /** 이 기기가 지금 게임의 방장인가(오래 끊겼다 돌아온 방장과 기다린 게스트에게 다른 안내를 보인다). */
+    val isHostingGame: Boolean get() = room?.state?.value?.isHost == true && multiGame != null
     var notice by mutableStateOf<RoomNotice?>(null)
         private set
 
@@ -207,11 +213,11 @@ internal class ShellViewModel(
         game.startSession(event.session)
         multiGame = MultiGame(current.roomId, event.gameId)
         opened.account.clearSettlement()
-        // 게임이 끝나면 서버 판정을 지켜본다(반영은 서버가 한다 — 화면이 닫혀도, 앱이 꺼져도 잃지 않는다)
+        // 게임이 끝나거나(서버가 버려진 판으로 끝낸 경우 포함) 서버 판정을 지켜본다(반영은 서버가 한다 — 화면이 닫혀도, 앱이 꺼져도 잃지 않는다)
         val controller = game.controller ?: return
         settleJob?.cancel()
         settleJob = signedInScope?.launch {
-            controller.state.first { it?.result != null }
+            controller.state.first { it?.result != null || it?.connection == io.github.lhd980820.coup.runtime.session.ConnectionState.ABANDONED }
             opened.account.watchSettlement(event.gameId)
         }
     }
@@ -232,9 +238,10 @@ internal class ShellViewModel(
      */
     fun leaveAbandonedGame() {
         settleJob?.cancel()
+        val asHost = isHostingGame
         game.quit()
         multiGame = null
-        leaveRoomScreen(RoomNotice.GAME_ABANDONED)
+        leaveRoomScreen(if (asHost) RoomNotice.GAME_ABANDONED_AS_HOST else RoomNotice.GAME_ABANDONED)
     }
 
     override fun onCleared() {

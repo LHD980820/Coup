@@ -8,6 +8,7 @@ import io.github.lhd980820.coup.engine.view.PlayerView
 import io.github.lhd980820.coup.engine.view.VisibleEvent
 import io.github.lhd980820.coup.runtime.session.ConnectionState
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.serialization.Serializable
 
 /**
@@ -72,6 +73,12 @@ public interface GameTransport {
 
         /** "방장이 살아 있다"는 신호. 상태가 안 바뀌는 동안에도 주기적으로 보내 게스트가 방장 소실을 알아챌 수 있게 한다. */
         public suspend fun heartbeat(gameId: String) {}
+
+        /**
+         * 서버가 이 판을 방장이 오래 없어서 끝냈는가(ADR 0016). 끝나면 `true`를 내보낸다. 구독 오류는 [TransportException]으로 끊긴다.
+         * 서버가 없는 전송(메모리)은 아무것도 내보내지 않는다.
+         */
+        public fun endedByServer(gameId: String): Flow<Boolean> = emptyFlow()
     }
 
     public interface Guest {

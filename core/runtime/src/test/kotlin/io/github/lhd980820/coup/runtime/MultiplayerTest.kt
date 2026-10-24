@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
@@ -416,6 +417,84 @@ class MultiplayerTest {
         assertThat(guest.snapshot.value!!.view.myDecision).isNotNull()
         assertThat(host.connection.value).isEqualTo(ConnectionState.CONNECTED)
         assertThat(failures).isEqualTo(0)
+    }
+
+    @Test
+    fun `서버가 판을 끝냈다고 알리면 방장 세션은 ABANDONED가 되어 더 게시하거나 생존 신호를 보내지 않는다`() = runTest {
+        val inner = InMemoryTransport()
+        val ended = kotlinx.coroutines.flow.MutableStateFlow(false)
+        var publishes = 0
+        var heartbeats = 0
+        var failPublish = false
+        val spy = object : GameTransport.Host by inner.host {
+            override fun endedByServer(gameId: String): Flow<Boolean> = ended
+            override suspend fun publish(gameId: String, publication: Publication) {
+                publishes++
+                if (failPublish) throw TransportException("write failed")
+                inner.host.publish(gameId, publication)
+            }
+            override suspend fun heartbeat(gameId: String) { heartbeats++ }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(0))
+        val seats = listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트"))
+        val host = HostGameSession(engine, engine.newGame(setup), seats, spy, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope)
+        runCurrent()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.CONNECTED)
+
+        ended.value = true
+        runCurrent()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        val publishesAtEnd = publishes
+        val heartbeatsAtEnd = heartbeats
+
+        // 더 이상 움직이지 않는다: 시간이 흘러도 생존 신호가 없고, 수를 둬도 상태가 바뀌지 않고 게시하지 않는다
+        advanceTimeBy(5 * 60_000)
+        runCurrent()
+        assertThat(heartbeats).isEqualTo(heartbeatsAtEnd)
+        failPublish = true // 게시가 실패해도 "다시 연결 중"으로 되돌아가지 않고 다시 게시하지도 않는다
+        host.submit(Command.DeclareAction(pid(0), ActionId("income")))
+        advanceTimeBy(5 * 60_000)
+        runCurrent()
+        assertThat(publishes).isEqualTo(publishesAtEnd)
+        assertThat(host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+    }
+
+    @Test
+    fun `게시하던 중에 서버가 판을 끝냈다고 알리면, 그 게시가 실패해도 ABANDONED가 유지되고 다시 게시하지 않는다`() = runTest {
+        val inner = InMemoryTransport()
+        val ended = kotlinx.coroutines.flow.MutableStateFlow(false)
+        val gate = CompletableDeferred<Unit>()
+        var publishes = 0
+        var hold = false
+        val spy = object : GameTransport.Host by inner.host {
+            override fun endedByServer(gameId: String): Flow<Boolean> = ended
+            override suspend fun publish(gameId: String, publication: Publication) {
+                publishes++
+                // 취소를 일반 전송 오류로 바꿔 던지는 전송(취소를 존중하지 않는 SDK 호출)도 ABANDONED를 되돌리면 안 된다
+                if (hold) {
+                    try { gate.await() } catch (e: kotlinx.coroutines.CancellationException) { throw TransportException("cancelled mid-write", e) }
+                    throw TransportException("write failed")
+                }
+                inner.host.publish(gameId, publication)
+            }
+        }
+        val setup = GameSetup("mp", ids(2), BuiltinRules.classicConfig(), 1, firstPlayer = pid(0))
+        val seats = listOf(HostSeat.Local(pid(0), "방장"), HostSeat.Remote(pid(1), "게스트"))
+        val host = HostGameSession(engine, engine.newGame(setup), seats, spy, TimeoutPolicy.None, Clock { testScheduler.currentTime }, backgroundScope)
+        runCurrent()
+        hold = true
+        launch { host.submit(Command.DeclareAction(pid(0), ActionId("income"))) } // 게시가 서버 응답을 기다리는 중
+        runCurrent()
+        val inFlight = publishes
+        ended.value = true // 그 사이 서버가 판을 끝냈다
+        runCurrent()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        gate.complete(Unit) // 이제 그 게시가 실패로 돌아온다
+        runCurrent()
+        advanceTimeBy(5 * 60_000)
+        runCurrent()
+        assertThat(host.connection.value).isEqualTo(ConnectionState.ABANDONED)
+        assertThat(publishes).isEqualTo(inFlight)
     }
 
     @Test

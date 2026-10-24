@@ -106,12 +106,14 @@ internal fun MultiplayerGame(shell: ShellViewModel, game: GameViewModel, modifie
         playAgainLabel = R.string.mp_result_to_room,
         backConcedes = true,
         onAbandoned = shell::leaveAbandonedGame,
+        abandonedBody = if (shell.isHostingGame) R.string.mp_abandoned_body_host else R.string.mp_abandoned_body,
+        abandonedExtra = if (shell.isHostingGame) ({ RatingNote(shell) }) else null,
     )
 }
 
 /** 결과 대화상자의 레이팅 줄: 서버가 확인하는 중 -> 변화 / 레이팅 제외 / 무효. */
 @Composable
-private fun RatingNote(shell: ShellViewModel) {
+internal fun RatingNote(shell: ShellViewModel) {
     val text = when (val s = shell.settlement) {
         is Settlement.Applied -> stringResource(R.string.mp_result_rating, s.rating ?: shell.profile?.rating ?: 0, s.record.delta)
         Settlement.Unrated -> stringResource(R.string.mp_result_rating_unrated)

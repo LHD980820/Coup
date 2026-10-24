@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -105,6 +106,7 @@ public class HostGameSession(
     private var intake: Job? = null
     private var heartbeat: Job? = null
     private var republish: Job? = null
+    private var serverEnd: Job? = null
     private val publishLock = Mutex()
 
     @Volatile
@@ -147,6 +149,19 @@ public class HostGameSession(
                     // 다음 주기에 다시 시도한다. 게임 진행에는 영향 없다.
                 }
                 delay(heartbeatInterval)
+            }
+        }
+        // 서버가 이 판을 버려진 판으로 끝낼 수 있다(오래 끊겼다 돌아온 방장, ADR 0016). 알게 되면 더 두지 않는다.
+        serverEnd = scope.launch {
+            while (true) {
+                try {
+                    if (transport.endedByServer(gameId).firstOrNull { it } == true) endedByServer()
+                    return@launch
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: TransportException) {
+                    delay(retryInterval)
+                }
             }
         }
         // 명령 수신은 전송 오류로 멈추면 안 된다 — 멈추면 이후 모든 게스트 명령이 영영 처리되지 않는다. 오류가 나면 잠시 뒤 다시 구독한다.
@@ -221,18 +236,29 @@ public class HostGameSession(
             if (_connection.value == ConnectionState.RECONNECTING) _connection.value = ConnectionState.CONNECTED
             return
         }
+        if (_connection.value == ConnectionState.ABANDONED) return // 서버가 끝낸 판은 다시 게시하지 않는다
         // 게시하지 못했다. 다음 상태 변경을 기다리면 안 된다 — 모두가 이 상태를 보고 움직여야 하는 경우(게스트 차례) 영영 멈춘다.
         // 최신 상태를 성공할 때까지 다시 게시한다. 그사이 새 상태가 오면 그것이 이 일을 넘겨받는다.
         _connection.value = ConnectionState.RECONNECTING
         republish = scope.launch {
-            while (latest === delivery) {
+            while (latest === delivery && _connection.value != ConnectionState.ABANDONED) {
                 delay(retryInterval)
-                if (latest === delivery && deliver(delivery)) {
+                if (latest === delivery && _connection.value != ConnectionState.ABANDONED && deliver(delivery)) {
                     _connection.value = ConnectionState.CONNECTED
                     return@launch
                 }
             }
         }
+    }
+
+    /** 서버가 이 판을 끝냈다: 권위자·수신·게시·생존 신호를 모두 멈추고 연결 상태를 [ConnectionState.ABANDONED]로 둔다(되돌아가지 않는다). */
+    private fun endedByServer() {
+        if (_connection.value == ConnectionState.CLOSED) return
+        _connection.value = ConnectionState.ABANDONED
+        intake?.cancel()
+        heartbeat?.cancel()
+        republish?.cancel()
+        authority.stop()
     }
 
     /** 게시 한 건(+ 끝난 게임이면 결과). 한 번에 하나씩만 보낸다 — 옛 게시가 새 게시 뒤에 도착해 뷰를 되돌리지 않게. */
@@ -279,6 +305,7 @@ public class HostGameSession(
         intake?.cancel()
         heartbeat?.cancel()
         republish?.cancel()
+        serverEnd?.cancel()
         authority.stop()
         _connection.value = ConnectionState.CLOSED
     }

@@ -174,6 +174,42 @@ class ReconnectScreenTest : MpScreenTest() {
     }
 
     @Test
+    fun `버려진 판 - 방장이 오래 끊겼다 돌아오면 판이 끝났음과 패배를 알리고 로비로 보낸다`() {
+        signInAndOpenLobbySwappable()
+        click(LobbyTags.CREATE)
+        waitFor(CreateTags.SUBMIT)
+        click(CreateTags.SUBMIT)
+        waitFor(WaitingTags.START)
+        val roomId = fx.shell.room!!.roomId
+        // 사람 게스트가 들어와 준비해야 레이팅 판이다
+        val guest = fx.remote("guest@test.co", "손님")
+        runBlocking {
+            guest.signUp()
+            guest.rooms.join(roomId, guest.lobbyUser)
+            guest.rooms.setReady(roomId, guest.uid, true)
+        }
+        until { fx.shell.room?.state?.value?.canStart == true }
+        click(WaitingTags.START)
+        waitFor(GameTags.CONCEDE, timeoutMillis = 20_000)
+        val gameId = fx.shell.multiGame!!.gameId
+
+        // 방장 기기가 10분 넘게 끊겨 있는 동안 서버가 판을 끝냈다(방장 앱은 그동안 가만히 있다)
+        assertTrue(serverAbandons(gameId) is io.github.lhd980820.coup.judge.GameSweep.Abandoned)
+        waitFor(GameTags.ABANDONED, timeoutMillis = 20_000)
+        assertShown(string(R.string.mp_abandoned_body_host))
+        assertTrue("더 둘 수 없으므로 기권 버튼이 없다", !exists(GameTags.CONCEDE))
+        // 방장은 꼴찌(2인 판 -20)로 처리됐고 그 레이팅이 안내에 보인다
+        until(20_000) { fx.shell.settlement != null && fx.shell.settlement != io.github.lhd980820.coup.remote.Settlement.Verifying }
+        assertShown(string(R.string.mp_result_rating, 980, -20))
+        assertEquals(980, fx.shell.profile?.rating)
+
+        click(GameTags.ABANDONED_LEAVE)
+        waitFor(LobbyTags.NOTICE)
+        assertText(LobbyTags.NOTICE, string(R.string.mp_notice_abandoned_host))
+        assertEquals(null, fx.activeRooms.get("kim"))
+    }
+
+    @Test
     fun `버려진 판 - 뒤로 가기는 기권을 묻지 않고 로비로 나간다`() {
         val (host, _) = guestInGame()
         val gameId = fx.shell.multiGame!!.gameId

@@ -128,6 +128,10 @@ internal fun GameScreen(
     backConcedes: Boolean = false,
     /** 서버가 버려진 판으로 끝낸 게임에서 나간다(ADR 0016). 멀티플레이는 로비로 — 그 방은 곧 닫힌다. */
     onAbandoned: () -> Unit = onExit,
+    /** 버려진 판 안내 문구. 오래 끊겼던 방장 본인과 기다리던 게스트가 다르다. */
+    @StringRes abandonedBody: Int = R.string.mp_abandoned_body,
+    /** 버려진 판 안내 아래에 덧붙일 내용(방장이 패배로 반영된 레이팅). */
+    abandonedExtra: (@Composable () -> Unit)? = null,
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -174,7 +178,12 @@ internal fun GameScreen(
             onDismissRequest = {},
             modifier = Modifier.testTag(GameTags.ABANDONED),
             title = { Text(stringResource(R.string.mp_abandoned_title)) },
-            text = { Text(stringResource(R.string.mp_abandoned_body)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(abandonedBody))
+                    abandonedExtra?.invoke()
+                }
+            },
             confirmButton = {
                 Button(onClick = onAbandoned, modifier = Modifier.testTag(GameTags.ABANDONED_LEAVE)) { Text(stringResource(R.string.mp_abandoned_leave)) }
             },

@@ -71,6 +71,7 @@
     <string name="mp_notice_closed">방이 닫혔어요.</string>
     <string name="mp_notice_kicked">방장이 나를 내보냈어요.</string>
     <string name="mp_notice_abandoned">방장이 돌아오지 않아 판이 끝났어요. 내 레이팅은 그대로예요.</string>
+    <string name="mp_notice_abandoned_host">연결이 오래 끊겨 서버가 판을 끝냈어요.</string>
     <string name="mp_problem_network">서버에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요.</string>
     <string name="mp_room_error_not_found">방을 찾을 수 없어요.</string>
     <string name="mp_room_error_not_waiting">이미 게임이 시작된 방이에요.</string>
@@ -136,6 +137,7 @@
     <string name="mp_connection_leave">대기실로</string>
     <string name="mp_abandoned_title">판이 끝났어요</string>
     <string name="mp_abandoned_body">방장이 오래 돌아오지 않아 서버가 이 판을 끝냈어요. 이 판은 내 레이팅에 반영되지 않아요.</string>
+    <string name="mp_abandoned_body_host">연결이 오래 끊겨 서버가 이 판을 끝냈어요. 판을 떠난 방장은 패배로 처리돼요. 다른 참가자의 레이팅은 그대로예요.</string>
     <string name="mp_abandoned_leave">로비로</string>
 
     <!-- 게임 결과 -->

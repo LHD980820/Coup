@@ -201,6 +201,10 @@ public class FirestoreGameTransport(
             }
         }
 
+        override fun endedByServer(gameId: String): Flow<Boolean> = store.observe(FirestoreSchema.game(gameId)).map {
+            it?.string(FirestoreSchema.Game.STATUS) == FirestoreSchema.GameStatus.ABANDONED
+        }
+
         override suspend fun heartbeat(gameId: String) {
             guarded {
                 store.write(
