@@ -46,8 +46,8 @@
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
 ## 이번 단계 메모 (Phase 5 — 전면 전환과 정리, ADR 0018)
-- 옛 화면(`MainActivity` 스플래시, 로그인·가입·재설정, 홈·방 목록·랭킹·내 정보 Fragment, 대기실, 게임방, 결과, 튜토리얼 이미지 Activity, 강제 종료 서비스)과 XML 레이아웃 25개를 지웠다. 새 `MainActivity` 하나가 Compose 흐름(`game/AppFlow.kt`)을 연다. 디버그 전용 런처도 없앴다.
-- 안 쓰는 리소스(드로어블 90여 개, 폰트 6개, 색·치수, 옛 문자열)와 의존성(appcompat, material, constraintlayout, swiperefreshlayout, glide, circleimageview, firebase-storage, play-services-auth)·viewBinding을 제거. 테마는 플랫폼 `Theme.Material.Light.NoActionBar` 기반. APK(release) 약 27MB.
+- 옛 화면(`MainActivity` 스플래시, 로그인·가입·재설정, 홈·방 목록·랭킹·내 정보 Fragment, 대기실, 게임방, 결과, 튜토리얼 이미지 Activity, 강제 종료 서비스)과 XML 레이아웃 28개를 지웠다. 새 `MainActivity` 하나가 Compose 흐름(`game/AppFlow.kt`)을 연다. 디버그 전용 런처도 없앴다.
+- 안 쓰는 리소스(드로어블 80개, 폰트 7개, 색·치수, 옛 문자열)와 의존성(appcompat, material, constraintlayout, swiperefreshlayout, glide, circleimageview, firebase-storage, play-services-auth)·viewBinding을 제거. 테마는 플랫폼 `Theme.Material.Light.NoActionBar` 기반. APK(release) 약 27MB.
 - targetSdk 33 -> 36, 가장자리까지 그리기(`enableEdgeToEdge`)를 켜고, 화면 방향 고정(원래 응용 프로그램 수준의 무효한 속성)을 없앴다.
 - 검증: `test lint assembleDebug assembleRelease` 통과(app 87, data 19, 실패 0), lint 오류 0.
 - **오너 작업**: 옛 컬렉션(`user`, `game_rooms`, `game_playing`, 옛 `game_result`)은 규칙이 이미 쓰기를 막는다 — 이관이 끝났다고 판단되면 콘솔에서 삭제. `google-services.json`에 옛 패키지(`com.example.coup`) 클라이언트가 남아 있으니 콘솔에서 정리 후 다시 내려받기.
