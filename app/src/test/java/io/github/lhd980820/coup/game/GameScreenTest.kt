@@ -58,8 +58,13 @@ class GameScreenTest {
             error("'$tag'가 화면에 없다. 현재 결정=${vm.controller?.state?.value?.decision}, busy=${vm.controller?.state?.value?.busy}, 화면 태그=$tags")
         }
         if (!exists(tag)) return false
-        compose.onNodeWithTag(tag).assertIsDisplayed().performClick()
-        return true
+        return try {
+            compose.onNodeWithTag(tag).assertIsDisplayed().performClick()
+            true
+        } catch (e: AssertionError) {
+            // 확인과 누르기 사이에 AI가 움직여 컨트롤이 사라졌다(결정이 바뀌었다)면 건너뛴다. 그대로인데 못 누른 것은 진짜 실패다.
+            if (!exists(tag) && vm.controller?.state?.value != decidedOn) false else throw e
+        }
     }
 
     private fun waitForChange(vm: GameViewModel, before: GameUiState?) {
@@ -90,7 +95,9 @@ class GameScreenTest {
             is DecisionUi.Actions -> {
                 val button = d.buttons.filter { it.enabled }.let { list -> list.filter { it.forced }.ifEmpty { list }.random(random) }
                 if (press(vm, GameTags.action(button.actionId.value)) && button.needsTarget) {
-                    val pick = vm.controller!!.state.value!!.decision as DecisionUi.PickTarget
+                    // 누른 뒤 처음 바뀐 상태가 대상 고르기가 아닐 수 있다(다른 갱신이 먼저 온다) — 대상 고르기가 될 때까지(또는 판이 넘어갈 때까지) 기다린다
+                    compose.waitUntil(timeoutMillis = 10_000) { vm.controller?.state?.value?.decision !is DecisionUi.Actions }
+                    val pick = vm.controller!!.state.value!!.decision as? DecisionUi.PickTarget ?: return false
                     press(vm, GameTags.target(pick.targets.random(random).value))
                 }
             }

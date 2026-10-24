@@ -137,6 +137,28 @@ class FirebaseIntegrationTest {
     }
 
     @Test
+    fun `방장 이어받기 - 실제 서버 시각으로 60초가 지나야 하고, 지나면 게스트가 게임과 방을 함께 이어받는다`() = emulatorTest(timeoutMillis = 150_000) {
+        val host = newUser("host")
+        val b = newUser("b")
+        val room = rooms(host).createRoom(lobbyUser(host, "방장"), "방", Visibility.PUBLIC, 2, BuiltinRules.classicConfig()).ok()
+        rooms(b).join(room.id, lobbyUser(b, "비")).ok()
+        rooms(b).setReady(room.id, b.uid, true).ok()
+        val plan = rooms(host).start(room.id, host.uid).ok()
+        FirestoreGameTransport(host.store).createGame(plan) // 생존 신호 = 지금 서버 시각(Timestamp)
+        val guest = FirestoreGameTransport(b.store)
+
+        // 방장이 방금 신호를 보냈으므로 실제 규칙이 거절한다(규칙의 timestamp 비교)
+        assertTrue("아직 이어받을 수 없다", !guest.takeOver(plan.gameId, room.id, b.uid))
+        delay(62_000) // 방장이 아무것도 쓰지 않은 채 60초가 넘게 지난다
+        assertTrue("이제 이어받는다", guest.takeOver(plan.gameId, room.id, b.uid))
+        assertEquals("\"${b.uid}\"", b.store.get(FirestoreSchema.game(plan.gameId))!![FirestoreSchema.Game.HOST_UID].toString())
+        assertEquals(b.uid, rooms(b).get(room.id)!!.hostUid)
+        // 이제 b가 방장만 읽는 문서(실행 설정)를 읽고, 옛 방장은 못 읽는다
+        assertTrue(b.store.get(FirestoreSchema.setup(plan.gameId)) != null)
+        expectDenied { host.store.get(FirestoreSchema.setup(plan.gameId)) }
+    }
+
+    @Test
     fun `멀티플레이 한 판 - 방, 게임, 좌석별 뷰, 결과, 정산까지 실제 Firebase에서`() = emulatorTest(timeoutMillis = 240_000) {
         val host = newUser("host")
         val b = newUser("b")

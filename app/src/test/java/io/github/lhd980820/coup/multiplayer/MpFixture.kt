@@ -75,7 +75,13 @@ internal class FakeAuth(private val accounts: MutableMap<String, String> = mutab
 }
 
 /** 규칙을 강제하는 메모리 속 Firestore 위에서 앱의 서버 쪽 조립을 흉내 낸다. */
-internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth, private val hostLostAfter: kotlin.time.Duration = kotlin.time.Duration.parse("2s")) : Backend {
+internal class FakeBackend(
+    val fs: FakeFirestore,
+    override val auth: FakeAuth,
+    private val hostLostAfter: kotlin.time.Duration = kotlin.time.Duration.parse("2s"),
+    /** 기기 시계(서버 시각과 함께 건너뛸 수 있다 — 방장 이어받기의 "60초 조용함", ADR 0017). */
+    private val clock: Clock = Clock.System,
+) : Backend {
     private val registry = BuiltinRules.registry()
 
     /** 로그인한 사용자의 저장소를 감싼다(느린 서버·네트워크 오류 흉내). */
@@ -91,8 +97,10 @@ internal class FakeBackend(val fs: FakeFirestore, override val auth: FakeAuth, p
             rooms = RoomService(FirestoreRoomStore(store, user.uid), registry, ClientInfo(10, registry), Clock.System),
             registry = registry,
             launcher = FirestoreGameLauncher(
-                store, user.uid, GameEngines.create(), scope, joinPollMillis = 20,
+                store, user.uid, GameEngines.create(), scope, clock = clock, joinPollMillis = 20,
                 hostLostAfter = hostLostAfter, connectionTick = kotlin.time.Duration.parse("200ms"),
+                takeoverAfter = kotlin.time.Duration.parse("300ms"), takeoverStagger = kotlin.time.Duration.parse("1s"),
+                takeoverRetry = kotlin.time.Duration.parse("200ms"),
             ),
         )
     }
@@ -108,7 +116,16 @@ internal class MpFixture(
     val activeRooms: ActiveRoomStore = InMemoryActiveRoomStore(),
 ) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val backend = FakeBackend(fs, auth)
+
+    /** 서버 시각과 이 기기 시계를 함께 앞으로 건너뛴다(방장 이어받기 시험). */
+    @Volatile
+    var clockOffset = 0L
+    private val clock = Clock { System.currentTimeMillis() + clockOffset }
+    val backend = FakeBackend(fs, auth, clock = clock)
+
+    init {
+        fs.now = { clock.nowMillis() }
+    }
     val game = GameViewModel(scope = scope)
     val shell = ShellViewModel(backend, game, scope, activeRooms)
 

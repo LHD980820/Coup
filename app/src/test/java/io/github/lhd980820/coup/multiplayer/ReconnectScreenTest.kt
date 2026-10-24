@@ -225,6 +225,34 @@ class ReconnectScreenTest : MpScreenTest() {
     }
 
     @Test
+    fun `방장이 돌아오지 않으면 게스트가 방장을 이어받아 그대로 이어 두고, 판이 끝나면 방의 방장이 된다`() {
+        val (host, roomId) = guestInGame()
+        val gameId = fx.shell.multiGame!!.gameId
+        host.device.cancel() // 방장 앱이 꺼졌고 돌아오지 않는다
+        waitFor(GameTags.CONNECTION_LEAVE, timeoutMillis = 20_000)
+        assertShown(string(R.string.mp_connection_host_lost))
+        fx.clockOffset += 61_000 // 방장이 60초 넘게 조용하다(서버 시각·기기 시계 함께)
+
+        // 화면은 그대로인 채 내가(kim) 방장을 이어받는다: 끊김 배너가 사라지고 계속 둘 수 있다
+        until(20_000) { gameDoc(gameId)?.get("hostUid")?.toString() == "\"kim\"" }
+        compose.waitUntil(20_000) { !exists(GameTags.CONNECTION) }
+        assertTrue(exists(GameTags.CONCEDE))
+        assertEquals(gameId, fx.shell.multiGame?.gameId)
+
+        // 기권으로 판을 끝내고 대기실로 돌아오면 이제 내가 방의 방장이다
+        click(GameTags.CONCEDE)
+        waitFor(GameTags.CONCEDE_CONFIRM)
+        click(GameTags.CONCEDE_CONFIRM)
+        waitFor(GameTags.RESULT, timeoutMillis = 20_000)
+        click(GameTags.RESULT_AGAIN)
+        waitFor(WaitingTags.START, timeoutMillis = 20_000)
+        assertEquals(roomId, fx.shell.room?.roomId)
+        assertTrue(fx.shell.room?.state?.value?.isHost == true)
+    }
+
+    private fun gameDoc(gameId: String) = fx.fs.docs[io.github.lhd980820.coup.remote.FirestoreSchema.game(gameId)]
+
+    @Test
     fun `방장 - 봇과 하던 게임 중 앱이 꺼졌다가 켜지면 복구되어 이어 간다`() {
         signInAndOpenLobbySwappable()
         click(LobbyTags.CREATE)
