@@ -10,7 +10,6 @@
     <string name="game_ai_name">AI %1$d</string>
     <string name="game_coins">%1$d coins</string>
     <string name="game_deck">Deck: %1$d</string>
-    <string name="game_hidden_cards">%1$d cards</string>
     <string name="game_eliminated">Out</string>
     <string name="game_status_acting">Acting</string>
     <string name="game_status_thinking">Thinking</string>
@@ -79,7 +78,6 @@
     <string name="game_log_eliminated">%1$s is out</string>
     <string name="game_log_ended">Game over — winner %1$s</string>
     <string name="game_log_resolved">%1$s result: %2$s</string>
-    <string name="game_outcome_succeeded">succeeded</string>
     <string name="game_outcome_blocked">blocked</string>
     <string name="game_outcome_failed">failed</string>
     <string name="game_result_title">Game over</string>
@@ -93,5 +91,4 @@
     <string name="game_concede_confirm">Really concede?</string>
     <string name="game_message_rejected">You can\'t do that right now</string>
     <string name="game_message_network">Connection problem</string>
-    <string name="game_connection_lost">Connection lost</string>
 </resources>

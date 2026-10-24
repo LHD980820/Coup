@@ -15,7 +15,7 @@ android {
     defaultConfig {
         applicationId = "io.github.lhd980820.coup"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -33,7 +33,6 @@ android {
     }
     buildFeatures {
         compose = true
-        viewBinding = true
     }
     testOptions {
         unitTests {
@@ -63,25 +62,17 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.swiperefreshlayout)
 
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
-    implementation(libs.firebase.storage)
-    implementation(libs.play.services.auth)
     // 새 로그인 화면의 구글 로그인(Credential Manager, ADR 0011)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
-    implementation(libs.glide)
-    implementation(libs.circleimageview)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
 

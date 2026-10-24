@@ -9,8 +9,6 @@
     <string name="rules_house_title">House rules</string>
     <string name="rules_params_title">Details</string>
     <string name="rules_default_value">Default %1$s</string>
-    <string name="rules_value_on">On</string>
-    <string name="rules_value_off">Off</string>
     <string name="rules_decrease">Decrease %1$s</string>
     <string name="rules_increase">Increase %1$s</string>
     <string name="rules_unrated_note">Changing house rules or details means this game won\'t count toward your rating.</string>

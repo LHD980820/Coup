@@ -1,37 +1,53 @@
 package io.github.lhd980820.coup
 
-import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import io.github.lhd980820.coup.ui.login.LoginActivity
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import io.github.lhd980820.coup.game.GameViewModel
+import io.github.lhd980820.coup.game.PrefsTutorialStore
+import io.github.lhd980820.coup.game.AppFlow
+import io.github.lhd980820.coup.multiplayer.AndroidCodeSharer
+import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
+import io.github.lhd980820.coup.multiplayer.LocalCodeSharer
+import io.github.lhd980820.coup.multiplayer.FirebaseBackend
+import io.github.lhd980820.coup.multiplayer.PrefsActiveRoomStore
+import io.github.lhd980820.coup.multiplayer.ShellViewModel
+import io.github.lhd980820.coup.ui.theme.CoupTheme
 
+/** 앱의 유일한 Activity(설계 §10.2). 홈·싱글플레이·튜토리얼·로그인·로비·대기실·게임·랭킹·전적이 모두 이 안의 Compose 화면이다. */
 class MainActivity : ComponentActivity() {
+    private val viewModel: GameViewModel by viewModels {
+        viewModelFactory { initializer { GameViewModel(tutorialStore = PrefsTutorialStore(applicationContext)) } }
+    }
+
+    private val shell: ShellViewModel by viewModels {
+        viewModelFactory { initializer { ShellViewModel(FirebaseBackend(appVersion()), viewModel, activeRooms = PrefsActiveRoomStore(applicationContext)) } }
+    }
+
+    /** 구글 로그인(Credential Manager). 웹 클라이언트 ID는 google-services 플러그인이 만든 리소스다. */
+    private val google by lazy { CredentialManagerGoogleTokenSource(this, getString(R.string.default_web_client_id)) }
+
+    private val codeSharer by lazy { AndroidCodeSharer(this) }
+
+    private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_startframe)
-        //startService(Intent(application, ForcedTerminationService()::class.java))
-        // 일정 시간 지연 이후 실행하기 위한 코드
-        Handler(Looper.getMainLooper()).postDelayed({
-
-            // 일정 시간이 지나면 LoginActivity로 이동
-            val intent= Intent( this, LoginActivity::class.java)
-            startActivity(intent)
-
-            // 이전 키를 눌렀을 때 스플래스 스크린 화면으로 이동을 방지하기 위해
-            // 이동한 다음 사용안함으로 finish 처리
-            finish()
-
-        }, 1500) // 시간 3초 이후 실행
+        enableEdgeToEdge()
+        setContent {
+            CoupTheme {
+                CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
+                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google)
+                }
+            }
+        }
     }
 }

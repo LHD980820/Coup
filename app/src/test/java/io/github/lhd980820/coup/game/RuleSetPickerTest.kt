@@ -122,7 +122,7 @@ class RuleSetPickerTest {
     fun `고른 규칙이 실제 게임에 적용된다 - 시작 코인`() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val vm = GameViewModel(scope = scope)
-        compose.setContent { CoupTheme { SinglePlayerFlow(vm, onExit = {}) } }
+        compose.setContent { CoupTheme { AppFlow(vm, onExit = {}) } }
         compose.onNodeWithTag(ShellTags.HOME_SINGLE).assertIsDisplayed().performClick()
         compose.onNodeWithTag(RuleTags.TOGGLE).tap()
         repeat(2) { compose.onNodeWithTag(RuleTags.plus("startingCoins")).tap() }

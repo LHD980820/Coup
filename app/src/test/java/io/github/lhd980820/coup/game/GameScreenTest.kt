@@ -121,7 +121,7 @@ class GameScreenTest {
         // 게임은 메인 루퍼와 무관한 범위에서 돌린다(Robolectric의 일시정지 루퍼에 막히지 않게)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val vm = GameViewModel(scope = scope)
-        compose.setContent { CoupTheme { SinglePlayerFlow(vm, onExit = {}) } }
+        compose.setContent { CoupTheme { AppFlow(vm, onExit = {}) } }
         // 홈 -> 설정 화면을 실제로 조작해 시작한다
         compose.onNodeWithTag(ShellTags.HOME_SINGLE).assertIsDisplayed().performClick()
         compose.onNodeWithTag(SetupTags.opponents(opponents)).performScrollTo().assertIsDisplayed().performClick()

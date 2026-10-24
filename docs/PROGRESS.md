@@ -10,7 +10,9 @@
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
 | 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요), 재접속 ✅(ADR 0012), 랭킹·전적 화면 ✅(ADR 0013), 비공개 방 코드 공유 ✅(ADR 0014) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
-| 4~6 | ⬜ | |
+| 4 | ✅ | 신규 멀티플레이(`:data`, 규칙, 로비·대기실·재접속·이어받기)는 Phase 3~7 작업에 함께 들어갔다 |
+| 5. 전면 전환 & 정리 | ✅ | 옛 Activity·Fragment·XML 레이아웃·옛 의존성을 모두 제거하고 `MainActivity` 하나(Compose)로 전환, targetSdk 36 (ADR 0018) |
+| 6 | ⬜ | HARD AI, 하우스룰 설정 UI(일부 ✅), 애니메이션·사운드, 대화면 레이아웃 |
 | 7. 서버 판정 | 🚧 (코드·테스트 ✅, 배포는 오너 작업) | 검증형 방장 권위(오너 결정): 방장이 모든 수를 기록, Cloud Function(`server/`)이 끝난 판을 같은 엔진으로 다시 돌려 검증하고 레이팅을 반영. 클라이언트 레이팅 쓰기·정산 게이트 제거(ADR 0015). 시드 섞기·버려진 판(방장만 패배)·방 정리 + 5분마다 정리 함수(ADR 0016). 방장 이어받기(규칙만으로, ADR 0017) |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -43,7 +45,14 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (Phase 7 — 방장 이어받기, ADR 0017)
+## 이번 단계 메모 (Phase 5 — 전면 전환과 정리, ADR 0018)
+- 옛 화면(`MainActivity` 스플래시, 로그인·가입·재설정, 홈·방 목록·랭킹·내 정보 Fragment, 대기실, 게임방, 결과, 튜토리얼 이미지 Activity, 강제 종료 서비스)과 XML 레이아웃 25개를 지웠다. 새 `MainActivity` 하나가 Compose 흐름(`game/AppFlow.kt`)을 연다. 디버그 전용 런처도 없앴다.
+- 안 쓰는 리소스(드로어블 90여 개, 폰트 6개, 색·치수, 옛 문자열)와 의존성(appcompat, material, constraintlayout, swiperefreshlayout, glide, circleimageview, firebase-storage, play-services-auth)·viewBinding을 제거. 테마는 플랫폼 `Theme.Material.Light.NoActionBar` 기반. APK(release) 약 27MB.
+- targetSdk 33 -> 36, 가장자리까지 그리기(`enableEdgeToEdge`)를 켜고, 화면 방향 고정(원래 응용 프로그램 수준의 무효한 속성)을 없앴다.
+- 검증: `test lint assembleDebug assembleRelease` 통과(app 87, data 19, 실패 0), lint 오류 0.
+- **오너 작업**: 옛 컬렉션(`user`, `game_rooms`, `game_playing`, 옛 `game_result`)은 규칙이 이미 쓰기를 막는다 — 이관이 끝났다고 판단되면 콘솔에서 삭제. `google-services.json`에 옛 패키지(`com.example.coup`) 클라이언트가 남아 있으니 콘솔에서 정리 후 다시 내려받기.
+
+## 이전 단계 메모 (Phase 7 — 방장 이어받기, ADR 0017)
 - 방장 생존 신호가 서버 시각이 되고, 60초 넘게 조용하면 좌석의 게스트가 게임·방의 방장을 이어받는다(규칙만으로, 서버 함수 불필요). 이어받은 사람이 백업에서 판을 이어 간다.
 - 기록마다 쓴 방장을 남겨, 서버 검증이 방장이 바뀐 판도 검증한다(그때의 방장 외 사람의 수는 명령 문서로 확인).
 - 화면은 그대로: `HandoverSession`이 안에서 게스트·방장 세션을 바꾼다. 게스트는 끊김 배너를 본 뒤 자동으로 이어받아 계속 두고, 돌아온 옛 방장은 게스트로 이어 간다.
@@ -129,11 +138,11 @@
 - 기준선: `./gradlew assembleDebug`, `test lint` 모두 통과. 새 세션을 따로 만들지 않고 이 세션에서 진행했다(`core/`와 `app/`을 함께 고칠 수 있어 더 빠르다).
 - `settings.gradle.kts`에 `includeBuild("core")`, `:app`이 `io.github.lhd980820.coup:presentation`에 의존(엔진·AI·런타임·화면 상태가 따라온다).
 - `app/.../game/`: `GameViewModel`(수명·의도 전달만; 규칙은 코어의 `GameController`), `GameScreen`(상대 줄·진행 배너·로그·내 카드·결정 패널·결과), `SinglePlayerSetupScreen`(AI 수·난이도), `SinglePlayerActivity`, `Catalogs`(RoleUiCatalog/ActionUiCatalog: ID -> 이름·카드 그림, 모르는 ID는 폴백), `GameTexts`(구조화된 상태 -> 문장, ko/en). 문자열은 `values/strings_game.xml`(ko), `values-en/strings_game.xml`.
-- 디버그 빌드에만 런처 항목 "Coup (new)"(`app/src/debug/AndroidManifest.xml`)로 새 화면을 열 수 있다. 정식 진입점은 홈/로그인이 Compose로 바뀔 때(Phase 5).
+- (Phase 5에서 해결) 정식 진입점은 `MainActivity` 하나다. 디버그 전용 런처는 없앴다.
 - 테마: 다이내믹 컬러 끄고 다크 우선 브랜드 팔레트(설계 §10.1). 상태 막대 색 직접 지정(deprecated) 제거.
 - **테스트(Robolectric + Compose, 에뮬레이터 없이)**: 실제 화면을 띄워 **버튼만 눌러 AI와 한 판을 끝까지** 둔다(AI 1·2·3·5명, 작은 화면 320x568dp, 큰 글씨 1.6배 포함). 눌러야 하는 컨트롤은 `assertIsDisplayed`로 실제 화면 안에 있어야 한다. 문구 테스트는 모든 배너/로그 종류가 ko/en에서 자리표시자 없이 채워지는지, 모르는 역할·행동이 깨지지 않는지 본다. 변이 검증: 결정 패널을 화면 밖으로 밀기 / 허용 버튼 제거 / 확정 버튼 비활성 -> 모두 테스트가 실패.
 - 테스트가 찾은 것: (1) 작은 화면에서 하단 컨트롤이 잘림 -> 위(상대·기록)만 스크롤, 아래(배너·내 카드·결정)는 고정하도록 레이아웃 수정. 대상 선택은 상대 카드가 아니라 결정 패널의 버튼으로. (2) 누르자마자 다음 판단을 하면 옛 상태를 보는 경쟁(테스트 쪽) — 사람은 `GameController`의 busy 잠금이 막는다.
-- 옛 `strings.xml`(영어 번역 없음)은 `values-en`이 생기면서 lint `MissingTranslation` 오류가 나서 파일 단위로 무시 표시(`tools:ignore`)하고 Phase 5에서 정리하기로 했다.
+- (Phase 5에서 해결) 옛 `strings.xml`은 `app_name`만 남기고 정리했다.
 - 아직 안 한 것(설계 §10.3): 응답 모달 바텀시트(지금은 인라인 패널), 카드 뒤집기/코인 이동 애니메이션(`UiEffect`), 남은 시간 링, 역할 능력 시트, 대화면 2단 레이아웃, 룰셋/하우스룰 선택 UI, 튜토리얼 화면, 사운드/설정.
 
 ## 이번 단계 메모 (Phase 3 (C) — 규칙 에뮬레이터 검증)

@@ -14,7 +14,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
-import io.github.lhd980820.coup.game.SinglePlayerFlow
+import io.github.lhd980820.coup.game.AppFlow
 import io.github.lhd980820.coup.game.ShellTags
 import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.ui.theme.CoupTheme
@@ -44,7 +44,7 @@ abstract class MpScreenTest {
     internal fun show(google: GoogleTokenSource? = null, sharer: CodeSharer? = null) {
         compose.setContent {
             CoupTheme {
-                CompositionLocalProvider(LocalCodeSharer provides sharer) { SinglePlayerFlow(fx.game, onExit = {}, shell = fx.shell, google = google) }
+                CompositionLocalProvider(LocalCodeSharer provides sharer) { AppFlow(fx.game, onExit = {}, shell = fx.shell, google = google) }
             }
         }
     }

@@ -9,8 +9,6 @@
     <string name="rules_house_title">하우스룰</string>
     <string name="rules_params_title">세부 설정</string>
     <string name="rules_default_value">기본 %1$s</string>
-    <string name="rules_value_on">켬</string>
-    <string name="rules_value_off">끔</string>
     <string name="rules_decrease">%1$s 줄이기</string>
     <string name="rules_increase">%1$s 늘리기</string>
     <string name="rules_unrated_note">하우스룰이나 세부 설정을 바꾸면 이 판은 레이팅에 반영되지 않아요.</string>

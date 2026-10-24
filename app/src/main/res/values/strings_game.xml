@@ -10,7 +10,6 @@
     <string name="game_ai_name">AI %1$d</string>
     <string name="game_coins">코인 %1$d</string>
     <string name="game_deck">덱 %1$d장</string>
-    <string name="game_hidden_cards">카드 %1$d장</string>
     <string name="game_eliminated">탈락</string>
     <string name="game_status_acting">행동 중</string>
     <string name="game_status_thinking">생각 중</string>
@@ -79,7 +78,6 @@
     <string name="game_log_eliminated">%1$s 탈락</string>
     <string name="game_log_ended">게임 종료 — 승자 %1$s</string>
     <string name="game_log_resolved">%1$s 결과: %2$s</string>
-    <string name="game_outcome_succeeded">성공</string>
     <string name="game_outcome_blocked">막힘</string>
     <string name="game_outcome_failed">무산</string>
     <string name="game_result_title">게임 종료</string>
@@ -93,5 +91,4 @@
     <string name="game_concede_confirm">정말 기권하시겠어요?</string>
     <string name="game_message_rejected">그 행동은 지금 할 수 없습니다</string>
     <string name="game_message_network">연결에 문제가 있습니다</string>
-    <string name="game_connection_lost">연결이 끊겼습니다</string>
 </resources>

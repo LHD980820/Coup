@@ -55,7 +55,7 @@ class TutorialScreenTest {
 
     private fun open(store: TutorialStore = InMemoryTutorialStore()): GameViewModel {
         val vm = GameViewModel(scope = scope, tutorialStore = store)
-        compose.setContent { CoupTheme { SinglePlayerFlow(vm, onExit = {}) } }
+        compose.setContent { CoupTheme { AppFlow(vm, onExit = {}) } }
         compose.onNodeWithTag(ShellTags.HOME_TUTORIAL).assertIsDisplayed().performClick()
         return vm
     }

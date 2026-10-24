@@ -8,7 +8,7 @@ import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import io.github.lhd980820.coup.ai.RandomAgent
 import io.github.lhd980820.coup.game.GameTags
 import io.github.lhd980820.coup.game.ShellTags
-import io.github.lhd980820.coup.game.SinglePlayerFlow
+import io.github.lhd980820.coup.game.AppFlow
 import io.github.lhd980820.coup.runtime.session.GameSession
 import io.github.lhd980820.coup.shell.lobby.WaitingRoomEvent
 import io.github.lhd980820.coup.shell.lobby.WaitingRoomModel
@@ -39,7 +39,7 @@ class ReconnectScreenTest : MpScreenTest() {
         current = fx
         compose.setContent {
             val f = current ?: return@setContent
-            key(f) { CoupTheme { SinglePlayerFlow(f.game, onExit = {}, shell = f.shell) } }
+            key(f) { CoupTheme { AppFlow(f.game, onExit = {}, shell = f.shell) } }
         }
     }
 
