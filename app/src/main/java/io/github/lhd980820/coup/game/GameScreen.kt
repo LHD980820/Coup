@@ -1,5 +1,15 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.staticCompositionLocalOf
+import io.github.lhd980820.coup.engine.model.RoleId
+import kotlinx.coroutines.delay
 import androidx.annotation.StringRes
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -93,7 +103,20 @@ internal object GameTags {
     const val WAITING = "waiting"
     const val COACH = "coach"
     const val COACH_BACK = "coach_back"
+    const val LOG_SIDE = "log_side"
+    const val ABILITY_SHEET = "ability_sheet"
+    const val ABILITY_CLOSE = "ability_close"
+    const val TIMER_MINE = "timer_mine"
+    fun timer(id: String) = "timer_$id"
 }
+
+/** 이 너비 이상이면 테이블 | 기록 두 단으로 배치한다(dp). */
+private val WIDE_LAYOUT_MIN_WIDTH = 840.dp
+private const val COMPACT_LOG_LINES = 8
+private const val WIDE_LOG_LINES = 40
+
+/** 남은 시간을 그릴 때 쓰는 현재 시각(epoch millis). 마감 시각을 만든 시계와 같은 시계(기기 시계)이며, 테스트는 고정 값으로 바꾼다. */
+internal val LocalNowMillis = staticCompositionLocalOf<() -> Long> { System::currentTimeMillis }
 
 /** 튜토리얼 안내: 지금 단계 문구와, 사용자가 해야 하는 한 수([expect]). null이면 제한 없음. */
 internal data class GuideUi(val message: String, val step: Int, val total: Int, val expect: TutorialExpect?, val offScript: Int)
@@ -148,30 +171,51 @@ internal fun GameScreen(
     BackHandler(enabled = backConcedes && state.result == null) { if (abandoned) onAbandoned() else confirmConcede = true }
     BackHandler(enabled = backConcedes && state.result != null) { onExit() }
 
+    var inspected by remember { mutableStateOf<RoleId?>(null) }
+
+    // 아래: 진행 배너·내 카드·결정은 항상 보이게 고정한다.
+    val bottom: @Composable ColumnScope.() -> Unit = {
+        guide?.let { CoachCard(it) }
+        ConnectionBanner(state.connection, onExit)
+        BannerCard(state, texts)
+        state.me?.let { MyArea(state, it, actions, onInspect = { role -> inspected = role }) }
+        DecisionPanel(state, texts, actions, guide?.expect)
+        if (guide != null) {
+            TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
+        } else if (state.result == null && !abandoned) {
+            TextButton(onClick = { confirmConcede = true }, modifier = Modifier.testTag(GameTags.CONCEDE)) {
+                Text(stringResource(R.string.game_concede))
+            }
+        }
+    }
+
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(Modifier.fillMaxSize()) {
-            // 위: 상대와 기록(좁은 화면에서는 스크롤). 아래: 진행 배너·내 카드·결정은 항상 보이게 고정한다.
-            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OpponentsRow(state, texts)
-                    LogList(state, texts)
-                }
-                guide?.let { CoachCard(it) }
-                ConnectionBanner(state.connection, onExit)
-                BannerCard(state, texts)
-                state.me?.let { MyArea(state, it, actions) }
-                DecisionPanel(state, texts, actions, guide?.expect)
-                if (guide != null) {
-                    TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
-                } else if (state.result == null && !abandoned) {
-                    TextButton(onClick = { confirmConcede = true }, modifier = Modifier.testTag(GameTags.CONCEDE)) {
-                        Text(stringResource(R.string.game_concede))
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // 큰 화면(태블릿·폴더블 펼침): 테이블 | 기록 두 단. 좁은 화면은 위(상대·기록)만 스크롤하고 아래는 고정한다.
+            if (maxWidth >= WIDE_LAYOUT_MIN_WIDTH) {
+                Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(3f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { OpponentsRow(state, texts) }
+                        bottom()
                     }
+                    Column(Modifier.weight(2f).fillMaxHeight().verticalScroll(rememberScrollState()).testTag(GameTags.LOG_SIDE)) {
+                        LogList(state, texts, WIDE_LOG_LINES)
+                    }
+                }
+            } else {
+                Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OpponentsRow(state, texts)
+                        LogList(state, texts, COMPACT_LOG_LINES)
+                    }
+                    bottom()
                 }
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
     }
+
+    inspected?.let { role -> AbilitySheet(role, onDismiss = { inspected = null }) }
 
     if (abandoned) {
         AlertDialog(
@@ -290,6 +334,10 @@ private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean) {
                 else -> ""
             }
             if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.labelSmall)
+            val deadline = op.deadline
+            if (deadline != null && op.isAlive && (op.status == OpponentStatus.ACTING || op.status == OpponentStatus.THINKING)) {
+                Countdown(deadline, GameTags.timer(op.id.value))
+            }
             if (op.claiming.isNotEmpty()) {
                 Text(stringResource(R.string.game_claiming, texts.roles(op.claiming)), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             }
@@ -318,14 +366,19 @@ private fun BannerCard(state: GameUiState, texts: GameTexts) {
     Card(Modifier.fillMaxWidth().testTag(GameTags.BANNER), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp)) {
             Text(texts.banner(state.banner), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelSmall)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelSmall)
+                // 내가 결정할 차례일 때만 내 남은 시간을 보인다(끝난 판·기다리는 중에는 숨김)
+                val deadline = state.myDeadline
+                if (deadline != null && state.decision != null && state.result == null) Countdown(deadline, GameTags.TIMER_MINE)
+            }
         }
     }
 }
 
 @Composable
-private fun LogList(state: GameUiState, texts: GameTexts) {
-    val lines = state.log.mapNotNull { texts.log(it) }.takeLast(8)
+private fun LogList(state: GameUiState, texts: GameTexts, maxLines: Int) {
+    val lines = state.log.mapNotNull { texts.log(it) }.takeLast(maxLines)
     Column(Modifier.fillMaxWidth()) {
         Text(stringResource(R.string.game_log_title), style = MaterialTheme.typography.labelMedium)
         lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -335,7 +388,7 @@ private fun LogList(state: GameUiState, texts: GameTexts) {
 // ---- 내 영역 ------------------------------------------------------------------------------------
 
 @Composable
-private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation.MyUi, actions: GameActions) {
+private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation.MyUi, actions: GameActions, onInspect: (RoleId) -> Unit) {
     val pickCard = state.decision as? DecisionUi.PickCard
     val pickExchange = state.decision as? DecisionUi.PickExchange
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -352,16 +405,16 @@ private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation
                     state.busy -> null
                     pickCard != null -> ({ actions.selectCard(card.id) })
                     pickExchange != null -> ({ actions.toggleExchange(card.id) })
-                    else -> null
+                    else -> ({ onInspect(card.role) }) // 고르는 중이 아니면 탭해서 능력을 본다
                 }
-                HandCard(card, onClick)
+                HandCard(card, onClick, inspect = pickCard == null && pickExchange == null)
             }
         }
     }
 }
 
 @Composable
-private fun HandCard(card: CardUi, onClick: (() -> Unit)?) {
+private fun HandCard(card: CardUi, onClick: (() -> Unit)?, inspect: Boolean) {
     val name = stringResource(RoleUiCatalog.of(card.role).name)
     val stateText = buildList {
         if (card.revealed) add(stringResource(R.string.game_card_revealed))
@@ -372,7 +425,11 @@ private fun HandCard(card: CardUi, onClick: (() -> Unit)?) {
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag(GameTags.card(card.id.value))
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let {
+                if (onClick == null) it
+                else if (inspect) it.clickable(onClickLabel = stringResource(R.string.game_card_inspect), onClick = onClick)
+                else it.clickable(onClick = onClick)
+            }
             .semantics(mergeDescendants = true) { contentDescription = if (stateText.isEmpty()) name else "$name ($stateText)" },
     ) {
         CardImage(
@@ -393,6 +450,69 @@ private fun CardImage(role: io.github.lhd980820.coup.engine.model.RoleId?, revea
     val res = if (role != null && revealed) RoleUiCatalog.of(role).art else RoleUiCatalog.cardBack
     Surface(shape = RoundedCornerShape(6.dp), border = border, modifier = modifier) {
         Image(painterResource(res), contentDescription = null, modifier = Modifier.fillMaxSize())
+    }
+}
+
+// ---- 남은 시간 ----------------------------------------------------------------------------------
+
+/**
+ * 마감까지 남은 시간: 줄어드는 링 + 초. 링의 전체 길이는 이 마감을 처음 본 순간의 남은 시간이다.
+ * 5초 이하면 링이 경고색이 되고 글씨가 굵어진다(숫자는 항상 글자로도 보인다). 스크린리더에는 "남은 시간 N초"로 읽히되 매초 알리지는 않는다.
+ */
+@Composable
+private fun Countdown(deadline: Long, tag: String, modifier: Modifier = Modifier) {
+    val now = LocalNowMillis.current
+    val remaining by produceState(initialValue = millisLeft(deadline, now), deadline, now) {
+        while (true) {
+            value = millisLeft(deadline, now)
+            delay(COUNTDOWN_TICK_MILLIS)
+        }
+    }
+    val total = remember(deadline) { remaining.coerceAtLeast(1) }
+    val seconds = ((remaining + 999) / 1000).toInt()
+    val urgent = seconds <= URGENT_SECONDS
+    val label = stringResource(R.string.game_timer_label, seconds)
+    Row(
+        modifier.semantics(mergeDescendants = true) { contentDescription = label }.testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        CircularProgressIndicator(
+            progress = { (remaining.toFloat() / total).coerceIn(0f, 1f) },
+            modifier = Modifier.size(18.dp),
+            strokeWidth = 3.dp,
+            color = if (urgent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            stringResource(R.string.game_timer_seconds, seconds),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (urgent) FontWeight.Bold else FontWeight.Normal,
+        )
+    }
+}
+
+private fun millisLeft(deadline: Long, now: () -> Long) = (deadline - now()).coerceAtLeast(0)
+
+private const val COUNTDOWN_TICK_MILLIS = 250L
+private const val URGENT_SECONDS = 5
+
+// ---- 역할 능력 시트 -----------------------------------------------------------------------------
+
+/** 내 카드를 탭하면 올라오는 시트: 카드 그림, 이름, 이 역할로 할 수 있는 행동·막기(기본 규칙 기준). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AbilitySheet(role: RoleId, onDismiss: () -> Unit) {
+    val entry = RoleUiCatalog.of(role)
+    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_SHEET)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            CardImage(role = role, revealed = true, modifier = Modifier.size(width = 62.dp, height = 88.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(entry.name), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(entry.ability), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.game_ability_note), style = MaterialTheme.typography.labelSmall)
+                TextButton(onClick = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_CLOSE)) { Text(stringResource(R.string.game_ability_close)) }
+            }
+        }
     }
 }
 

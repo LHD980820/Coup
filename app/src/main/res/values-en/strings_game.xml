@@ -65,6 +65,17 @@
     <string name="game_role_captain">Captain</string>
     <string name="game_role_ambassador">Ambassador</string>
     <string name="game_role_contessa">Contessa</string>
+    <string name="game_role_ability_duke">Action: Tax — take 3 coins. Block: stops Foreign Aid.</string>
+    <string name="game_role_ability_assassin">Action: Assassinate — pay 3 coins to make one player lose an influence. The Contessa can block it.</string>
+    <string name="game_role_ability_captain">Action: Steal — take 2 coins from one player. Block: another Captain or an Ambassador can stop a steal.</string>
+    <string name="game_role_ability_ambassador">Action: Exchange — look at 2 cards from the deck and swap as many as you like. Block: stops a steal.</string>
+    <string name="game_role_ability_contessa">Block: stops an assassination. It has no action of its own.</string>
+    <string name="game_role_ability_unknown">This card\'s ability isn\'t known in this version.</string>
+    <string name="game_ability_note">Based on the standard rules. House rules may change this.</string>
+    <string name="game_ability_close">Close</string>
+    <string name="game_card_inspect">View ability</string>
+    <string name="game_timer_seconds">%1$ds</string>
+    <string name="game_timer_label">%1$d seconds left</string>
     <string name="game_role_unknown">Unknown card</string>
     <string name="game_log_title">Log</string>
     <string name="game_log_challenge">%1$s challenged %2$s</string>

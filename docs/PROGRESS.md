@@ -12,7 +12,7 @@
 | 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요), 재접속 ✅(ADR 0012), 랭킹·전적 화면 ✅(ADR 0013), 비공개 방 코드 공유 ✅(ADR 0014) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
 | 4 | ✅ | 신규 멀티플레이(`:data`, 규칙, 로비·대기실·재접속·이어받기)는 Phase 3~7 작업에 함께 들어갔다 |
 | 5. 전면 전환 & 정리 | ✅ | 옛 Activity·Fragment·XML 레이아웃·옛 의존성을 모두 제거하고 `MainActivity` 하나(Compose)로 전환, targetSdk 36 (ADR 0018) |
-| 6 | ⬜ | HARD AI, 하우스룰 설정 UI(일부 ✅), 애니메이션·사운드, 대화면 레이아웃 |
+| 6. 폴리시 | 🚧 (게임 화면 폴리시 1차 ✅) | 남은 시간 링·역할 능력 시트·대화면 2단 ✅ / 남은 것: HARD AI, 응답 바텀시트, 카드 뒤집기·코인 이동 애니메이션, 사운드·설정, 하우스룰 설정 UI |
 | 7. 서버 판정 | 🚧 (코드·테스트 ✅, 배포는 오너 작업) | 검증형 방장 권위(오너 결정): 방장이 모든 수를 기록, Cloud Function(`server/`)이 끝난 판을 같은 엔진으로 다시 돌려 검증하고 레이팅을 반영. 클라이언트 레이팅 쓰기·정산 게이트 제거(ADR 0015). 시드 섞기·버려진 판(방장만 패배)·방 정리 + 5분마다 정리 함수(ADR 0016). 방장 이어받기(규칙만으로, ADR 0017) |
 
 ### Phase 1 세부 단계 (설계 §13)
@@ -45,7 +45,14 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (Phase 5 — 전면 전환과 정리, ADR 0018)
+## 이번 단계 메모 (Phase 6 1차 — 게임 화면 폴리시)
+- **남은 시간 링**: 내가 결정할 차례(`myDeadline`)와 생각 중인 상대(`OpponentUi.deadline`)에 줄어드는 링 + "N초". 5초 이하는 경고색·굵게(숫자는 항상 글자로도 보임). 스크린리더는 "남은 시간 N초"를 읽되 매초 알리지 않는다. 링 전체 길이는 마감을 처음 본 순간의 남은 시간. 시계는 `LocalNowMillis`(기본 기기 시계, 테스트는 고정/전진).
+- **역할 능력 시트**: 고르는 결정이 아닐 때 내 카드를 탭하면 바텀시트(카드 그림, 이름, 행동·막기 설명, "기본 규칙 기준" 안내). `RoleUiCatalog.Entry.ability`, 모르는 역할은 폴백 문구. 고르는 결정 중에는 탭이 선택이다.
+- **대화면 2단**: 너비 840dp 이상이면 테이블(상대·배너·내 카드·결정) | 기록(최대 40줄) 두 단. 좁은 화면은 그대로(위 스크롤, 아래 고정). 화면 방향 고정이 없어졌으므로(ADR 0018) 가로·태블릿에서 바로 쓰인다.
+- 테스트 14(`GamePolishTest`): 시간 표시·올림·0초·숨김 조건·시계 전진, 능력 시트 열기·닫기·역할별 내용·선택 중 비활성, 넓은/좁은 레이아웃. 변이 9종 모두 검출(중복이던 초기값 보정은 한 함수로 합쳐 검출 가능하게 함).
+- 아직: 5초 이하 경고색·굵기 같은 시각 표현은 자동 검증하지 않았다(실기기 확인). 응답 바텀시트(지금은 인라인 패널), 카드 뒤집기/코인 이동 애니메이션, 사운드·설정, HARD AI는 다음 묶음.
+
+## 이전 단계 메모 (Phase 5 — 전면 전환과 정리, ADR 0018)
 - 옛 화면(`MainActivity` 스플래시, 로그인·가입·재설정, 홈·방 목록·랭킹·내 정보 Fragment, 대기실, 게임방, 결과, 튜토리얼 이미지 Activity, 강제 종료 서비스)과 XML 레이아웃 28개를 지웠다. 새 `MainActivity` 하나가 Compose 흐름(`game/AppFlow.kt`)을 연다. 디버그 전용 런처도 없앴다.
 - 안 쓰는 리소스(드로어블 80개, 폰트 7개, 색·치수, 옛 문자열)와 의존성(appcompat, material, constraintlayout, swiperefreshlayout, glide, circleimageview, firebase-storage, play-services-auth)·viewBinding을 제거. 테마는 플랫폼 `Theme.Material.Light.NoActionBar` 기반. APK(release) 약 27MB.
 - targetSdk 33 -> 36, 가장자리까지 그리기(`enableEdgeToEdge`)를 켜고, 화면 방향 고정(원래 응용 프로그램 수준의 무효한 속성)을 없앴다.
