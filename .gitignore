@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Kotlin 컴파일러 데몬의 세션 파일
+.kotlin/
