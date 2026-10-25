@@ -270,6 +270,15 @@ class HardAgentTest {
         val view1 = engine.view(start, Viewer.Player(p(1)))
         val other = a.reward(view1, p(1))
         assertThat(other).isEqualTo(before) // 같은 형세(영향력 2, 코인 2)는 같은 값
+        // 진행 중인 판에서 영향력이 1장 남은 사람은 2장 남은 사람보다 낮게 평가된다
+        val (mid, weak, strong) = decisionPoints(games = 30, players = 3, limit = 2_000).firstNotNullOf { (st, _) ->
+            if (st.isOver) return@firstNotNullOf null
+            val spectator = engine.view(st, Viewer.Spectator)
+            val one = spectator.opponents.firstOrNull { it.isAlive && it.hiddenCount == 1 }
+            val two = spectator.opponents.firstOrNull { it.isAlive && it.hiddenCount == 2 && it.coins <= (one?.coins ?: -1) }
+            if (one != null && two != null) Triple(st, one.id, two.id) else null
+        }
+        assertThat(a.reward(engine.view(mid, Viewer.Player(weak)), weak)).isLessThan(a.reward(engine.view(mid, Viewer.Player(strong)), strong))
     }
 
     @Test

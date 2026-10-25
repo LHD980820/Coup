@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -21,7 +22,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * AI 좌석(설계 §6.2). 에이전트에게 **자기 시점의 뷰와 이벤트만** 전달한다.
- * 결정은 [decisionDispatcher]에서 계산하고, 연출용으로 [thinkTime] 범위만큼 기다린 뒤 제출한다(테스트에서는 0).
+ * 결정은 [decisionDispatcher]에서 계산하고, 연출용 [thinkTime](테스트에서는 0)과 계산 중 긴 쪽이 지난 뒤 제출한다.
  * 에이전트가 예외를 던지면 아무것도 제출하지 않는다 — 권한자의 타임아웃 기본 수가 대신한다.
  */
 public class AiSeat(
@@ -48,14 +49,18 @@ public class AiSeat(
     override suspend fun onDecisionRequired(view: PlayerView, request: DecisionRequest, submit: CommandSubmitter) {
         scope.launch {
             val wait = pickThinkTime()
-            if (wait > Duration.ZERO) delay(wait)
-            val command = try {
-                agentLock.withLock { withContext(decisionDispatcher) { agent.decide(view, request) } }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                return@launch // 타임아웃 기본 수에 맡긴다
+            // 계산(HARD는 수백 ms까지)과 "생각하는 척" 연출 시간을 겹친다: 체감 지연은 둘 중 긴 쪽이다
+            val decision = async {
+                try {
+                    agentLock.withLock { withContext(decisionDispatcher) { agent.decide(view, request) } }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    null // 타임아웃 기본 수에 맡긴다(예외를 부모로 퍼뜨리지 않는다)
+                }
             }
+            if (wait > Duration.ZERO) delay(wait)
+            val command = decision.await() ?: return@launch
             submit(command) // 그사이 상태가 바뀌었으면 STALE_VERSION으로 거절되고 다음 결정 요청을 기다린다
         }
     }
