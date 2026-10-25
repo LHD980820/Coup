@@ -1,5 +1,11 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,6 +48,9 @@ internal object ShellTags {
     const val HOME_SINGLE = "home_single"
     const val HOME_TUTORIAL = "home_tutorial"
     const val HOME_MULTI = "home_multi"
+    const val HOME_SETTINGS = "home_settings"
+    const val SETTINGS_BACK = "settings_back"
+    fun motion(speed: MotionSpeed) = "settings_motion_${speed.name.lowercase()}"
     const val TUTORIAL_BACK = "tutorial_list_back"
     const val COACH_DONE = "coach_done"
     const val COACH_NEXT = "coach_next"
@@ -63,6 +72,8 @@ internal fun HomeScreen(
     onSignOut: () -> Unit = {},
     onRanking: (() -> Unit)? = null,
     onHistory: (() -> Unit)? = null,
+    /** 설정 화면 진입. null이면 버튼을 보이지 않는다. */
+    onSettings: (() -> Unit)? = null,
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -75,6 +86,43 @@ internal fun HomeScreen(
             OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_TUTORIAL)) {
                 Text(stringResource(R.string.game_home_tutorial))
             }
+            onSettings?.let {
+                TextButton(onClick = it, modifier = Modifier.testTag(ShellTags.HOME_SETTINGS)) { Text(stringResource(R.string.game_home_settings)) }
+            }
+        }
+    }
+}
+
+/** 설정 화면: 애니메이션 속도. 고르면 바로 적용되고 저장된다. */
+@Composable
+internal fun SettingsScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val options = listOf(
+        MotionSpeed.NORMAL to R.string.settings_motion_normal,
+        MotionSpeed.FAST to R.string.settings_motion_fast,
+        MotionSpeed.OFF to R.string.settings_motion_off,
+    )
+    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineMedium)
+            Text(stringResource(R.string.settings_motion_title), style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.selectableGroup()) {
+                options.forEach { (speed, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .selectable(selected = settings.motion == speed, role = Role.RadioButton, onClick = { settings.chooseMotion(speed) })
+                            .testTag(ShellTags.motion(speed)),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = settings.motion == speed, onClick = null)
+                        Text(stringResource(label), Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+            Text(stringResource(R.string.settings_motion_note), style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onBack, modifier = Modifier.testTag(ShellTags.SETTINGS_BACK)) { Text(stringResource(R.string.settings_back)) }
         }
     }
 }

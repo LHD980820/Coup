@@ -1,5 +1,8 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,7 +24,7 @@ import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.shell.stats.HistoryModel
 import io.github.lhd980820.coup.shell.stats.RankingModel
 
-private enum class Screen { HOME, SETUP, TUTORIALS, MULTI, RANKING, HISTORY }
+private enum class Screen { HOME, SETUP, TUTORIALS, MULTI, RANKING, HISTORY, SETTINGS }
 
 /**
  * 앱의 화면 흐름: 홈 -> (AI와 대전: 설정 -> 게임) | (튜토리얼: 목록 -> 과정). 게임 중이면(컨트롤러가 있으면) 게임 화면이 우선한다.
@@ -33,6 +36,32 @@ internal fun AppFlow(
     modifier: Modifier = Modifier,
     shell: ShellViewModel? = null,
     google: GoogleTokenSource? = null,
+    /** 앱 설정(애니메이션 속도). null이면 설정 화면이 없고 연출은 꺼진다. */
+    settings: AppSettings? = null,
+) {
+    // 연출 속도는 설정과 기기의 "애니메이션 없음"을 함께 본다
+    val systemScale = rememberSystemAnimatorScale()
+    val motion = motionFor(settings, systemScale)
+    CompositionLocalProvider(LocalMotion provides motion) {
+        AppScreens(viewModel, onExit, modifier, shell, google, settings)
+    }
+}
+
+/** 기기의 전환 애니메이션 배율(개발자 옵션/접근성의 "애니메이션 없음"이면 0). 읽을 수 없으면 1. */
+@Composable
+private fun rememberSystemAnimatorScale(): Float {
+    val resolver = LocalContext.current.contentResolver
+    return remember(resolver) { Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) }
+}
+
+@Composable
+private fun AppScreens(
+    viewModel: GameViewModel,
+    onExit: () -> Unit,
+    modifier: Modifier,
+    shell: ShellViewModel?,
+    google: GoogleTokenSource?,
+    settings: AppSettings?,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val controller: GameController? = viewModel.controller
@@ -57,7 +86,9 @@ internal fun AppFlow(
                 onSignOut = { shell?.signOut() },
                 onRanking = shell?.let { { screen = Screen.RANKING } },
                 onHistory = shell?.let { { screen = Screen.HISTORY } },
+                onSettings = settings?.let { { screen = Screen.SETTINGS } },
             )
+            Screen.SETTINGS -> if (settings != null) SettingsScreen(settings, onBack = { screen = Screen.HOME }, modifier = modifier) else screen = Screen.HOME
             Screen.RANKING -> {
                 val services = shell?.services
                 if (services != null) {

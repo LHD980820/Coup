@@ -1,5 +1,24 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
@@ -109,6 +128,9 @@ internal object GameTags {
     const val ABILITY_CLOSE = "ability_close"
     const val TIMER_MINE = "timer_mine"
     const val RESPONSE_SHEET = "response_sheet"
+    const val MY_COINS = "coins_mine"
+    fun coins(id: String) = "coins_$id"
+    fun flip(id: String, index: Int) = "flip_${id}_$index"
     fun timer(id: String) = "timer_$id"
 }
 
@@ -187,7 +209,7 @@ internal fun GameScreen(
             TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
         }
         // 응답할 차례가 오면 맨 아래에 응답 시트가 붙는다(표·기록을 가리지 않는 비모달 시트)
-        (state.decision as? DecisionUi.Respond)?.let { ResponseSheet(state, it, texts, actions, guide?.expect) }
+        (state.decision as? DecisionUi.Respond)?.let { SheetEntrance { ResponseSheet(state, it, texts, actions, guide?.expect) } }
     }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -315,16 +337,20 @@ private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean) {
     Card(
         modifier = Modifier
             .width(150.dp)
-            .alpha(if (op.isAlive) 1f else 0.5f)
+            .alpha(fadeTo(if (op.isAlive) 1f else 0.5f))
             .testTag(GameTags.opponent(op.id.value)),
         border = if (highlight) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(op.name, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.game_coins, op.coins), style = MaterialTheme.typography.bodySmall)
+            CoinsText(op.coins, GameTags.coins(op.id.value), MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                op.revealed.forEach { role -> CardImage(role = role, revealed = true, modifier = Modifier.size(width = 34.dp, height = 48.dp)) }
+                // 화면을 처음 그릴 때 이미 공개돼 있던 카드는 그대로 두고, 그 뒤에 공개되는 카드만 뒤집는다
+                val settled = remember { op.revealed.size }
+                op.revealed.forEachIndexed { i, role ->
+                    FlipCard(role, animate = i >= settled, modifier = Modifier.size(width = 34.dp, height = 48.dp).testTag(GameTags.flip(op.id.value, i)))
+                }
                 repeat(op.hiddenCount) { CardImage(role = null, revealed = false, modifier = Modifier.size(width = 34.dp, height = 48.dp)) }
             }
             val status = when {
@@ -399,7 +425,7 @@ private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(me.name, fontWeight = FontWeight.Bold)
-            Text(stringResource(R.string.game_coins, me.coins))
+            CoinsText(me.coins, GameTags.MY_COINS)
             if (!me.isAlive) Text(stringResource(R.string.game_eliminated))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -442,7 +468,7 @@ private fun HandCard(card: CardUi, onClick: (() -> Unit)?, inspect: Boolean) {
             revealed = true,
             modifier = Modifier
                 .size(width = 62.dp, height = 88.dp)
-                .alpha(if (card.revealed) 0.45f else 1f),
+                .alpha(fadeTo(if (card.revealed) 0.45f else 1f)),
             border = if (card.selected) BorderStroke(3.dp, MaterialTheme.colorScheme.primary) else null,
         )
         Text(name, style = MaterialTheme.typography.labelMedium)
@@ -457,6 +483,91 @@ private fun CardImage(role: io.github.lhd980820.coup.engine.model.RoleId?, revea
         Image(painterResource(res), contentDescription = null, modifier = Modifier.fillMaxSize())
     }
 }
+
+// ---- 연출 ---------------------------------------------------------------------------------------
+// 모든 연출은 [LocalMotion]이 꺼져 있으면 즉시 끝난다(설정 "끄기" 또는 기기의 애니메이션 없음). 상태는 연출과 상관없이 바로 바뀌어 있다.
+
+/** 카드가 뒤집히는 진행(0 = 뒷면, 1 = 앞면). 자동 테스트가 연출 도중을 확인하는 데 쓴다. */
+internal val FlipProgress = SemanticsPropertyKey<Float>("FlipProgress")
+private var SemanticsPropertyReceiver.flipProgress by FlipProgress
+
+/** 값이 바뀔 때 부드럽게 따라가는 투명도. 연출이 꺼져 있으면 바로 바뀐다. */
+@Composable
+private fun fadeTo(target: Float): Float {
+    val motion = LocalMotion.current
+    val value by animateFloatAsState(target, if (motion.enabled) tween(motion.ms(FADE_MS)) else snap(), label = "fade")
+    return value
+}
+
+/** 공개된 카드. [animate]면 뒷면에서 앞면으로 뒤집히며 나타난다. */
+@Composable
+private fun FlipCard(role: RoleId, animate: Boolean, modifier: Modifier = Modifier) {
+    val motion = LocalMotion.current
+    val rotation = remember { Animatable(if (animate && motion.enabled) 0f else 180f) }
+    LaunchedEffect(Unit) {
+        if (rotation.value < 180f) rotation.animateTo(180f, tween(motion.ms(FLIP_MS)))
+    }
+    val name = stringResource(RoleUiCatalog.of(role).name)
+    Box(
+        modifier
+            .graphicsLayer {
+                rotationY = rotation.value
+                cameraDistance = FLIP_CAMERA * density
+            }
+            .semantics { flipProgress = rotation.value / 180f; contentDescription = name },
+    ) {
+        if (rotation.value < 90f) {
+            CardImage(role = null, revealed = false, modifier = Modifier.fillMaxSize())
+        } else {
+            // 뒤집힌 뒤의 앞면은 거울상이 되므로 한 번 더 돌려 바로 세운다
+            Box(Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }) { CardImage(role = role, revealed = true, modifier = Modifier.fillMaxSize()) }
+        }
+    }
+}
+
+/** 코인 수. 바뀌면 숫자가 올라가거나(늘 때) 내려가며(줄 때) 바뀐다. 스크린리더에는 항상 새 값 하나만 읽힌다. */
+@Composable
+private fun CoinsText(coins: Int, tag: String, style: TextStyle = LocalTextStyle.current) {
+    val motion = LocalMotion.current
+    val label = stringResource(R.string.game_coins, coins)
+    if (!motion.enabled) {
+        Text(label, style = style, modifier = Modifier.testTag(tag))
+        return
+    }
+    AnimatedContent(
+        targetState = coins,
+        modifier = Modifier.testTag(tag).clearAndSetSemantics { contentDescription = label },
+        transitionSpec = {
+            val up = targetState > initialState
+            val ms = motion.ms(COIN_MS)
+            (slideInVertically(tween(ms)) { if (up) it else -it } + fadeIn(tween(ms))) togetherWith
+                (slideOutVertically(tween(ms)) { if (up) -it else it } + fadeOut(tween(ms)))
+        },
+        label = "coins",
+    ) { c -> Text(stringResource(R.string.game_coins, c), style = style) }
+}
+
+/** 응답 시트가 아래에서 올라오며 나타난다. 연출이 꺼져 있으면 바로 나타난다. */
+@Composable
+private fun SheetEntrance(content: @Composable () -> Unit) {
+    val motion = LocalMotion.current
+    if (!motion.enabled) {
+        content()
+        return
+    }
+    val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(
+        visibleState = visible,
+        enter = slideInVertically(tween(motion.ms(SHEET_MS))) { it } + fadeIn(tween(motion.ms(SHEET_MS))),
+        exit = ExitTransition.None,
+    ) { content() }
+}
+
+private const val FADE_MS = 400
+private const val FLIP_MS = 500
+private const val COIN_MS = 300
+private const val SHEET_MS = 300
+private const val FLIP_CAMERA = 12f
 
 // ---- 남은 시간 ----------------------------------------------------------------------------------
 

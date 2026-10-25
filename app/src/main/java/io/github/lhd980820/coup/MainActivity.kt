@@ -14,6 +14,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.game.PrefsTutorialStore
 import io.github.lhd980820.coup.game.AppFlow
+import io.github.lhd980820.coup.game.AppSettings
+import io.github.lhd980820.coup.game.PrefsSettingsStore
 import io.github.lhd980820.coup.multiplayer.AndroidCodeSharer
 import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
 import io.github.lhd980820.coup.multiplayer.LocalCodeSharer
@@ -35,6 +37,8 @@ class MainActivity : ComponentActivity() {
     /** 구글 로그인(Credential Manager). 웹 클라이언트 ID는 google-services 플러그인이 만든 리소스다. */
     private val google by lazy { CredentialManagerGoogleTokenSource(this, getString(R.string.default_web_client_id)) }
 
+    private val settings by lazy { AppSettings(PrefsSettingsStore(applicationContext)) }
+
     private val codeSharer by lazy { AndroidCodeSharer(this) }
 
     private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
@@ -45,7 +49,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CoupTheme {
                 CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
-                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google)
+                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google, settings = settings)
                 }
             }
         }
