@@ -5,6 +5,7 @@
     <string name="game_setup_difficulty">난이도</string>
     <string name="game_difficulty_easy">쉬움</string>
     <string name="game_difficulty_normal">보통</string>
+    <string name="game_difficulty_hard">어려움</string>
     <string name="game_setup_start">게임 시작</string>
     <string name="game_you">나</string>
     <string name="game_ai_name">AI %1$d</string>

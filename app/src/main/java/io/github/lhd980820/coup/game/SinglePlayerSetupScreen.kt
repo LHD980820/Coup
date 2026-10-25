@@ -70,7 +70,11 @@ internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modi
 
             Text(stringResource(R.string.game_setup_difficulty), style = MaterialTheme.typography.titleMedium)
             Column(Modifier.selectableGroup()) {
-                listOf(AiDifficulty.EASY to R.string.game_difficulty_easy, AiDifficulty.NORMAL to R.string.game_difficulty_normal).forEach { (d, label) ->
+                listOf(
+                    AiDifficulty.EASY to R.string.game_difficulty_easy,
+                    AiDifficulty.NORMAL to R.string.game_difficulty_normal,
+                    AiDifficulty.HARD to R.string.game_difficulty_hard,
+                ).forEach { (d, label) ->
                     Row(
                         Modifier
                             .fillMaxWidth()

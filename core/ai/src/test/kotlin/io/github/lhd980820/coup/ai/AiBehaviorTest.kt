@@ -108,7 +108,7 @@ class AiBehaviorTest {
             g++
             val seats = List(4) { p(it) }
             var state = engine.newGame(GameSetup("eq$g", seats, BuiltinRules.classicConfig(), g.toLong()))
-            val agents = seats.associateWith { AiFactory.create(difficulty, seed = g * 7L + it.value.hashCode()) }
+            val agents = seats.associateWith { AiTestFactory.create(difficulty, seed = g * 7L + it.value.hashCode()) }
             while (!state.isOver) {
                 val who = engine.pendingDeciders(state).first()
                 val view = engine.view(state, Viewer.Player(who))
@@ -127,8 +127,8 @@ class AiBehaviorTest {
                 val otherView = engine.view(other, Viewer.Player(who))
                 check(otherView == view) { "alternative world must look identical to ${who.value}" }
 
-                val a = AiFactory.create(difficulty, seed = 5).decide(view, checkNotNull(view.myDecision))
-                val b = AiFactory.create(difficulty, seed = 5).decide(otherView, checkNotNull(otherView.myDecision))
+                val a = AiTestFactory.create(difficulty, seed = 5).decide(view, checkNotNull(view.myDecision))
+                val b = AiTestFactory.create(difficulty, seed = 5).decide(otherView, checkNotNull(otherView.myDecision))
                 check(a == b) { "decision depends on hidden information: $a vs $b" }
                 checked++
 
@@ -153,7 +153,11 @@ class AiBehaviorTest {
         while (decisions <= 10_000) {
             g++
             val players = 2 + g % 5
-            val agents = List(players) { i -> AiFactory.create(difficulty, personalities[(g + i) % 3], seed = g * 13L + i) }
+            // HARD는 한 자리에만 앉히고 나머지는 NORMAL로 채운다 — 탐색 비용 없이도 HARD의 모든 결정이 엔진에 수락되는지 본다
+            val agents = List(players) { i ->
+                val kind = if (difficulty == AiDifficulty.HARD && i != 0) AiDifficulty.NORMAL else difficulty
+                AiTestFactory.create(kind, personalities[(g + i) % 3], seed = g * 13L + i)
+            }
             decisions += Arena.play(agents, seed = g.toLong(), config = configs[g % configs.size]).decisions
         }
         assertThat(decisions).isGreaterThan(10_000)

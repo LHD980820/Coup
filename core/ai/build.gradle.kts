@@ -26,4 +26,6 @@ tasks.register<Test>("tournament") {
     classpath = sourceSets["test"].runtimeClasspath
     useJUnitPlatform { includeTags("slow") }
     testLogging { showStandardStreams = true }
+    // 탐색 설정 측정용 시스템 속성(-Dprobe.*)을 테스트 JVM에 넘긴다
+    listOf("probe.samples", "probe.depth", "probe.games", "probe.players", "probe.villain", "probe.hero", "probe.bonus", "probe.mix").forEach { k -> System.getProperty(k)?.let { systemProperty(k, it) } }
 }

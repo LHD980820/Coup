@@ -25,9 +25,10 @@ internal class HeuristicAgent(
     private val settings: AiSettings,
     private val personality: Personality,
     seed: Long,
+    /** 주장 기록. 탐색의 롤아웃은 모든 좌석이 공개 정보인 이 기록을 함께 쓴다(주장은 모두에게 보인다). */
+    internal val history: ClaimHistory = ClaimHistory(),
 ) : AiAgent {
     private val random = Random(seed)
-    private val history = ClaimHistory()
 
     override fun observe(events: List<VisibleEvent>, view: PlayerView) {
         history.observe(events)

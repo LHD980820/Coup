@@ -15,6 +15,14 @@ internal class ClaimHistory {
     private val claimsMade = mutableMapOf<PlayerId, Int>()
     private val exposed = mutableMapOf<PlayerId, Int>()
 
+    /** 지금까지의 기록을 그대로 복사한다(탐색이 시뮬레이션마다 현재 지식에서 출발하도록). */
+    fun copy(): ClaimHistory = ClaimHistory().also { c ->
+        claims.forEach { (p, r) -> c.claims[p] = r.toMutableSet() }
+        c.pendingChallenge.putAll(pendingChallenge)
+        c.claimsMade.putAll(claimsMade)
+        c.exposed.putAll(exposed)
+    }
+
     fun observe(events: List<VisibleEvent>) = events.forEach { observe(it.event) }
 
     fun observe(event: GameEvent) {
