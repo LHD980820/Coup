@@ -90,10 +90,10 @@ internal class HardAgent(
             rewards.forEachIndexed { i, r -> totals[i] += r }
             finished++
         }
-        // 한 가정도 끝내지 못했으면(뷰가 모순이거나 시간이 부족) NORMAL 정책이 정한다
-        if (finished == 0) return base.decide(view, request)
+        // 한 가정도 끝내지 못했으면(뷰가 모순이거나 시간이 부족) NORMAL 정책이 이미 고른 수를 낸다
+        if (finished == 0) return preferred
         val score = { i: Int -> totals[i] / finished + if (candidates[i] == preferred) config.priorBonus else 0.0 }
-        val best = candidates.indices.maxWith(compareBy<Int> { score(it) }.thenBy { -it }) // 동점이면 앞선 후보(요청 순서)
+        val best = candidates.indices.maxBy(score) // 동점이면 앞선 후보(요청 순서): maxBy는 처음 나온 최댓값을 고른다
         return candidates[best]
     }
 
@@ -101,7 +101,8 @@ internal class HardAgent(
 
     // ---- 후보 --------------------------------------------------------------------------------
 
-    private fun candidates(view: PlayerView, request: DecisionRequest, me: PlayerId): List<Command> {
+    /** 탐색할 후보 수(테스트가 직접 확인한다). */
+    internal fun candidates(view: PlayerView, request: DecisionRequest, me: PlayerId): List<Command> {
         val v = view.version
         return when (request) {
             is DecisionRequest.ChooseAction -> request.options.filter { it.selectable }.flatMap { actionCandidates(view, me, it) }
@@ -214,7 +215,7 @@ internal class HardAgent(
     }
 
     /** 끝난 판은 순위(우승 1.0), 안 끝났으면 형세(내 영향력·코인이 전체에서 차지하는 몫)로 평가한다. 형세 값은 우승보다 낮게 둔다. */
-    private fun reward(view: PlayerView, me: PlayerId): Double {
+    internal fun reward(view: PlayerView, me: PlayerId): Double {
         val result = view.result
         if (result != null) {
             if (result.winner == me) return 1.0

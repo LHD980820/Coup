@@ -167,8 +167,12 @@ class HardAgentTest {
         val spy = SpyEngine(engine, failDeterminize = true)
         decisionPoints(games = 6).take(120).forEach { (state, who) ->
             val view = engine.view(state, Viewer.Player(who))
-            val command = AiFactory.create(AiDifficulty.HARD, seed = 2, hard = config(), engine = spy).decide(view, checkNotNull(view.myDecision))
+            val request = checkNotNull(view.myDecision)
+            val command = AiFactory.create(AiDifficulty.HARD, seed = 2, hard = config(), engine = spy).decide(view, request)
             assertThat(engine.apply(state, command)).isInstanceOf(ApplyResult.Accepted::class)
+            // 아무 합법 수가 아니라 NORMAL 정책의 선택이어야 한다
+            val normal = HeuristicAgent(AiSettings.of(AiDifficulty.HARD), Personality.BALANCED, 2L xor HardAgent.BASE_SEED_MIX).decide(view, request)
+            assertThat(command).isEqualTo(normal)
         }
         assertThat(spy.determinizeCalls).isGreaterThan(0)
     }
@@ -197,6 +201,89 @@ class HardAgentTest {
         }
         assertThat(counts[1]).isGreaterThan(counts[0])
         assertThat(counts[2]).isGreaterThan(counts[1])
+    }
+
+    // ---- 후보와 평가 ----
+
+    private fun agent() = HardAgent(engine, config(), Personality.BALANCED, 1)
+
+    @Test
+    fun `대상 후보는 위협이 큰 상대부터 고른다`() {
+        val points = decisionPoints(games = 20, players = 5, limit = 800).map { (s, w) -> engine.view(s, Viewer.Player(w)) }
+        var checked = 0
+        points.forEach { view ->
+            val request = view.myDecision as? DecisionRequest.ChooseAction ?: return@forEach
+            val me = view.me!!.id
+            val one = HardAgent(engine, config().copy(candidateTargets = 1), Personality.BALANCED, 1).candidates(view, request, me)
+            request.options.filter { it.selectable && (it.validTargets?.size ?: 0) > 1 }.forEach { option ->
+                val chosen = one.filterIsInstance<Command.DeclareAction>().single { it.actionId == option.actionId }.target!!
+                val top = option.validTargets!!.maxOf { io.github.lhd980820.coup.ai.policy.Valuation.threat(view, it) }
+                assertThat(io.github.lhd980820.coup.ai.policy.Valuation.threat(view, chosen)).isEqualTo(top)
+                checked++
+            }
+        }
+        assertThat(checked).isGreaterThan(20)
+    }
+
+    @Test
+    fun `교환 후보는 남길 역할 구성이 다른 조합만 남긴다`() {
+        val view = firstPoint { it.myDecision is DecisionRequest.ChooseExchange }
+        val request = view.myDecision as DecisionRequest.ChooseExchange
+        val keeps = agent().candidates(view, request, view.me!!.id).map { c ->
+            (c as Command.ChooseExchange).keep.map { id -> request.candidates.first { it.id == id }.role.value }.sorted()
+        }
+        assertThat(keeps.toSet().size).isEqualTo(keeps.size)
+        val roles = request.candidates.map { it.role.value }
+        val expected = mutableSetOf<List<String>>()
+        fun walk(start: Int, chosen: List<String>) {
+            if (chosen.size == request.keepCount) { expected += chosen.sorted(); return }
+            for (i in start until roles.size) walk(i + 1, chosen + roles[i])
+        }
+        walk(0, emptyList())
+        assertThat(keeps.toSet()).isEqualTo(expected)
+    }
+
+    @Test
+    fun `응답 후보는 허용과, 할 수 있을 때만 도전과 막기다`() {
+        val view = multiChoiceView()
+        val request = view.myDecision as DecisionRequest.Respond
+        val commands = agent().candidates(view, request, view.me!!.id)
+        assertThat(commands.count { it is Command.Pass }).isEqualTo(1)
+        assertThat(commands.count { it is Command.Challenge }).isEqualTo(if (request.canChallenge) 1 else 0)
+        assertThat(commands.filterIsInstance<Command.Block>().map { it.asRole }.toSet()).isEqualTo(request.blockOptions.map { it.role }.toSet())
+    }
+
+    @Test
+    fun `평가 - 우승은 1, 끝나지 않은 판은 형세에 따라 우승보다 낮고 영향력이 많을수록 높다`() {
+        val a = agent()
+        // 끝난 판: 이긴 사람 1, 2인전에서 진 사람 0
+        val seats = List(2) { p(it) }
+        var state = engine.newGame(GameSetup("end", seats, BuiltinRules.classicConfig(), 4, p(0)))
+        state = (engine.apply(state, Command.Concede(p(1))) as ApplyResult.Accepted).state
+        assertThat(a.reward(engine.view(state, Viewer.Player(p(0))), p(0))).isEqualTo(1.0)
+        assertThat(a.reward(engine.view(state, Viewer.Player(p(1))), p(1))).isEqualTo(0.0)
+        // 진행 중: 같은 판에서 영향력을 하나 잃은 쪽이 더 낮다
+        val start = engine.newGame(GameSetup("mid", List(3) { p(it) }, BuiltinRules.classicConfig(), 4, p(0)))
+        val before = a.reward(engine.view(start, Viewer.Player(p(0))), p(0))
+        assertThat(before).isGreaterThan(0.0)
+        assertThat(before).isLessThan(0.8)
+        val view1 = engine.view(start, Viewer.Player(p(1)))
+        val other = a.reward(view1, p(1))
+        assertThat(other).isEqualTo(before) // 같은 형세(영향력 2, 코인 2)는 같은 값
+    }
+
+    @Test
+    fun `주장 기록 복사본은 같은 지식을 갖고, 원본과 따로 바뀐다`() {
+        val seats = List(3) { p(it) }
+        val state = engine.newGame(GameSetup("copy", seats, BuiltinRules.classicConfig(), 5, p(0)))
+        val declared = engine.apply(state, Command.DeclareAction(p(0), ActionId("tax"), null)) as ApplyResult.Accepted
+        val original = ClaimHistory().also { it.observe(engine.projectEvents(declared.events, Viewer.Spectator)) }
+        val copy = original.copy()
+        assertThat(copy.claimed(p(0))).isEqualTo(setOf(RoleId("duke")))
+        assertThat(copy.bluffRate(p(0), 0.35)).isEqualTo(original.bluffRate(p(0), 0.35))
+        copy.observe(io.github.lhd980820.coup.engine.event.GameEvent.PlayerEliminated(p(0)))
+        assertThat(copy.claimed(p(0))).isEqualTo(emptySet())
+        assertThat(original.claimed(p(0))).isEqualTo(setOf(RoleId("duke")))
     }
 
     // ---- 사전값(NORMAL의 선택) ----
