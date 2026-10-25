@@ -52,6 +52,7 @@
     <string name="game_pass">허용</string>
     <string name="game_challenge">도전</string>
     <string name="game_block_with">%1$s(으)로 막기</string>
+    <string name="game_respond_pane">응답할 차례</string>
     <string name="game_respond_prompt">%1$s의 %2$s에 어떻게 하시겠어요?</string>
     <string name="game_pick_reveal">%1$s 주장에 도전받았습니다. 공개할 카드를 고르세요</string>
     <string name="game_pick_lose">잃을 카드를 고르세요</string>

@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -107,6 +108,7 @@ internal object GameTags {
     const val ABILITY_SHEET = "ability_sheet"
     const val ABILITY_CLOSE = "ability_close"
     const val TIMER_MINE = "timer_mine"
+    const val RESPONSE_SHEET = "response_sheet"
     fun timer(id: String) = "timer_$id"
 }
 
@@ -177,16 +179,15 @@ internal fun GameScreen(
     val bottom: @Composable ColumnScope.() -> Unit = {
         guide?.let { CoachCard(it) }
         ConnectionBanner(state.connection, onExit)
-        BannerCard(state, texts)
+        // 기권은 배너 줄에 붙는다 — 응답 시트가 떠도 항상 닿고, 작은 화면에서 자리를 따로 먹지 않는다
+        BannerCard(state, texts, onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null)
         state.me?.let { MyArea(state, it, actions, onInspect = { role -> inspected = role }) }
         DecisionPanel(state, texts, actions, guide?.expect)
         if (guide != null) {
             TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
-        } else if (state.result == null && !abandoned) {
-            TextButton(onClick = { confirmConcede = true }, modifier = Modifier.testTag(GameTags.CONCEDE)) {
-                Text(stringResource(R.string.game_concede))
-            }
         }
+        // 응답할 차례가 오면 맨 아래에 응답 시트가 붙는다(표·기록을 가리지 않는 비모달 시트)
+        (state.decision as? DecisionUi.Respond)?.let { ResponseSheet(state, it, texts, actions, guide?.expect) }
     }
 
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -362,15 +363,19 @@ private fun CoachCard(guide: GuideUi) {
 // ---- 배너/로그 ----------------------------------------------------------------------------------
 
 @Composable
-private fun BannerCard(state: GameUiState, texts: GameTexts) {
+private fun BannerCard(state: GameUiState, texts: GameTexts, onConcede: (() -> Unit)?) {
     Card(Modifier.fillMaxWidth().testTag(GameTags.BANNER), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp)) {
             Text(texts.banner(state.banner), style = MaterialTheme.typography.titleMedium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelSmall)
                 // 내가 결정할 차례일 때만 내 남은 시간을 보인다(끝난 판·기다리는 중에는 숨김)
                 val deadline = state.myDeadline
-                if (deadline != null && state.decision != null && state.result == null) Countdown(deadline, GameTags.TIMER_MINE)
+                if (deadline != null && state.decision != null && state.decision !is DecisionUi.Respond && state.result == null) Countdown(deadline, GameTags.TIMER_MINE)
+                if (onConcede != null) {
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onConcede, modifier = Modifier.testTag(GameTags.CONCEDE)) { Text(stringResource(R.string.game_concede)) }
+                }
             }
         }
     }
@@ -516,6 +521,68 @@ private fun AbilitySheet(role: RoleId, onDismiss: () -> Unit) {
     }
 }
 
+// ---- 응답 시트 ----------------------------------------------------------------------------------
+
+/**
+ * 응답할 차례(허용·도전·막기)에 맨 아래에 붙는 시트(설계 §10.3). 모달이 아니라서 결정에 필요한 표·기록·내 카드가 그대로 보인다.
+ * 누구의 무슨 주장인지와 남은 시간을 함께 보이고, 버튼의 터치 타깃은 Material 기본값으로 48dp 이상이다. 나타날 때 스크린리더가 시트 이름을 읽는다.
+ * 안내(튜토리얼)가 있으면 가리키는 버튼만 켜진다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ResponseSheet(state: GameUiState, decision: DecisionUi.Respond, texts: GameTexts, actions: GameActions, expect: TutorialExpect?) {
+    val enabled = !state.busy
+    val paneTitle = stringResource(R.string.game_respond_pane)
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        tonalElevation = 6.dp,
+        shadowElevation = 6.dp,
+        modifier = Modifier.fillMaxWidth().semantics { this.paneTitle = paneTitle }.testTag(GameTags.RESPONSE_SHEET),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(texts.respondPrompt(decision.actor, decision.actionId, decision.windowKind), style = MaterialTheme.typography.titleSmall)
+                    if (decision.claimedRoles.isNotEmpty()) {
+                        Text(
+                            texts.name(decision.claimant) + " · " + stringResource(R.string.game_claiming, texts.roles(decision.claimedRoles)),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+                state.myDeadline?.let { Countdown(it, GameTags.TIMER_MINE) }
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = actions::pass,
+                    enabled = enabled && expect.allowsPass(),
+                    modifier = Modifier.guideRing(expect != null && expect.allowsPass()).testTag(GameTags.PASS),
+                ) {
+                    Text(stringResource(R.string.game_pass))
+                }
+                if (decision.canChallenge) {
+                    Button(
+                        onClick = actions::challenge,
+                        enabled = enabled && expect.allowsChallenge(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.guideRing(expect != null && expect.allowsChallenge()).testTag(GameTags.CHALLENGE),
+                    ) { Text(stringResource(R.string.game_challenge)) }
+                }
+                decision.blocks.forEach { b ->
+                    val allowed = expect.allowsBlock(b.role.value)
+                    OutlinedButton(
+                        onClick = { actions.block(b.role) },
+                        enabled = enabled && allowed,
+                        modifier = Modifier.guideRing(expect != null && allowed).testTag(GameTags.block(b.role.value)),
+                    ) {
+                        Text(stringResource(R.string.game_block_with, texts.role(b.role)) + if (b.bluff) " · " + stringResource(R.string.game_bluff) else "")
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---- 결정 ---------------------------------------------------------------------------------------
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -547,36 +614,7 @@ private fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAct
                     }
                 }
             }
-            is DecisionUi.Respond -> {
-                Text(texts.respondPrompt(decision.actor, decision.actionId, decision.windowKind))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = actions::pass,
-                        enabled = enabled && expect.allowsPass(),
-                        modifier = Modifier.guideRing(expect != null && expect.allowsPass()).testTag(GameTags.PASS),
-                    ) {
-                        Text(stringResource(R.string.game_pass))
-                    }
-                    if (decision.canChallenge) {
-                        Button(
-                            onClick = actions::challenge,
-                            enabled = enabled && expect.allowsChallenge(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.guideRing(expect != null && expect.allowsChallenge()).testTag(GameTags.CHALLENGE),
-                        ) { Text(stringResource(R.string.game_challenge)) }
-                    }
-                    decision.blocks.forEach { b ->
-                        val allowed = expect.allowsBlock(b.role.value)
-                        OutlinedButton(
-                            onClick = { actions.block(b.role) },
-                            enabled = enabled && allowed,
-                            modifier = Modifier.guideRing(expect != null && allowed).testTag(GameTags.block(b.role.value)),
-                        ) {
-                            Text(stringResource(R.string.game_block_with, texts.role(b.role)) + if (b.bluff) " · " + stringResource(R.string.game_bluff) else "")
-                        }
-                    }
-                }
-            }
+            is DecisionUi.Respond -> Unit // 아래에 붙는 응답 시트([ResponseSheet])가 그린다
             is DecisionUi.PickCard -> {
                 Text(
                     if (decision.purpose == CardPurpose.REVEAL) stringResource(R.string.game_pick_reveal, texts.roles(decision.claimedRoles))

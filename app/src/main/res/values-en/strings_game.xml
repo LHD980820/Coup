@@ -52,6 +52,7 @@
     <string name="game_pass">Allow</string>
     <string name="game_challenge">Challenge</string>
     <string name="game_block_with">Block with %1$s</string>
+    <string name="game_respond_pane">Your response</string>
     <string name="game_respond_prompt">What will you do about %1$s\'s %2$s?</string>
     <string name="game_pick_reveal">Your claim of %1$s was challenged. Choose a card to reveal</string>
     <string name="game_pick_lose">Choose a card to lose</string>
