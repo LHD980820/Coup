@@ -59,6 +59,7 @@ public object GameUiMapper {
             },
             busy = busy,
             log = log,
+            ruleSet = view.ruleSet.config,
         )
     }
 

@@ -41,12 +41,21 @@ internal fun motionFor(settings: AppSettings?, systemAnimatorScale: Float): Moti
 internal interface SettingsStore {
     fun motion(): MotionSpeed
     fun setMotion(speed: MotionSpeed)
+
+    /** 싱글플레이 설정 화면에서 마지막으로 시작한 선택(없으면 null). */
+    fun lastSetup(): SetupChoice?
+    fun setLastSetup(choice: SetupChoice)
 }
 
-internal class InMemorySettingsStore(private var speed: MotionSpeed = MotionSpeed.NORMAL) : SettingsStore {
+internal class InMemorySettingsStore(private var speed: MotionSpeed = MotionSpeed.NORMAL, private var setup: SetupChoice? = null) : SettingsStore {
     override fun motion() = speed
     override fun setMotion(speed: MotionSpeed) {
         this.speed = speed
+    }
+
+    override fun lastSetup() = setup
+    override fun setLastSetup(choice: SetupChoice) {
+        setup = choice
     }
 }
 
@@ -59,8 +68,14 @@ internal class PrefsSettingsStore(context: Context) : SettingsStore {
         prefs.edit { putString(KEY_MOTION, speed.name) }
     }
 
+    override fun lastSetup(): SetupChoice? = SetupChoice.decode(prefs.getString(KEY_SETUP, null))
+    override fun setLastSetup(choice: SetupChoice) {
+        prefs.edit { putString(KEY_SETUP, choice.encode()) }
+    }
+
     private companion object {
         const val KEY_MOTION = "motion"
+        const val KEY_SETUP = "single_setup"
     }
 }
 
@@ -68,6 +83,15 @@ internal class PrefsSettingsStore(context: Context) : SettingsStore {
 internal class AppSettings(private val store: SettingsStore) {
     var motion by mutableStateOf(store.motion())
         private set
+
+    /** 마지막으로 시작한 싱글플레이 설정. 설정 화면이 다시 열릴 때 채워 둔다. */
+    var lastSetup by mutableStateOf(store.lastSetup())
+        private set
+
+    fun rememberSetup(choice: SetupChoice) {
+        lastSetup = choice
+        store.setLastSetup(choice)
+    }
 
     fun chooseMotion(speed: MotionSpeed) {
         motion = speed

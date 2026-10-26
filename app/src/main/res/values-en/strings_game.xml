@@ -73,7 +73,7 @@
     <string name="game_role_ability_ambassador">Action: Exchange — look at 2 cards from the deck and swap as many as you like. Block: stops a steal.</string>
     <string name="game_role_ability_contessa">Block: stops an assassination. It has no action of its own.</string>
     <string name="game_role_ability_unknown">This card\'s ability isn\'t known in this version.</string>
-    <string name="game_ability_note">Based on the standard rules. House rules may change this.</string>
+    <string name="game_ability_note">This game uses changed rules, so it may differ from this standard description.</string>
     <string name="game_ability_close">Close</string>
     <string name="game_card_inspect">View ability</string>
     <string name="game_timer_seconds">%1$ds</string>

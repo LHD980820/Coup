@@ -196,13 +196,19 @@ internal fun GameScreen(
     BackHandler(enabled = backConcedes && state.result != null) { onExit() }
 
     var inspected by remember { mutableStateOf<RoleId?>(null) }
+    var showRules by remember { mutableStateOf(false) }
 
     // 아래: 진행 배너·내 카드·결정은 항상 보이게 고정한다.
     val bottom: @Composable ColumnScope.() -> Unit = {
         guide?.let { CoachCard(it) }
         ConnectionBanner(state.connection, onExit)
         // 기권은 배너 줄에 붙는다 — 응답 시트가 떠도 항상 닿고, 작은 화면에서 자리를 따로 먹지 않는다
-        BannerCard(state, texts, onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null)
+        BannerCard(
+            state,
+            texts,
+            onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null,
+            onShowRules = if (state.ruleSet.isCustom) ({ showRules = true }) else null,
+        )
         state.me?.let { MyArea(state, it, actions, onInspect = { role -> inspected = role }) }
         DecisionPanel(state, texts, actions, guide?.expect)
         if (guide != null) {
@@ -238,7 +244,8 @@ internal fun GameScreen(
         }
     }
 
-    inspected?.let { role -> AbilitySheet(role, onDismiss = { inspected = null }) }
+    inspected?.let { role -> AbilitySheet(role, rulesChanged = state.ruleSet.isCustom, onDismiss = { inspected = null }) }
+    if (showRules) state.ruleSet?.let { RulesDialog(it, onDismiss = { showRules = false }) }
 
     if (abandoned) {
         AlertDialog(
@@ -389,7 +396,7 @@ private fun CoachCard(guide: GuideUi) {
 // ---- 배너/로그 ----------------------------------------------------------------------------------
 
 @Composable
-private fun BannerCard(state: GameUiState, texts: GameTexts, onConcede: (() -> Unit)?) {
+private fun BannerCard(state: GameUiState, texts: GameTexts, onConcede: (() -> Unit)?, onShowRules: (() -> Unit)?) {
     Card(Modifier.fillMaxWidth().testTag(GameTags.BANNER), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp)) {
             Text(texts.banner(state.banner), style = MaterialTheme.typography.titleMedium)
@@ -398,6 +405,14 @@ private fun BannerCard(state: GameUiState, texts: GameTexts, onConcede: (() -> U
                 // 내가 결정할 차례일 때만 내 남은 시간을 보인다(끝난 판·기다리는 중에는 숨김)
                 val deadline = state.myDeadline
                 if (deadline != null && state.decision != null && state.decision !is DecisionUi.Respond && state.result == null) Countdown(deadline, GameTags.TIMER_MINE)
+                if (onShowRules != null) {
+                    // 표준과 다른 규칙으로 하는 판이면 눈에 띄게 알리고, 탭하면 무엇이 다른지 본다
+                    val count = state.ruleSet.let { it!!.houseRules.size + it.paramOverrides.size }
+                    val desc = stringResource(R.string.game_rules_badge_desc, count)
+                    TextButton(onClick = onShowRules, modifier = Modifier.semantics { contentDescription = desc }.testTag(RulesViewTags.BADGE)) {
+                        Text(stringResource(R.string.game_rules_badge, count))
+                    }
+                }
                 if (onConcede != null) {
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = onConcede, modifier = Modifier.testTag(GameTags.CONCEDE)) { Text(stringResource(R.string.game_concede)) }
@@ -617,7 +632,7 @@ private const val URGENT_SECONDS = 5
 /** 내 카드를 탭하면 올라오는 시트: 카드 그림, 이름, 이 역할로 할 수 있는 행동·막기(기본 규칙 기준). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AbilitySheet(role: RoleId, onDismiss: () -> Unit) {
+private fun AbilitySheet(role: RoleId, rulesChanged: Boolean, onDismiss: () -> Unit) {
     val entry = RoleUiCatalog.of(role)
     ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_SHEET)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -625,7 +640,8 @@ private fun AbilitySheet(role: RoleId, onDismiss: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(entry.name), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(stringResource(entry.ability), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.game_ability_note), style = MaterialTheme.typography.labelSmall)
+                // 표준 규칙의 판에서는 설명이 그대로 맞다. 규칙이 바뀐 판에서만 달라질 수 있다고 알린다
+                if (rulesChanged) Text(stringResource(R.string.game_ability_note), style = MaterialTheme.typography.labelSmall)
                 TextButton(onClick = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_CLOSE)) { Text(stringResource(R.string.game_ability_close)) }
             }
         }

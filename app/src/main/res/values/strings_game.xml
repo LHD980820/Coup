@@ -73,7 +73,7 @@
     <string name="game_role_ability_ambassador">행동: 교환 — 덱에서 카드 2장을 보고 원하는 만큼 바꿉니다. 막기: 강탈을 막을 수 있습니다.</string>
     <string name="game_role_ability_contessa">막기: 암살을 막을 수 있습니다. 직접 하는 행동은 없습니다.</string>
     <string name="game_role_ability_unknown">이 카드의 능력은 이 버전에서 알 수 없습니다.</string>
-    <string name="game_ability_note">기본 규칙 기준입니다. 하우스룰을 켜면 달라질 수 있어요.</string>
+    <string name="game_ability_note">이 판은 규칙이 바뀌어서, 기본 규칙 기준의 이 설명과 다를 수 있어요.</string>
     <string name="game_ability_close">닫기</string>
     <string name="game_card_inspect">능력 보기</string>
     <string name="game_timer_seconds">%1$d초</string>

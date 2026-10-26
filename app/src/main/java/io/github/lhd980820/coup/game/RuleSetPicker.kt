@@ -57,8 +57,8 @@ internal val RuleSelectionSaver: Saver<RuleSelection, List<String>> = Saver(
 )
 
 @Composable
-internal fun rememberRuleSelection(): androidx.compose.runtime.MutableState<RuleSelection> =
-    rememberSaveable(stateSaver = RuleSelectionSaver) { mutableStateOf(RuleSelection()) }
+internal fun rememberRuleSelection(initial: RuleSelection = RuleSelection()): androidx.compose.runtime.MutableState<RuleSelection> =
+    rememberSaveable(stateSaver = RuleSelectionSaver) { mutableStateOf(initial) }
 
 @Composable
 private fun ruleText(res: Int?, fallback: String): String = res?.let { stringResource(it) } ?: fallback

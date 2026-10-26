@@ -6,6 +6,7 @@ import io.github.lhd980820.coup.engine.model.LossReason
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.RoleId
 import io.github.lhd980820.coup.engine.model.WindowKind
+import io.github.lhd980820.coup.engine.rules.RuleSetConfig
 import io.github.lhd980820.coup.runtime.session.ConnectionState
 
 /**
@@ -27,6 +28,8 @@ public data class GameUiState(
     /** 명령을 보낸 뒤 응답을 기다리는 중 — 버튼을 잠근다(중복 탭 방지). */
     val busy: Boolean,
     val log: List<LogEntry>,
+    /** 이 판의 규칙(기반 룰셋·하우스룰·바꾼 파라미터). 화면이 "규칙 보기"로 보여준다. 알 수 없으면 null. */
+    val ruleSet: RuleSetConfig? = null,
 )
 
 public enum class OpponentStatus {

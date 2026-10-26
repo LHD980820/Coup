@@ -25,4 +25,10 @@
     <string name="rule_param_refundCostWhenActionChallengeLost_desc">When a bluffed action is cancelled, its cost (3 coins for an assassination) is returned.</string>
     <string name="rule_param_exchangeReturnShuffles_title">Shuffle after Exchange</string>
     <string name="rule_param_exchangeReturnShuffles_desc">Returned cards are shuffled into the deck. Off puts them at the bottom.</string>
+    <string name="rules_changed_value">%1$s (default %2$s)</string>
+    <string name="rules_on">On</string>
+    <string name="rules_off">Off</string>
+    <string name="rules_unknown">This version can\'t show this game\'s rules.</string>
+    <string name="game_rules_badge">Rules %1$d</string>
+    <string name="game_rules_badge_desc">View %1$d changed rules</string>
 </resources>

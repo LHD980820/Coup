@@ -58,6 +58,19 @@ class GameUiMapperTest {
     }
 
     @Test
+    fun `이 판의 규칙 설정이 화면 상태에 실린다 - 표준이면 표준, 하우스룰과 바꾼 값은 그대로`() {
+        assertThat(ui(table).ruleSet).isEqualTo(io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules.classicConfig())
+
+        val custom = io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules.classicConfig()
+            .copy(houseRules = setOf("last_stand"), paramOverrides = mapOf("startingCoins" to "4"))
+        val ids = listOf(p("me"), p("a"))
+        val state = engine.newGame(io.github.lhd980820.coup.engine.core.GameSetup("custom", ids, custom, 3, p("me")))
+        val mapped = ui(state)
+        assertThat(mapped.ruleSet).isEqualTo(custom)
+        assertThat(mapped.me!!.coins).isEqualTo(4) // 실제로 그 규칙으로 시작했다
+    }
+
+    @Test
     fun `상대 차례에는 결정이 없고 대기 배너와 행동 중 표시가 나온다`() {
         val waiting = ui(table.after(Command.DeclareAction(p("me"), ActionId("income"))))
         assertThat(waiting.banner).isEqualTo(Banner.WaitingFor(p("a")))

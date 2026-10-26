@@ -108,7 +108,12 @@ private fun AppScreens(
                 }
             }
             Screen.MULTI -> if (shell != null) MultiplayerFlow(shell, onBack = { screen = Screen.HOME }, modifier = modifier, google = google) else screen = Screen.HOME
-            Screen.SETUP -> SinglePlayerSetupScreen(onStart = viewModel::start, modifier = modifier)
+            Screen.SETUP -> SinglePlayerSetupScreen(
+                onStart = viewModel::start,
+                modifier = modifier,
+                remembered = settings?.lastSetup,
+                onRemember = { settings?.rememberSetup(it) },
+            )
             Screen.TUTORIALS -> TutorialListScreen(
                 lessons = TutorialLessons.all,
                 completed = viewModel.completedLessons,

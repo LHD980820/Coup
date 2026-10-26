@@ -25,4 +25,10 @@
     <string name="rule_param_refundCostWhenActionChallengeLost_desc">블러핑이 들통나 취소된 행동의 비용(암살 3코인)을 돌려받아요.</string>
     <string name="rule_param_exchangeReturnShuffles_title">교환 후 덱 섞기</string>
     <string name="rule_param_exchangeReturnShuffles_desc">교환으로 돌려놓은 카드를 덱에 넣고 섞어요. 끄면 덱 맨 아래에 놓여요.</string>
+    <string name="rules_changed_value">%1$s (기본 %2$s)</string>
+    <string name="rules_on">켬</string>
+    <string name="rules_off">끔</string>
+    <string name="rules_unknown">이 판의 규칙을 이 버전에서는 알 수 없어요.</string>
+    <string name="game_rules_badge">규칙 %1$d</string>
+    <string name="game_rules_badge_desc">바뀐 규칙 %1$d개 보기</string>
 </resources>

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.ai.AiDifficulty
 import io.github.lhd980820.coup.engine.rules.builtin.BuiltinRules
+import io.github.lhd980820.coup.presentation.rules.RuleSelection
 import io.github.lhd980820.coup.presentation.rules.RuleSetEditor
 import io.github.lhd980820.coup.presentation.singleplayer.OpponentSpec
 import io.github.lhd980820.coup.presentation.singleplayer.SinglePlayerConfig
@@ -44,11 +45,18 @@ internal object SetupTags {
 
 /** 싱글플레이 설정(설계 §10.2): AI 수·난이도. 룰셋/하우스룰 선택은 후속(코어의 `RuleSetConfig`에 이미 있다). */
 @Composable
-internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modifier: Modifier = Modifier) {
-    var opponents by rememberSaveable { mutableIntStateOf(2) }
-    var difficulty by rememberSaveable { mutableStateOf(AiDifficulty.NORMAL) }
+internal fun SinglePlayerSetupScreen(
+    onStart: (SinglePlayerConfig) -> Unit,
+    modifier: Modifier = Modifier,
+    /** 지난번에 시작한 선택. 있으면 화면을 그 값으로 채운다(규칙이 이 버전에서 만들 수 없는 것이면 표준으로). */
+    remembered: SetupChoice? = null,
+    /** 시작을 누를 때 그 선택을 알린다(기기에 저장하는 쪽이 받는다). */
+    onRemember: (SetupChoice) -> Unit = {},
+) {
     val editor = remember { RuleSetEditor(BuiltinRules.registry(), BuiltinRules.classicConfig()) }
-    val rules = rememberRuleSelection()
+    var opponents by rememberSaveable { mutableIntStateOf(remembered?.opponents ?: 2) }
+    var difficulty by rememberSaveable { mutableStateOf(remembered?.difficulty ?: AiDifficulty.NORMAL) }
+    val rules = rememberRuleSelection(remembered?.rules?.takeIf { usable(editor, it) } ?: RuleSelection())
     val you = stringResource(R.string.game_you)
     val aiNames = (1..5).map { stringResource(R.string.game_ai_name, it) }
 
@@ -93,6 +101,7 @@ internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modi
 
             Button(
                 onClick = {
+                    onRemember(SetupChoice(opponents, difficulty, rules.value))
                     onStart(
                         SinglePlayerConfig(
                             opponents = List(opponents) { OpponentSpec(difficulty = difficulty, name = aiNames[it]) },
@@ -107,3 +116,7 @@ internal fun SinglePlayerSetupScreen(onStart: (SinglePlayerConfig) -> Unit, modi
         }
     }
 }
+
+/** 저장된 규칙 선택이 이 버전에서도 유효한가(모르는 하우스룰·항목이 있거나 게임이 못 되는 조합이면 쓰지 않는다). */
+private fun usable(editor: RuleSetEditor, selection: RuleSelection): Boolean =
+    runCatching { editor.fromConfig(editor.config(selection)) }.isSuccess && editor.issues(selection).isEmpty()
