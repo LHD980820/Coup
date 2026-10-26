@@ -5,7 +5,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -129,26 +128,38 @@ class SetupMemoryTest {
         compose.onNodeWithTag(SetupTags.START).performScrollTo().assertIsDisplayed()
     }
 
-    @Test
-    fun `앱 흐름 - 시작한 선택이 저장되고 게임을 마치고 설정 화면으로 돌아오면 그대로 채워져 있다`() {
+    private fun withFlow(settings: AppSettings, block: (GameViewModel) -> Unit) {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default)
         val vm = GameViewModel(scope = scope)
-        val settings = AppSettings(InMemorySettingsStore())
         compose.setContent { CoupTheme { AppFlow(vm, onExit = {}, settings = settings) } }
         try {
+            block(vm)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `앱 흐름 - 설정 화면에서 시작하면 그 선택이 앱 설정에 기억된다`() {
+        val settings = AppSettings(InMemorySettingsStore())
+        withFlow(settings) { vm ->
             compose.onNodeWithTag(ShellTags.HOME_SINGLE).performClick()
             compose.onNodeWithTag(SetupTags.opponents(4)).performScrollTo().performClick()
             compose.onNodeWithTag(SetupTags.difficulty(AiDifficulty.EASY)).performScrollTo().performClick()
             compose.onNodeWithTag(SetupTags.START).performScrollTo().performClick()
             compose.waitUntil(5_000) { vm.controller != null }
             assertEquals(SetupChoice(4, AiDifficulty.EASY, RuleSelection()), settings.lastSetup)
+        }
+    }
 
-            compose.runOnUiThread { vm.quit() }
-            compose.waitUntil(5_000) { compose.onAllNodesWithTag(SetupTags.START).fetchSemanticsNodes().isNotEmpty() }
+    @Test
+    fun `앱 흐름 - 앱을 다시 켠 것처럼 기억된 선택이 있으면 설정 화면이 그 값으로 열린다`() {
+        val settings = AppSettings(InMemorySettingsStore(setup = sample))
+        withFlow(settings) {
+            compose.onNodeWithTag(ShellTags.HOME_SINGLE).performClick()
             compose.onNodeWithTag(SetupTags.opponents(4)).assertIsSelected()
-            compose.onNodeWithTag(SetupTags.difficulty(AiDifficulty.EASY)).assertIsSelected()
-        } finally {
-            scope.cancel()
+            compose.onNodeWithTag(SetupTags.difficulty(AiDifficulty.HARD)).assertIsSelected()
+            compose.onNodeWithTag(RuleTags.SUMMARY).assertTextContains(string(R.string.rules_changed, 3))
         }
     }
 }
