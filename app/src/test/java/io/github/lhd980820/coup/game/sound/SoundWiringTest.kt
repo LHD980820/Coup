@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import io.github.lhd980820.coup.game.SetupTags
 import androidx.test.core.app.ApplicationProvider
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.engine.model.CardId
@@ -36,6 +38,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.emptyFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,7 +55,7 @@ class SoundWiringTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
 
     private class RecordingPlayer : SoundPlayer {
-        val played = mutableListOf<Pair<SoundCue, Float>>()
+        val played: MutableList<Pair<SoundCue, Float>> = java.util.Collections.synchronizedList(mutableListOf())
         override fun play(cue: SoundCue, volume: Float) {
             played += cue to volume
         }
@@ -126,6 +129,24 @@ class SoundWiringTest {
 
         update(s, state(coins = 3, decision = DecisionUi.Actions(emptyList())))
         assertEquals(listOf(SoundCue.COIN_GAIN, SoundCue.YOUR_TURN), played)
+    }
+
+    @Test
+    fun `앱 흐름 - 게임이 진행되면 설정한 크기로 효과음이 요청된다`() {
+        val player = RecordingPlayer()
+        val settings = AppSettings(InMemorySettingsStore(soundLevel = SoundLevel.LOW))
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val vm = GameViewModel(scope = scope)
+        compose.setContent { CoupTheme { AppFlow(vm, onExit = {}, settings = settings, sounds = player) } }
+        try {
+            compose.onNodeWithTag(ShellTags.HOME_SINGLE).performClick()
+            compose.onNodeWithTag(SetupTags.START).performScrollTo().performClick()
+            // AI가 두거나 내 차례가 오면 코인·차례 소리가 요청된다
+            compose.waitUntil(30_000) { synchronized(player.played) { player.played.isNotEmpty() } }
+            synchronized(player.played) { assertTrue(player.played.all { it.second == SoundLevel.LOW.volume }) }
+        } finally {
+            scope.cancel()
+        }
     }
 
     // ---- 설정 ----

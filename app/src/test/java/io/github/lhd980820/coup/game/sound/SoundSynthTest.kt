@@ -35,6 +35,12 @@ class SoundSynthTest {
     }
 
     @Test
+    fun `최대 진폭은 여러 소리가 겹쳐도 깨지지 않도록 여유를 둔다`() {
+        assertTrue(SoundSynth.PEAK in 0.2..0.7)
+        SoundCue.entries.forEach { assertTrue(SoundSynth.render(it).maxOf { s -> abs(s.toInt()) } <= (0.7 * Short.MAX_VALUE).toInt()) }
+    }
+
+    @Test
     fun `시작과 끝이 부드러워 딱 소리가 나지 않는다`() {
         SoundCue.entries.forEach { cue ->
             val pcm = SoundSynth.render(cue)
