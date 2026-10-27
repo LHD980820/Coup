@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
+import io.github.lhd980820.coup.game.sound.SoundLevel
 import io.github.lhd980820.coup.account.NicknameError
 import io.github.lhd980820.coup.account.UserProfile
 import io.github.lhd980820.coup.multiplayer.ProfileCard
@@ -51,6 +52,7 @@ internal object ShellTags {
     const val HOME_SETTINGS = "home_settings"
     const val SETTINGS_BACK = "settings_back"
     fun motion(speed: MotionSpeed) = "settings_motion_${speed.name.lowercase()}"
+    fun sound(level: SoundLevel) = "settings_sound_${level.name.lowercase()}"
     const val TUTORIAL_BACK = "tutorial_list_back"
     const val COACH_DONE = "coach_done"
     const val COACH_NEXT = "coach_next"
@@ -93,6 +95,12 @@ internal fun HomeScreen(
     }
 }
 
+private val soundOptions = listOf(
+    SoundLevel.NORMAL to R.string.settings_sound_normal,
+    SoundLevel.LOW to R.string.settings_sound_low,
+    SoundLevel.OFF to R.string.settings_sound_off,
+)
+
 /** 설정 화면: 애니메이션 속도. 고르면 바로 적용되고 저장된다. */
 @Composable
 internal fun SettingsScreen(settings: AppSettings, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -121,6 +129,24 @@ internal fun SettingsScreen(settings: AppSettings, onBack: () -> Unit, modifier:
                 }
             }
             Text(stringResource(R.string.settings_motion_note), style = MaterialTheme.typography.bodySmall)
+
+            Text(stringResource(R.string.settings_sound_title), style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.selectableGroup()) {
+                soundOptions.forEach { (level, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .selectable(selected = settings.sound == level, role = Role.RadioButton, onClick = { settings.chooseSound(level) })
+                            .testTag(ShellTags.sound(level)),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = settings.sound == level, onClick = null)
+                        Text(stringResource(label), Modifier.padding(start = 12.dp))
+                    }
+                }
+            }
+            Text(stringResource(R.string.settings_sound_note), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.weight(1f))
             TextButton(onClick = onBack, modifier = Modifier.testTag(ShellTags.SETTINGS_BACK)) { Text(stringResource(R.string.settings_back)) }
         }

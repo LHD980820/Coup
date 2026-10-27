@@ -112,4 +112,9 @@
     <string name="settings_motion_normal">Normal</string>
     <string name="settings_motion_note">If animations are turned off on the device (accessibility), they stay off whatever you pick here.</string>
     <string name="settings_back">Back</string>
+    <string name="settings_sound_title">Sound effects</string>
+    <string name="settings_sound_normal">Normal</string>
+    <string name="settings_sound_low">Low</string>
+    <string name="settings_sound_off">Off</string>
+    <string name="settings_sound_note">Sounds follow the device\'s media volume.</string>
 </resources>

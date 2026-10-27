@@ -112,4 +112,9 @@
     <string name="settings_motion_normal">보통</string>
     <string name="settings_motion_note">기기에서 애니메이션을 끄면(접근성 설정) 여기서 골라도 항상 꺼져요.</string>
     <string name="settings_back">뒤로</string>
+    <string name="settings_sound_title">효과음</string>
+    <string name="settings_sound_normal">보통</string>
+    <string name="settings_sound_low">작게</string>
+    <string name="settings_sound_off">끄기</string>
+    <string name="settings_sound_note">소리는 기기의 미디어 볼륨을 따라요.</string>
 </resources>

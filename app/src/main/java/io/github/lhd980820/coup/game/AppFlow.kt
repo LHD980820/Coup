@@ -1,5 +1,8 @@
 package io.github.lhd980820.coup.game
 
+import io.github.lhd980820.coup.game.sound.SoundPlayer
+import io.github.lhd980820.coup.game.sound.SoundLevel
+import io.github.lhd980820.coup.game.sound.SoundCue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.CompositionLocalProvider
 import android.provider.Settings
@@ -36,16 +39,24 @@ internal fun AppFlow(
     modifier: Modifier = Modifier,
     shell: ShellViewModel? = null,
     google: GoogleTokenSource? = null,
-    /** 앱 설정(애니메이션 속도). null이면 설정 화면이 없고 연출은 꺼진다. */
+    /** 앱 설정(애니메이션 속도·효과음). null이면 설정 화면이 없고 연출과 소리는 꺼진다. */
     settings: AppSettings? = null,
+    /** 효과음을 내는 쪽. null이면 소리가 없다. */
+    sounds: SoundPlayer? = null,
 ) {
     // 연출 속도는 설정과 기기의 "애니메이션 없음"을 함께 본다
     val systemScale = rememberSystemAnimatorScale()
     val motion = motionFor(settings, systemScale)
-    CompositionLocalProvider(LocalMotion provides motion) {
+    val level = settings?.sound ?: SoundLevel.OFF
+    val playSound = remember(sounds, level) { soundSink(sounds, level) }
+    CompositionLocalProvider(LocalMotion provides motion, LocalSounds provides playSound) {
         AppScreens(viewModel, onExit, modifier, shell, google, settings)
     }
 }
+
+/** 화면이 소리를 낼 때 부르는 함수: 플레이어가 없거나 소리를 껐으면 아무것도 하지 않고, 아니면 설정한 크기로 낸다. */
+internal fun soundSink(player: SoundPlayer?, level: SoundLevel): (SoundCue) -> Unit =
+    if (player == null || level == SoundLevel.OFF) { _ -> } else { cue -> player.play(cue, level.volume) }
 
 /** 기기의 전환 애니메이션 배율(개발자 옵션/접근성의 "애니메이션 없음"이면 0). 읽을 수 없으면 1. */
 @Composable

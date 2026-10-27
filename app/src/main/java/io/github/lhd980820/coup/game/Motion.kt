@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.core.content.edit
+import io.github.lhd980820.coup.game.sound.SoundLevel
 
 /** 애니메이션 속도(설계 §10.3: 설정에서 속도 조절). 꺼짐이면 모든 연출이 즉시 끝난다. */
 internal enum class MotionSpeed(val scale: Float) {
@@ -42,15 +43,28 @@ internal interface SettingsStore {
     fun motion(): MotionSpeed
     fun setMotion(speed: MotionSpeed)
 
+    /** 효과음 크기(없거나 알 수 없는 값이면 보통). */
+    fun sound(): SoundLevel
+    fun setSound(level: SoundLevel)
+
     /** 싱글플레이 설정 화면에서 마지막으로 시작한 선택(없으면 null). */
     fun lastSetup(): SetupChoice?
     fun setLastSetup(choice: SetupChoice)
 }
 
-internal class InMemorySettingsStore(private var speed: MotionSpeed = MotionSpeed.NORMAL, private var setup: SetupChoice? = null) : SettingsStore {
+internal class InMemorySettingsStore(
+    private var speed: MotionSpeed = MotionSpeed.NORMAL,
+    private var setup: SetupChoice? = null,
+    private var soundLevel: SoundLevel = SoundLevel.NORMAL,
+) : SettingsStore {
     override fun motion() = speed
     override fun setMotion(speed: MotionSpeed) {
         this.speed = speed
+    }
+
+    override fun sound() = soundLevel
+    override fun setSound(level: SoundLevel) {
+        soundLevel = level
     }
 
     override fun lastSetup() = setup
@@ -68,6 +82,11 @@ internal class PrefsSettingsStore(context: Context) : SettingsStore {
         prefs.edit { putString(KEY_MOTION, speed.name) }
     }
 
+    override fun sound(): SoundLevel = SoundLevel.entries.firstOrNull { it.name == prefs.getString(KEY_SOUND, null) } ?: SoundLevel.NORMAL
+    override fun setSound(level: SoundLevel) {
+        prefs.edit { putString(KEY_SOUND, level.name) }
+    }
+
     override fun lastSetup(): SetupChoice? = SetupChoice.decode(prefs.getString(KEY_SETUP, null))
     override fun setLastSetup(choice: SetupChoice) {
         prefs.edit { putString(KEY_SETUP, choice.encode()) }
@@ -76,6 +95,7 @@ internal class PrefsSettingsStore(context: Context) : SettingsStore {
     private companion object {
         const val KEY_MOTION = "motion"
         const val KEY_SETUP = "single_setup"
+        const val KEY_SOUND = "sound"
     }
 }
 
@@ -83,6 +103,15 @@ internal class PrefsSettingsStore(context: Context) : SettingsStore {
 internal class AppSettings(private val store: SettingsStore) {
     var motion by mutableStateOf(store.motion())
         private set
+
+    /** 효과음 크기. 바꾸면 바로 적용되고 저장된다. */
+    var sound by mutableStateOf(store.sound())
+        private set
+
+    fun chooseSound(level: SoundLevel) {
+        sound = level
+        store.setSound(level)
+    }
 
     /** 마지막으로 시작한 싱글플레이 설정. 설정 화면이 다시 열릴 때 채워 둔다. */
     var lastSetup by mutableStateOf(store.lastSetup())

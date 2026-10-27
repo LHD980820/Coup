@@ -16,6 +16,7 @@ import io.github.lhd980820.coup.game.PrefsTutorialStore
 import io.github.lhd980820.coup.game.AppFlow
 import io.github.lhd980820.coup.game.AppSettings
 import io.github.lhd980820.coup.game.PrefsSettingsStore
+import io.github.lhd980820.coup.game.sound.SoundPoolPlayer
 import io.github.lhd980820.coup.multiplayer.AndroidCodeSharer
 import io.github.lhd980820.coup.multiplayer.CredentialManagerGoogleTokenSource
 import io.github.lhd980820.coup.multiplayer.LocalCodeSharer
@@ -39,17 +40,26 @@ class MainActivity : ComponentActivity() {
 
     private val settings by lazy { AppSettings(PrefsSettingsStore(applicationContext)) }
 
+    private var sounds: SoundPoolPlayer? = null
+
     private val codeSharer by lazy { AndroidCodeSharer(this) }
 
     private fun appVersion(): Int = PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
 
+    override fun onDestroy() {
+        sounds?.release()
+        sounds = null
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        sounds = SoundPoolPlayer(applicationContext)
         setContent {
             CoupTheme {
                 CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
-                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google, settings = settings)
+                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google, settings = settings, sounds = sounds)
                 }
             }
         }

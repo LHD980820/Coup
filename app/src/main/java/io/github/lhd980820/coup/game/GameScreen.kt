@@ -1,5 +1,7 @@
 package io.github.lhd980820.coup.game
 
+import io.github.lhd980820.coup.game.sound.SoundCues
+import io.github.lhd980820.coup.game.sound.SoundCue
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExitTransition
@@ -142,6 +144,9 @@ private const val WIDE_LOG_LINES = 40
 /** 남은 시간을 그릴 때 쓰는 현재 시각(epoch millis). 마감 시각을 만든 시계와 같은 시계(기기 시계)이며, 테스트는 고정 값으로 바꾼다. */
 internal val LocalNowMillis = staticCompositionLocalOf<() -> Long> { System::currentTimeMillis }
 
+/** 효과음을 내는 함수. 기본은 무음이다 — 미리보기와 자동 테스트는 조용하고, 앱이 설정에 맞춰 채운다. */
+internal val LocalSounds = staticCompositionLocalOf<(SoundCue) -> Unit> { {} }
+
 /** 튜토리얼 안내: 지금 단계 문구와, 사용자가 해야 하는 한 수([expect]). null이면 제한 없음. */
 internal data class GuideUi(val message: String, val step: Int, val total: Int, val expect: TutorialExpect?, val offScript: Int)
 
@@ -195,6 +200,13 @@ internal fun GameScreen(
     BackHandler(enabled = backConcedes && state.result == null) { if (abandoned) onAbandoned() else confirmConcede = true }
     BackHandler(enabled = backConcedes && state.result != null) { onExit() }
 
+    // 상태가 바뀔 때마다 이전 상태와 비교해 소리를 낸다(처음 그릴 때나 회전으로 다시 그릴 때는 이전이 없어 무음)
+    val playSound = LocalSounds.current
+    val lastState = remember { arrayOfNulls<GameUiState>(1) }
+    LaunchedEffect(state) {
+        SoundCues.between(lastState[0], state).forEach(playSound)
+        lastState[0] = state
+    }
     var inspected by remember { mutableStateOf<RoleId?>(null) }
     var showRules by remember { mutableStateOf(false) }
 
