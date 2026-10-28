@@ -76,6 +76,8 @@
 - **비용**: 명령 1건당 쓰기 ≈ 좌석 수 + 관전 1 + 백업 1 + 메타 1 + 명령 상태 1 + 기록 1 (설계 R7). 판정은 판마다 함수 1회 + 기록 수만큼 읽기.
 
 ## 서버 판정 배포 (오너 작업, ADR 0015)
+> 배포 전체(구글 로그인 준비·출시·정리까지)의 순서는 [`../docs/OWNER_CHECKLIST.md`](../docs/OWNER_CHECKLIST.md)에 모았다.
+
 1. 프로젝트를 **Blaze** 요금제로 바꾸고 Cloud Functions·Eventarc·Cloud Build·Artifact Registry·Cloud Run API를 켠다.
 2. `cd server && ./gradlew test stageDeploy`(에뮬레이터가 떠 있으면 통합 테스트도 돈다) -> `server/build/deploy/coup-judge.jar`.
 3. 리전은 Firestore 데이터베이스 위치와 같게:

@@ -1,6 +1,6 @@
 # 진행 로그
 
-설계: [REDESIGN_ARCHITECTURE.md](REDESIGN_ARCHITECTURE.md) · 결정 기록: [adr/](adr/)
+설계: [REDESIGN_ARCHITECTURE.md](REDESIGN_ARCHITECTURE.md) · 결정 기록: [adr/](adr/) · **오너 배포 작업 순서: [OWNER_CHECKLIST.md](OWNER_CHECKLIST.md)**
 
 ## 현재 상태
 
