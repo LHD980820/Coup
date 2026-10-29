@@ -90,6 +90,24 @@ class AppCheckSetupTest {
         assertEquals(AppCheckSetup.Result.Installed, AppCheckSetup.install(BuildAppCheck.factory()))
     }
 
+    @Test
+    fun `진짜 설치 경로는 받은 증명 방식을 App Check에 실제로 등록한다`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        FirebaseApp.initializeApp(
+            context,
+            FirebaseOptions.Builder().setApplicationId("1:1:android:1").setApiKey("fake-key").setProjectId("demo-coup").build(),
+        )
+        var created = 0
+        val counting = object : AppCheckProviderFactory {
+            override fun create(firebaseApp: FirebaseApp): AppCheckProvider {
+                created++
+                return AppCheckProvider { com.google.android.gms.tasks.Tasks.forException(IllegalStateException("not used")) }
+            }
+        }
+        assertEquals(AppCheckSetup.Result.Installed, AppCheckSetup.install(counting))
+        assertEquals("App Check가 증명 방식으로 제공자를 만들었다", 1, created)
+    }
+
     // ---- 디버그 제공자가 릴리스에 섞이지 않게 하는 구성 검사 ----
 
     private fun moduleFile(path: String) = File(path).takeIf { it.exists() } ?: error("$path not found from ${File(".").absolutePath}")

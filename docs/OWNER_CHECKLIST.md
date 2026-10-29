@@ -97,6 +97,28 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 
 ---
 
+### 4-2. App Check (앱 코드는 들어 있다 — 콘솔에서 켜는 일)
+
+앱은 시작할 때 App Check를 설치한다: **릴리스는 Play Integrity, 디버그는 디버그 제공자**(ADR 0020). 설치만으로는 아무것도 막지 않고, 콘솔에서 **적용(Enforce)** 을 켠 서비스만 증명 토큰 없는 요청을 거절한다. 그래서 **측정 → 적용** 순서로 한다.
+
+1. **Play Integrity 등록** — Firebase 콘솔 > App Check > 앱 `io.github.lhd980820.coup` > Play Integrity.
+   - 같은 GCP 프로젝트에서 **Play Integrity API**를 사용 설정하고, 프로젝트가 Play Console의 앱과 연결돼 있어야 한다.
+   - 앱의 **SHA-256**(앱 서명 키)이 Firebase 앱 설정에 등록돼 있어야 한다(§1과 같은 지문).
+2. **디버그 기기 등록** — 디버그 빌드를 처음 실행하면 logcat(태그 `DebugAppCheckProvider`)에
+   `Enter this debug secret into the allow list in the Firebase Console for your project: <UUID>` 가 한 번 찍힌다.
+   그 값을 콘솔 > App Check > 앱 > 점 세 개 > **디버그 토큰 관리**에 추가한다. 에뮬레이터·개인 테스트 기기마다 한 번씩. (토큰은 비밀이다 — 커밋하지 말 것.)
+3. **측정** — 새 앱이 나간 뒤 며칠간 콘솔 > App Check > **API 지표**(Cloud Firestore, Authentication)에서 "확인됨" 비율을 본다. 거의 전부 확인됨이어야 한다.
+4. **적용** — 지표가 깨끗하면 Cloud Firestore에 **적용**을 켠다. 이 뒤로는 앱이 아닌 곳(스크립트, 변조된 앱)의 직접 요청이 거절된다.
+   Authentication 적용은 Identity Platform으로 올려야 해서 선택이다.
+5. **알아 둘 점**
+   - 적용 뒤에는 **Play를 거치지 않은 설치(사이드로딩)와 Google Play 서비스가 없는 기기**의 요청이 거절된다(앱이 "연결 오류"처럼 보인다). 테스터는 Play 내부 테스트로 배포하거나 디버그 토큰을 등록한다.
+   - 서버 함수(`coup-judge`, `coup-sweep`)는 관리자 권한이라 App Check의 영향을 받지 않는다.
+   - Firestore 보안 규칙은 App Check 여부를 볼 수 없다 — 적용은 서비스 단위 스위치다.
+   - Play Integrity에는 일일 요청 한도가 있지만, 앱이 토큰을 캐시해(기본 약 1시간) 사용자당 하루 몇 번만 부른다.
+   - API 키 제한(GCP 콘솔 > 사용자 인증 정보 > 해당 키 > 애플리케이션 제한: Android 앱, 패키지 + SHA-1)도 함께 건다.
+
+---
+
 ## 5. 배포 후 확인 (테스트 계정 둘 이상, 기기 둘 이상)
 
 1. **레이팅 판 한 판**을 끝까지 → 판정 함수 로그에 `game …: verified, ratings applied to […]`, 결과 화면에 레이팅 변화. (함수 로그: `gcloud functions logs read coup-judge --gen2 --region=<리전>`)
@@ -105,6 +127,7 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 4. **버려진 판**: 모두 앱을 끄고 10분 이상 → 게임이 `ABANDONED`로 끝나고(레이팅 판이면 방장만 패배), 방이 15분 뒤 닫히는지. 이 상태에서 앱을 켜면 안내 화면이 나오는지.
 5. **옛 계정 이관**: 옛 앱을 쓰던 계정(이메일/구글)으로 로그인 → 옛 닉네임·레이팅을 이어받는지.
 6. **구글 로그인**이 실기기에서 되는지(§1 완료 후).
+7. **App Check**: 릴리스 빌드(Play 설치)에서 콘솔 App Check 지표에 "확인됨" 요청이 잡히는지, 디버그 기기는 토큰 등록 뒤 잡히는지.
 
 ---
 
@@ -121,7 +144,7 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 
 ## 7. 알아 둘 한계 (코드에 아직 없는 것)
 
-- **App Check / API 키 제한 없음**: 설계는 권장했지만 앱에 App Check가 들어가 있지 않다. 출시 전 GCP 콘솔에서 API 키를 앱(패키지+SHA)으로 제한하고, App Check(Play Integrity)는 후속 작업으로 넣는 것을 권한다.
+- **App Check는 앱 쪽만 끝났다**: 코드는 들어 있지만(§4-2) 콘솔에서 Play Integrity 등록과 **적용**을 켜기 전까지는 아무것도 막지 않는다.
 - **끝난 판의 기록은 지워지지 않는다**: 서버 정리는 방과 버려진 판만 다룬다. 끝난 판의 `games/{id}`와 하위(`log`, `views`, `commands` 등)는 쌓인다. 필요하면 Firestore TTL 정책이나 정리 함수 확장을 후속으로 한다.
 - **방장은 남의 패를 볼 수 있다**(권한자 상태가 방장 기기에 있다). 방장 이어받기 후에는 이어받은 사람도 마찬가지다. 오너가 받아들인 위험(ADR 0015, 0017).
 - **앱 링크(딥링크)로 방 코드 공유**는 없다: 도메인 검증과 `assetlinks.json` 배포가 필요한 오너 작업이라 코드 공유만 있다(ADR 0014).

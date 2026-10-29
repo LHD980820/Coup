@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -18,6 +19,7 @@ import io.github.lhd980820.coup.game.AppFlow
 import io.github.lhd980820.coup.game.AppSettings
 import io.github.lhd980820.coup.game.GameActions
 import io.github.lhd980820.coup.game.GameScreen
+import io.github.lhd980820.coup.game.GameTags
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.game.InMemorySettingsStore
 import io.github.lhd980820.coup.game.LocalSounds
@@ -141,7 +143,12 @@ class SoundWiringTest {
         try {
             compose.onNodeWithTag(ShellTags.HOME_SINGLE).performClick()
             compose.onNodeWithTag(SetupTags.START).performScrollTo().performClick()
-            // AI가 두거나 내 차례가 오면 코인·차례 소리가 요청된다
+            // 좌석 순서는 무작위다. AI가 먼저 두면 그 변화로 소리가 나고, 내가 먼저면(처음 상태는 비교할 이전이 없어 무음) 수입을 골라 상태를 바꾼다
+            val income = GameTags.action("income")
+            compose.waitUntil(30_000) {
+                synchronized(player.played) { player.played.isNotEmpty() } || compose.onAllNodesWithTag(income).fetchSemanticsNodes().isNotEmpty()
+            }
+            if (synchronized(player.played) { player.played.isEmpty() }) compose.onNodeWithTag(income).performClick()
             compose.waitUntil(30_000) { synchronized(player.played) { player.played.isNotEmpty() } }
             synchronized(player.played) { assertTrue(player.played.all { it.second == SoundLevel.LOW.volume }) }
         } finally {
