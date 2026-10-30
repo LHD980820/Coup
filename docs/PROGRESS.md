@@ -45,7 +45,13 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (릴리스 서명 틀)
+## 이번 단계 메모 (끝난 판·닫힌 방 기록 정리, ADR 0021)
+- `RecordPurger`(core/judge): 판정 뒤 7일(거부된 판 30일) 지난 판의 `games/{id}` 아래 전부와 `results/{id}`, 닫힌 지 7일 된 방(과 그 방을 가리키는 참가 코드)을 지운다. **판정 없는 판·진행 중인 판은 절대 안 지운다.** 전적·프로필은 남는다(전적은 그 문서만으로 보인다).
+- 하위 문서부터, 게임 문서는 맨 마지막에 트랜잭션으로 다시 확인하고 지운다 — 실패하면 다음 실행이 이어서. 묶음 400, 실행당 300판.
+- 정리 함수는 메시지 본문이 `purge`일 때만 기록을 지운다(새 Scheduler 작업 `coup-purge`, 하루 한 번). 그 밖의 메시지는 기존 5분 정리.
+- 테스트: 코어 12(실제로 끝내고 판정한 판), 서버 2(에뮬레이터). **오너 작업**: `coup-sweep`을 새 JAR와 `--timeout=540s`로 다시 배포, `coup-purge` 작업 만들기(`OWNER_CHECKLIST.md` 2-5).
+
+## 이전 단계 메모 (릴리스 서명 틀)
 - `app/build.gradle.kts`: 루트 `keystore.properties` 또는 환경 변수(`COUP_KEYSTORE_FILE` 등)에서 서명 정보를 읽어 있으면 릴리스를 서명한다. 없으면 서명하지 않는다(이전과 같음 — CI·테스트·린트 영향 없음). **일부만 있으면 빌드를 멈추고** 빠진 항목을 알린다(조용히 서명 없는 앱이 나오지 않게).
 - `.gitignore`에 `keystore.properties`, `*.jks`, `*.keystore`; 견본 `keystore.properties.example`.
 - 검증(임시 키스토어로): 설정 없음 -> `app-release-unsigned.apk`; 환경 변수 전체 -> `app-release.apk`가 `apksigner verify` 통과(v2); 일부만 -> 빌드 중단. 임시 키스토어는 지웠다.

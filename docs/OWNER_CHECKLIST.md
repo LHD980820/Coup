@@ -63,10 +63,19 @@ gcloud functions deploy coup-judge --gen2 --runtime=java21 --region=<Firestore �
 gcloud pubsub topics create coup-sweep
 gcloud functions deploy coup-sweep --gen2 --runtime=java21 --region=<Firestore 리전> \
   --source=server/build/deploy --entry-point=io.github.lhd980820.coup.server.SweepFunction \
-  --trigger-topic=coup-sweep --memory=512Mi
+  --trigger-topic=coup-sweep --memory=512Mi --timeout=540s
 gcloud scheduler jobs create pubsub coup-sweep --location=<Firestore 리전> \
   --schedule="*/5 * * * *" --topic=coup-sweep --message-body=sweep
 ```
+
+### 2-5. 기록 정리 (하루 한 번, ADR 0021)
+같은 함수가 메시지 본문이 `purge`일 때만 오래된 기록을 지운다: 판정 7일 뒤(위조로 거부된 판은 30일)의 판 문서 전부와 결과, 닫힌 지 7일 지난 방.
+전적과 프로필은 남는다. 판정이 없는 판은 지우지 않는다. 한 번에 300판까지(밀린 것은 다음 날).
+```
+gcloud scheduler jobs create pubsub coup-purge --location=<Firestore 리전> \
+  --schedule="23 4 * * *" --time-zone="Asia/Seoul" --topic=coup-sweep --message-body=purge
+```
+함수 제한 시간은 위의 `--timeout=540s`(기록 정리가 몇 분 걸릴 수 있다). 이미 `coup-sweep`을 배포했다면 새 JAR로 **다시 배포**해야 한다(`purge`를 아는 버전).
 
 (ADR 0015, 0016 · `firebase/README.md` "서버 판정 배포")
 
@@ -122,7 +131,7 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 ## 5. 배포 후 확인 (테스트 계정 둘 이상, 기기 둘 이상)
 
 1. **레이팅 판 한 판**을 끝까지 → 판정 함수 로그에 `game …: verified, ratings applied to […]`, 결과 화면에 레이팅 변화. (함수 로그: `gcloud functions logs read coup-judge --gen2 --region=<리전>`)
-2. **정리 함수**: 로그에 `swept … games` 가 5분마다 찍히는지 (`coup-sweep`).
+2. **정리 함수**: 로그에 `swept … games` 가 5분마다, `purged … ended games` 가 하루 한 번(새벽 4시 23분) 찍히는지 (`coup-sweep`). 처음 며칠은 밀린 판이 정리되며 숫자가 크다.
 3. **방장 이어받기**: 게임 중 방장 앱을 강제 종료 → 약 65~75초 뒤 게스트가 이어받아 계속 두는지, 돌아온 옛 방장이 게스트로 이어 가는지. 판이 끝나면 판정이 `VERIFIED`인지.
 4. **버려진 판**: 모두 앱을 끄고 10분 이상 → 게임이 `ABANDONED`로 끝나고(레이팅 판이면 방장만 패배), 방이 15분 뒤 닫히는지. 이 상태에서 앱을 켜면 안내 화면이 나오는지.
 5. **옛 계정 이관**: 옛 앱을 쓰던 계정(이메일/구글)으로 로그인 → 옛 닉네임·레이팅을 이어받는지.
@@ -145,7 +154,7 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 ## 7. 알아 둘 한계 (코드에 아직 없는 것)
 
 - **App Check는 앱 쪽만 끝났다**: 코드는 들어 있지만(§4-2) 콘솔에서 Play Integrity 등록과 **적용**을 켜기 전까지는 아무것도 막지 않는다.
-- **끝난 판의 기록은 지워지지 않는다**: 서버 정리는 방과 버려진 판만 다룬다. 끝난 판의 `games/{id}`와 하위(`log`, `views`, `commands` 등)는 쌓인다. 필요하면 Firestore TTL 정책이나 정리 함수 확장을 후속으로 한다.
+- **기록 보존 기간**(ADR 0021): 판정 7일 뒤(거부된 판 30일) 판 기록과 결과가 지워진다. 이의 제기·조사는 그 안에 해야 한다. 기간은 `RecordPurger`의 상수 하나씩으로 바꿀 수 있다.
 - **방장은 남의 패를 볼 수 있다**(권한자 상태가 방장 기기에 있다). 방장 이어받기 후에는 이어받은 사람도 마찬가지다. 오너가 받아들인 위험(ADR 0015, 0017).
 - **앱 링크(딥링크)로 방 코드 공유**는 없다: 도메인 검증과 `assetlinks.json` 배포가 필요한 오너 작업이라 코드 공유만 있다(ADR 0014).
 - **실기기에서 직접 봐야 하는 것**: 효과음의 음색·크기, 카드 뒤집기 모양, 5초 이하 경고색, HARD AI의 체감 속도, targetSdk 36의 뒤로 가기·큰 화면 동작.

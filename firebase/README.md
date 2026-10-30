@@ -94,8 +94,13 @@
    gcloud pubsub topics create coup-sweep
    gcloud functions deploy coup-sweep --gen2 --runtime=java21 --region=<Firestore 위치> \
      --source=server/build/deploy --entry-point=io.github.lhd980820.coup.server.SweepFunction \
-     --trigger-topic=coup-sweep --memory=512Mi
+     --trigger-topic=coup-sweep --memory=512Mi --timeout=540s
    gcloud scheduler jobs create pubsub coup-sweep --location=<Firestore 위치> \
      --schedule="*/5 * * * *" --topic=coup-sweep --message-body=sweep
+   ```
+   하루 한 번 기록 정리(ADR 0021 — 판정 7일 뒤 판 기록·결과, 닫힌 지 7일 된 방):
+   ```
+   gcloud scheduler jobs create pubsub coup-purge --location=<Firestore 위치> \
+     --schedule="23 4 * * *" --time-zone="Asia/Seoul" --topic=coup-sweep --message-body=purge
    ```
 5. 순서: **함수 둘 -> 규칙(`firebase deploy --only firestore:rules`) -> 앱**. 판정 함수 로그에 `game …: verified, ratings applied to […]`, 정리 함수 로그에 `swept … games`가 찍히는지 확인.
