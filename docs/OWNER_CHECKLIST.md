@@ -85,11 +85,11 @@ cd firebase && firebase deploy --only firestore:rules --project <프로젝트 ID
 
 ## 4. 앱 출시
 
-현재 **릴리스 서명 설정이 코드에 없다**(`assembleRelease`는 서명되지 않은 APK를 만든다). 
+릴리스 서명은 **비밀을 받는 틀**이 코드에 들어 있다. 비밀(키스토어 파일, 비밀번호)은 저장소에 없고, 없으면 서명하지 않은 APK가 나온다(테스트·린트·디버그는 영향 없음).
 
 | 할 일 | 메모 |
 |---|---|
-| 업로드 키스토어 만들기, 서명 설정 | 키스토어와 비밀번호는 **저장소에 커밋하지 않는다**. Play 앱 서명 사용을 권장. |
+| 업로드 키스토어 만들기, 서명 정보 넣기 | `keytool -genkeypair -keystore coup-upload.jks -alias upload -keyalg RSA -keysize 2048 -validity 10000` 으로 만든다. 루트의 `keystore.properties.example`을 `keystore.properties`로 복사해 값을 채운다(둘 다 .gitignore라 커밋되지 않는다). CI에서는 환경 변수 `COUP_KEYSTORE_FILE`·`COUP_KEYSTORE_PASSWORD`·`COUP_KEY_ALIAS`·`COUP_KEY_PASSWORD`. 일부만 채우면 빌드가 멈추고 빠진 항목을 알려 준다. **키스토어 파일과 비밀번호는 안전한 곳에 따로 백업**(잃으면 업데이트를 못 낸다). Play 앱 서명 사용을 권장. 그 뒤 `./gradlew :app:assembleRelease` 로 서명된 `app-release.apk`가 나온다. |
 | `versionCode` / `versionName` 올리기 | 지금 1 / "1.0". 방 문서가 앱 버전을 기록해 낮은 버전의 입장을 막는 장치가 있으니 업데이트마다 올린다(`app/build.gradle.kts`). |
 | 코드 축소(R8) 켤지 결정 | 지금 꺼져 있다(`isMinifyEnabled = false`). 켜면 Firebase·직렬화 규칙을 `proguard-rules.pro`에 더하고 실기기에서 전체 흐름을 다시 확인해야 한다. |
 | Play Console 항목 | 개인정보 처리방침 URL, 데이터 보안(이메일·닉네임·게임 기록 수집, Firebase Auth·Analytics), 콘텐츠 등급, 스토어 설명·스크린샷 |

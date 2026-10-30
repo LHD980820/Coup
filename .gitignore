@@ -16,3 +16,8 @@ local.properties
 
 # Kotlin 컴파일러 데몬의 세션 파일
 .kotlin/
+
+# 릴리스 서명 비밀 — 커밋하지 않는다(견본: keystore.properties.example)
+/keystore.properties
+*.jks
+*.keystore

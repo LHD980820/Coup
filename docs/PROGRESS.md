@@ -45,7 +45,12 @@
 3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
 4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
 
-## 이번 단계 메모 (App Check, ADR 0020)
+## 이번 단계 메모 (릴리스 서명 틀)
+- `app/build.gradle.kts`: 루트 `keystore.properties` 또는 환경 변수(`COUP_KEYSTORE_FILE` 등)에서 서명 정보를 읽어 있으면 릴리스를 서명한다. 없으면 서명하지 않는다(이전과 같음 — CI·테스트·린트 영향 없음). **일부만 있으면 빌드를 멈추고** 빠진 항목을 알린다(조용히 서명 없는 앱이 나오지 않게).
+- `.gitignore`에 `keystore.properties`, `*.jks`, `*.keystore`; 견본 `keystore.properties.example`.
+- 검증(임시 키스토어로): 설정 없음 -> `app-release-unsigned.apk`; 환경 변수 전체 -> `app-release.apk`가 `apksigner verify` 통과(v2); 일부만 -> 빌드 중단. 임시 키스토어는 지웠다.
+
+## 이전 단계 메모 (App Check, ADR 0020)
 - 앱이 시작할 때 App Check를 설치한다(`CoupApplication` -> `AppCheckSetup`): 릴리스 Play Integrity, 디버그 디버그 제공자. 디버그 제공자는 `debugImplementation`과 `src/debug`에만 있고 릴리스에 들어가지 않는다(구성 검사 테스트).
 - 설치 실패는 기록만 하고 앱은 계속 돈다. **적용은 콘솔 스위치** — 측정(지표) 후 오너가 켠다(`OWNER_CHECKLIST.md` §4-2: Play Integrity 등록, 디버그 토큰 등록, 지표 확인, 적용, 사이드로딩 주의).
 - 테스트 +10, 변이 10종 검출(1종 컴파일 오류). 개발 중 Maven Central의 429(요청 과다)로 의존성 내려받기가 한 번 실패했다 — 환경의 일시적 제한이라 풀린 뒤 다시 하니 됐다.

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -7,6 +9,23 @@ plugins {
 kotlin {
     jvmToolchain(17)
 }
+
+/**
+ * 릴리스 서명 정보. 저장소 밖의 비밀이다: 루트의 `keystore.properties`(.gitignore, 견본은 `keystore.properties.example`)나
+ * 환경 변수(CI: COUP_KEYSTORE_FILE, COUP_KEYSTORE_PASSWORD, COUP_KEY_ALIAS, COUP_KEY_PASSWORD). 파일이 환경 변수보다 우선한다.
+ * 아무것도 없으면 서명하지 않는다 — 디버그·테스트·린트는 이것 없이 돈다. 일부만 있으면 조용히 서명 없는 앱이 나오지 않게 빌드를 멈춘다.
+ */
+val signingKeys = listOf("storeFile" to "COUP_KEYSTORE_FILE", "storePassword" to "COUP_KEYSTORE_PASSWORD", "keyAlias" to "COUP_KEY_ALIAS", "keyPassword" to "COUP_KEY_PASSWORD")
+val releaseSigning: Map<String, String> = run {
+    val file = rootProject.file("keystore.properties")
+    val props = Properties().apply { if (file.exists()) file.inputStream().use(::load) }
+    signingKeys.mapNotNull { (key, env) -> (props.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }?.let { key to it } }.toMap()
+}
+val missingSigning = signingKeys.map { it.first }.filter { it !in releaseSigning }
+if (releaseSigning.isNotEmpty() && missingSigning.isNotEmpty()) {
+    throw GradleException("릴리스 서명 정보가 일부만 있습니다. 빠진 항목: ${missingSigning.joinToString()} (keystore.properties 또는 환경 변수)")
+}
+val hasReleaseSigning = releaseSigning.isNotEmpty()
 
 android {
     namespace = "io.github.lhd980820.coup"
@@ -25,8 +44,20 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseSigning.getValue("storeFile"))
+                storePassword = releaseSigning.getValue("storePassword")
+                keyAlias = releaseSigning.getValue("keyAlias")
+                keyPassword = releaseSigning.getValue("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
