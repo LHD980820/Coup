@@ -196,10 +196,26 @@ class RecordPurgerTest {
         assertThat(t.verdict()).isEqualTo(FirestoreSchema.Verdict.ABANDONED)
         assertThat(purger(t).purgeGame(t.gameId)).isInstanceOf(Purge.Kept::class) // 방금 정리됐다
         advanceTimeBy(7.days.inWholeMilliseconds + 1)
-        assertThat(purger(t).purgeGame(t.gameId)).isInstanceOf(Purge.Purged::class)
+        // 하루 한 번 실행(전체 훑기)이 버려진 판도 찾는다
+        assertThat(purger(t).purgeGames().getValue(t.gameId)).isInstanceOf(Purge.Purged::class)
         assertThat(t.gameDocs()).isEmpty()
         // 방장의 패배 반영 표시(전적)는 남는다
         assertThat(t.fs.docs.containsKey(FirestoreSchema.appliedResult("host", t.gameId))).isEqualTo(true)
+    }
+
+    @Test
+    fun `방어 - 진행 중 상태면 판정이 붙어 있어도, 판정 시각이 없으면 오래된 판정이어도 지우지 않는다`() = runTest {
+        val t = finishedGame()
+        judge(t).judge(t.gameId)
+        advanceTimeBy(30.days.inWholeMilliseconds)
+        val admin = t.fs.admin()
+        admin.write(listOf(WriteOp.Merge(FirestoreSchema.game(t.gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.PLAYING) })))
+        assertThat(purger(t).purgeGame(t.gameId)).isEqualTo(Purge.Kept("not ended (PLAYING)"))
+        admin.write(listOf(WriteOp.Merge(FirestoreSchema.game(t.gameId), buildJsonObject { put(FirestoreSchema.Game.STATUS, FirestoreSchema.GameStatus.FINISHED) })))
+        val withoutTime = t.fs.docs.getValue(FirestoreSchema.game(t.gameId)) - FirestoreSchema.Game.JUDGED_AT
+        admin.write(listOf(WriteOp.Set(FirestoreSchema.game(t.gameId), kotlinx.serialization.json.JsonObject(withoutTime))))
+        assertThat(purger(t).purgeGame(t.gameId)).isEqualTo(Purge.Kept("no judgment time"))
+        assertThat(t.gameDocs()).isNotEmpty()
     }
 
     @Test
