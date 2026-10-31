@@ -9,11 +9,11 @@
 | 0. 빌드 기반 | ✅ | 오너가 로컬에서 진행. Gradle 9.8 / AGP 9.4 / Kotlin 2.4 / Firebase BOM 34.x, applicationId `io.github.lhd980820.coup`, CI(`./gradlew test lint`) 녹색 |
 | 1. 엔진 | ✅ | `core/engine`. 207개 테스트, 라인 커버리지 97.9% (ADR 0001, 0003) |
 | 2. 런타임 + AI(EASY/NORMAL) | ✅ | 런타임·AI·멀티 전송 계층(메모리 구현) 완료. `core/engine,ai,runtime` 255개 테스트 |
-| 3. 신규 UI 셸 + 싱글플레이 | 🚧 (싱글플레이·튜토리얼 Compose 화면 ✅) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요), 재접속 ✅(ADR 0012), 랭킹·전적 화면 ✅(ADR 0013), 비공개 방 코드 공유 ✅(ADR 0014) / A안: Android 빌드 가능한 새 세션에서 Compose UI ⬜ |
+| 3. 신규 UI 셸 + 싱글플레이 | ✅ (코드·테스트 완료, 실기기 확인은 오너) | (C) 순수 Kotlin: 화면 상태 `core/presentation` ✅(ADR 0004), Firestore 전송 `core/remote` ✅(ADR 0005), 방/로비 `core/lobby` ✅(ADR 0006), 튜토리얼 `core/presentation/tutorial` ✅, 사용자·레이팅·랭킹 `core/account` + `FirestoreUserRepository` ✅(ADR 0007), Firestore 방 저장소·규칙 ✅(ADR 0008), Firebase 어댑터 `:data` + 에뮬레이터 통합 테스트 ✅(ADR 0009), 로그인·로비·대기실 `core/shell` + Compose 화면 ✅(ADR 0010), 구글 로그인 ✅(ADR 0011, 실기기 전 SHA 등록 필요), 재접속 ✅(ADR 0012), 랭킹·전적 화면 ✅(ADR 0013), 비공개 방 코드 공유 ✅(ADR 0014), 싱글플레이·튜토리얼 Compose 화면 ✅(Android 빌드가 가능한 이 세션에서 완료) |
 | 4 | ✅ | 신규 멀티플레이(`:data`, 규칙, 로비·대기실·재접속·이어받기)는 Phase 3~7 작업에 함께 들어갔다 |
 | 5. 전면 전환 & 정리 | ✅ | 옛 Activity·Fragment·XML 레이아웃·옛 의존성을 모두 제거하고 `MainActivity` 하나(Compose)로 전환, targetSdk 36 (ADR 0018) |
-| 6. 폴리시 | 🚧 (게임 화면 폴리시·애니메이션 ✅) | 남은 시간 링·역할 능력 시트·대화면 2단·응답 시트·카드 뒤집기·코인·시트 등장 연출·설정(애니메이션 속도) ✅ / HARD AI ✅(ADR 0019)·게임 중 규칙 보기·설정 기억·효과음 ✅ / Phase 6 코드 작업은 끝, 남은 것은 실기기 확인 |
-| 7. 서버 판정 | 🚧 (코드·테스트 ✅, 배포는 오너 작업) | 검증형 방장 권위(오너 결정): 방장이 모든 수를 기록, Cloud Function(`server/`)이 끝난 판을 같은 엔진으로 다시 돌려 검증하고 레이팅을 반영. 클라이언트 레이팅 쓰기·정산 게이트 제거(ADR 0015). 시드 섞기·버려진 판(방장만 패배)·방 정리 + 5분마다 정리 함수(ADR 0016). 방장 이어받기(규칙만으로, ADR 0017) |
+| 6. 폴리시 | ✅ (코드·테스트 완료, 실기기 확인은 오너) | 남은 시간 링·역할 능력 시트·대화면 2단·응답 시트·카드 뒤집기·코인·시트 등장 연출·설정(애니메이션 속도) ✅ / HARD AI ✅(ADR 0019)·게임 중 규칙 보기·설정 기억·효과음 ✅ / 코드 작업은 끝, 남은 것은 실기기 확인(효과음 음색·카드 뒤집기 모양·5초 이하 경고색·HARD 체감 속도) |
+| 7. 서버 판정 | ✅ (코드·테스트 완료, **배포는 오너 작업** — `OWNER_CHECKLIST.md`) | 검증형 방장 권위(오너 결정): 방장이 모든 수를 기록, Cloud Function(`server/`)이 끝난 판을 같은 엔진으로 다시 돌려 검증하고 레이팅을 반영. 클라이언트 레이팅 쓰기·정산 게이트 제거(ADR 0015). 시드 섞기·버려진 판(방장만 패배)·방 정리 + 5분마다 정리 함수(ADR 0016). 방장 이어받기(규칙만으로, ADR 0017). App Check(ADR 0020, 콘솔에서 적용), 끝난 판·닫힌 방 기록 정리(ADR 0021) |
 
 ### Phase 1 세부 단계 (설계 §13)
 
@@ -32,18 +32,19 @@
 | 11 | 하우스룰, 속성 기반 테스트, 골든 파일 | ✅ |
 
 ## 다음 할 일
-계획 변경(오너, 2026-10-04): **C -> A안(Android 빌드가 가능한 새 클라우드 세션/환경에서 UI 작업) -> 현재 세션 복귀**. 아래 "A안 전제 조건" 참고.
-1. **(C) 남은 순수 Kotlin 부분**:
-   - ~~방/로비 도메인~~ ✅ 완료(아래 메모). 남은 후속: Firestore `RoomStore`(DocumentStore 트랜잭션 필요) + 방 접근 규칙.
-   - ~~튜토리얼 시나리오~~ ✅ 완료(아래 메모).
-   - ~~사용자/랭킹 도메인~~ ✅ 완료(아래 메모).
-   - ~~정산 게이트~~ ✅(오너 결정: 제안대로). 규칙의 `isSettled(uid)`를 방 입장에 연결하는 것은 아래 방 규칙에서.
-   - ~~Firestore `RoomStore` + 방 규칙(정산 게이트 연결, 게임 좌석 동의)~~ ✅ 완료(아래 메모).
-   - ~~에뮬레이터 규칙 검증~~ ✅ 완료(이 클라우드 환경에서 가능했다 — 아래 메모).
-   - **(C)의 순수 Kotlin 부분 일단락.** ~~실제 Firebase 어댑터(`DocumentStore` 구현) 통합 테스트~~ ✅ 완료(ADR 0009, 아래 메모). 남은 것: 아래 Android 작업(로그인·로비 UI에서 어댑터 연결).
-2. **A안 전제 조건** (오너가 환경에서 설정): 새 세션이 Android 앱을 컴파일하려면 클라우드 환경의 **네트워크 허용 목록**에 `dl.google.com`, `maven.google.com`(AGP/Firebase 아티팩트와 Android SDK 다운로드), `services.gradle.org`(Gradle 배포판)이 있어야 하고, **설정 스크립트**로 JDK 17 + Android 명령줄 도구 + `platforms;android-<compileSdk>` + `build-tools`를 설치해야 한다. 환경 변경은 새 세션부터 적용된다. 새 세션의 첫 작업은 `./gradlew assembleDebug` 로 기준선을 확인하는 것.
-3. **A안 작업 범위(새 세션)**: `:app`에 `core` 연결(`includeBuild("core")`), 단일 Activity Compose 셸, 디자인 시스템, `GameScreen`(= `GameController.state`를 그리기), 싱글플레이 설정/결과 화면, `RoleUiCatalog`/`ActionUiCatalog`, Firestore `DocumentStore` 어댑터. 로직은 모두 `core`에 있으므로 UI는 얇게.
-4. **세션 간 인계 규칙**: 두 세션이 같은 브랜치를 동시에 건드리지 않는다. 새 세션은 `core/`를 **읽기 전용**으로 취급하고(필요한 변경은 이 문서에 요청으로 적는다) `app/` 아래만 수정, 이쪽 세션은 `core/`와 `docs/`만 수정. 브랜치는 따로(예: `claude/android-ui`), 병합은 순서대로.
+**개발(코드) 작업은 계획한 범위까지 끝났다.** 남은 것은 모두 오너 몫이거나 실기기·콘솔에서 확인할 일이다.
+
+1. **오너 배포 작업**: 구글 로그인 준비(서명 인증서 SHA) -> 서버 함수 배포 -> 규칙 배포 -> 앱 출시(릴리스 서명 키, Play Console) -> App Check 적용 -> 옛 데이터 정리. 순서·명령·확인 방법은 [OWNER_CHECKLIST.md](OWNER_CHECKLIST.md).
+2. **실기기 확인**: 효과음 음색·크기, 카드 뒤집기 모양, 5초 이하 경고색, HARD AI 체감 속도, 방장 이어받기(약 65~75초), 버려진 판(10분), targetSdk 36의 뒤로 가기·큰 화면. 문제가 나오면 그 결과를 받아 고친다.
+3. **알려진 한계**(코드에 없는 것): 방장이 남의 패를 볼 수 있음(오너가 받아들인 위험, ADR 0015), App Check 적용 뒤 Play 밖 설치·Google Play 서비스 없는 기기의 거절 안내 화면, 앱 링크(딥링크)로 방 코드 공유.
+
+<details><summary>옛 계획(2026-10-04 C -> A안) — 모두 끝났다</summary>
+
+C(순수 Kotlin 부분: 방/로비, 튜토리얼 시나리오, 사용자·랭킹, 정산 게이트, 방 저장소·규칙, 에뮬레이터 규칙 검증, Firebase 어댑터 통합 테스트) -> A안(Android 빌드가 가능한 환경에서 Compose UI: `:app`에 `core` 연결, 단일 Activity 셸, 게임 화면, 싱글플레이 설정·결과, 튜토리얼, 로그인·로비·대기실)
+-> 현재 세션 복귀. A안의 환경 전제(네트워크 허용 목록, 설정 스크립트)와 세션 간 인계 규칙은 이 세션에서 Android 빌드가 가능해지면서 필요 없어졌다(`scripts/setup-android-cloud.sh`).
+각 단계의 상세는 아래 "이전 단계 메모"에 있다.
+
+</details>
 
 ## 이번 단계 메모 (끝난 판·닫힌 방 기록 정리, ADR 0021)
 - `RecordPurger`(core/judge): 판정 뒤 7일(거부된 판 30일) 지난 판의 `games/{id}` 아래 전부와 `results/{id}`, 닫힌 지 7일 된 방(과 그 방을 가리키는 참가 코드)을 지운다. **판정 없는 판·진행 중인 판은 절대 안 지운다.** 전적·프로필은 남는다(전적은 그 문서만으로 보인다).
@@ -297,4 +298,4 @@
 cd core && ./gradlew test
 ```
 
-_마지막 갱신: 2026-10-18, Phase 3 (A) 룰셋·하우스룰 선택 UI_
+_마지막 갱신: 2026-10-31, 개발 완료 — 진행 표 정리와 남은 일(오너 배포·실기기 확인) 정리_
