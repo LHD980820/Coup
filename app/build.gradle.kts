@@ -1,3 +1,5 @@
+import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -125,4 +127,76 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/**
+ * `./gradlew :app:checkGoogleSignIn` — 이 컴퓨터의 **디버그 빌드에서 구글 로그인이 되는지** 미리 알려 준다.
+ * 구글 로그인은 앱의 서명 지문(SHA-1)이 Firebase에 등록돼 있어야 하고, 안 돼 있으면 기기에서 "개발자 구성 오류"(28444)로만 보여서 원인을 찾기 어렵다.
+ * 이 작업은 google-services.json에 (1) 웹 클라이언트, (2) 이 앱의 Android 클라이언트(지문)가 있는지, (3) 이 컴퓨터의 디버그 키스토어 SHA-1이 그중에 있는지 본다.
+ * 기본은 결과만 알리고 성공으로 끝난다. `-PstrictGoogleSignIn`을 주면 문제가 있을 때 실패한다.
+ * 확인용 속성: `-PgoogleServicesFile=<파일>`, `-PdebugKeystore=<디버그 키스토어>`.
+ */
+tasks.register("checkGoogleSignIn") {
+    group = "verification"
+    description = "google-services.json이 이 컴퓨터의 디버그 빌드에서 구글 로그인이 되도록 설정됐는지 본다"
+    val servicesFile = providers.gradleProperty("googleServicesFile").map { file(it) }.orElse(layout.projectDirectory.file("google-services.json").asFile)
+    val keystoreOverride = providers.gradleProperty("debugKeystore").map { file(it) }
+    val strict = providers.gradleProperty("strictGoogleSignIn").isPresent
+    val packageName = "io.github.lhd980820.coup"
+    doLast {
+        val problems = mutableListOf<String>()
+        val out = StringBuilder("구글 로그인 점검 (패키지 $packageName)\n")
+        fun ok(msg: String) = out.append("  [OK] $msg\n")
+        fun bad(msg: String) { problems += msg; out.append("  [!!] $msg\n") }
+
+        val file = servicesFile.get()
+        if (!file.exists()) {
+            bad("google-services.json이 없습니다(${file.path}). Firebase 콘솔 > 프로젝트 설정에서 내려받아 app/ 에 넣으세요.")
+        } else {
+            @Suppress("UNCHECKED_CAST")
+            val root = groovy.json.JsonSlurper().parse(file) as Map<String, Any?>
+            @Suppress("UNCHECKED_CAST")
+            val clients = (root["client"] as? List<Map<String, Any?>>).orEmpty()
+            val mine = clients.firstOrNull { (((it["client_info"] as? Map<*, *>)?.get("android_client_info")) as? Map<*, *>)?.get("package_name") == packageName }
+            if (mine == null) {
+                bad("패키지 $packageName 가 google-services.json에 없습니다. Firebase 콘솔에서 이 패키지의 Android 앱을 등록하고 파일을 다시 내려받으세요.")
+            } else {
+                @Suppress("UNCHECKED_CAST")
+                val oauth = (mine["oauth_client"] as? List<Map<String, Any?>>).orEmpty()
+                val web = oauth.filter { it["client_type"].toString().removeSuffix(".0") == "3" }
+                val android = oauth.filter { it["client_type"].toString().removeSuffix(".0") == "1" }
+                if (web.isEmpty()) bad("웹 클라이언트(client_type 3)가 없습니다. Authentication > 로그인 방법에서 Google을 켜세요.") else ok("웹 클라이언트 ID: ${web.first()["client_id"]}")
+                val registered = android.mapNotNull { (it["android_info"] as? Map<*, *>)?.get("certificate_hash")?.toString()?.lowercase() }.toSet()
+                if (registered.isEmpty()) {
+                    bad("이 패키지의 Android 클라이언트(서명 지문)가 하나도 등록되지 않았습니다. 이대로는 기기에서 구글 로그인이 실패합니다(28444 \"Developer console is not set up correctly\").")
+                } else {
+                    ok("등록된 서명 지문(SHA-1) ${registered.size}개: ${registered.joinToString()}")
+                }
+                val store = keystoreOverride.orNull
+                    ?: File(System.getenv("ANDROID_USER_HOME") ?: "${System.getProperty("user.home")}/.android", "debug.keystore")
+                if (!store.exists()) {
+                    out.append("  [--] 디버그 키스토어가 아직 없습니다(${store.path}). 디버그 빌드(./gradlew :app:assembleDebug)를 한 번 하면 생기고, 그 뒤 다시 점검하세요.\n")
+                } else {
+                    val sha1 = try {
+                        val ks = KeyStore.getInstance(store, "android".toCharArray())
+                        val cert = ks.getCertificate("androiddebugkey")
+                        MessageDigest.getInstance("SHA-1").digest(cert.encoded).joinToString("") { "%02x".format(it) }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    when {
+                        sha1 == null -> out.append("  [--] 디버그 키스토어(${store.path})를 읽지 못했습니다(별칭 androiddebugkey / 비밀번호 android가 아닌 키스토어일 수 있습니다).\n")
+                        sha1 in registered -> ok("이 컴퓨터의 디버그 키스토어 SHA-1이 등록돼 있습니다 — 디버그 빌드에서 구글 로그인이 됩니다.")
+                        else -> bad(
+                            "이 컴퓨터의 디버그 키스토어 SHA-1(${sha1.chunked(2).joinToString(":").uppercase()})이 등록돼 있지 않습니다. " +
+                                "Firebase 콘솔 > 프로젝트 설정 > 내 앱 > $packageName 에 이 지문을 추가하고 google-services.json을 다시 내려받으세요.",
+                        )
+                    }
+                }
+            }
+        }
+        out.append(if (problems.isEmpty()) "결과: 문제 없음\n" else "결과: 문제 ${problems.size}건 — 위 [!!] 항목을 고치세요. 자세한 순서: docs/OWNER_CHECKLIST.md 1절\n")
+        println(out)
+        if (strict && problems.isNotEmpty()) throw GradleException("구글 로그인 설정에 문제가 있습니다(${problems.size}건)")
+    }
 }
