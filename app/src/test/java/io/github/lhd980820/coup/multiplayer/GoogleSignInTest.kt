@@ -59,6 +59,22 @@ class GoogleSignInTest : MpScreenTest() {
     // ---- 로그인 화면 ------------------------------------------------------------------------------
 
     @Test
+    fun `취소 말고는 원인을 logcat에 남긴다 - 지문 미등록 같은 설정 오류의 유일한 단서`() {
+        org.robolectric.shadows.ShadowLog.clear()
+        GoogleTokens.fromException(GetCredentialCancellationException())
+        assertTrue("사용자가 닫은 것은 기록하지 않는다", org.robolectric.shadows.ShadowLog.getLogsForTag(GoogleTokens.TAG).isEmpty())
+
+        GoogleTokens.fromException(GetCredentialUnknownException("[28444] Developer console is not set up correctly."))
+        val logs = org.robolectric.shadows.ShadowLog.getLogsForTag(GoogleTokens.TAG)
+        assertEquals(1, logs.size)
+        assertEquals(android.util.Log.WARN, logs.single().type)
+        assertTrue(logs.single().msg, "28444" in logs.single().msg && "Developer console" in logs.single().msg)
+
+        GoogleTokens.fromException(NoCredentialException())
+        assertEquals("계정 없음도 기록한다", 2, org.robolectric.shadows.ShadowLog.getLogsForTag(GoogleTokens.TAG).size)
+    }
+
+    @Test
     fun `구글을 쓸 수 없는 구성이면 버튼이 없다`() {
         show(google = null)
         openMultiplayer()

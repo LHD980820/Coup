@@ -1,6 +1,7 @@
 package io.github.lhd980820.coup.multiplayer
 
 import android.app.Activity
+import android.util.Log
 import androidx.credentials.Credential
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -48,10 +49,19 @@ internal object GoogleTokens {
         }
     }
 
-    fun fromException(e: GetCredentialException): GoogleToken = when (e) {
-        is GetCredentialCancellationException -> GoogleToken.Cancelled
-        is NoCredentialException -> GoogleToken.NoAccount
-        is GetCredentialProviderConfigurationException, is GetCredentialUnsupportedException -> GoogleToken.Unavailable
-        else -> GoogleToken.Failed
+    /**
+     * 사용자가 닫은 것(취소) 말고는 원인을 logcat(태그 [TAG])에 남긴다 — 서명 지문이 등록되지 않았을 때 등의 설정 오류는
+     * 화면에는 "실패"로만 보여서, 로그의 `28444 Developer console is not set up correctly` 같은 메시지가 유일한 단서다.
+     */
+    fun fromException(e: GetCredentialException): GoogleToken {
+        if (e !is GetCredentialCancellationException) Log.w(TAG, "Google sign-in did not complete: ${e.type}: ${e.message}")
+        return when (e) {
+            is GetCredentialCancellationException -> GoogleToken.Cancelled
+            is NoCredentialException -> GoogleToken.NoAccount
+            is GetCredentialProviderConfigurationException, is GetCredentialUnsupportedException -> GoogleToken.Unavailable
+            else -> GoogleToken.Failed
+        }
     }
+
+    const val TAG = "GoogleSignIn"
 }
