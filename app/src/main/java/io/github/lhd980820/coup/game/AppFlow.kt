@@ -1,5 +1,7 @@
 package io.github.lhd980820.coup.game
 
+import androidx.activity.compose.BackHandler
+import android.widget.Toast
 import io.github.lhd980820.coup.game.sound.SoundPlayer
 import io.github.lhd980820.coup.game.sound.SoundLevel
 import io.github.lhd980820.coup.game.sound.SoundCue
@@ -27,7 +29,7 @@ import io.github.lhd980820.coup.shell.auth.GoogleTokenSource
 import io.github.lhd980820.coup.shell.stats.HistoryModel
 import io.github.lhd980820.coup.shell.stats.RankingModel
 
-private enum class Screen { HOME, SETUP, TUTORIALS, MULTI, RANKING, HISTORY, SETTINGS }
+internal enum class Screen { HOME, SETUP, TUTORIALS, MULTI, RANKING, HISTORY, SETTINGS }
 
 /**
  * 앱의 화면 흐름: 홈 -> (AI와 대전: 설정 -> 게임) | (튜토리얼: 목록 -> 과정). 게임 중이면(컨트롤러가 있으면) 게임 화면이 우선한다.
@@ -43,6 +45,10 @@ internal fun AppFlow(
     settings: AppSettings? = null,
     /** 효과음을 내는 쪽. null이면 소리가 없다. */
     sounds: SoundPlayer? = null,
+    /** 홈에서 뒤로 가기를 처음 눌렀을 때의 안내("한 번 더 누르면 종료"). null이면 토스트. */
+    onExitHint: (() -> Unit)? = null,
+    /** 현재 시각(밀리초). 홈에서 뒤로 가기 두 번의 간격을 잴 때 쓴다. 테스트가 바꾼다. */
+    now: () -> Long = System::currentTimeMillis,
 ) {
     // 연출 속도는 설정과 기기의 "애니메이션 없음"을 함께 본다
     val systemScale = rememberSystemAnimatorScale()
@@ -50,7 +56,11 @@ internal fun AppFlow(
     val level = settings?.sound ?: SoundLevel.OFF
     val playSound = remember(sounds, level) { soundSink(sounds, level) }
     CompositionLocalProvider(LocalMotion provides motion, LocalSounds provides playSound) {
-        AppScreens(viewModel, onExit, modifier, shell, google, settings)
+        val exitGuard = remember(now) { DoubleBackExit(now) }
+        val context = LocalContext.current
+        val hintText = stringResource(R.string.back_exit_hint) // 설정(언어)이 바뀌면 따라 바뀌도록 compose 방식으로 읽는다
+        val hint = onExitHint ?: { Toast.makeText(context, hintText, Toast.LENGTH_SHORT).show() }
+        AppScreens(viewModel, { if (exitGuard.onBack()) onExit() else hint() }, modifier, shell, google, settings)
     }
 }
 
@@ -76,6 +86,10 @@ private fun AppScreens(
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
     val controller: GameController? = viewModel.controller
+
+    // 뒤로 가기 규칙(백로그 3). 게임이 없을 때: 홈이 아닌 화면은 홈으로, 홈에서는 두 번 눌러야 앱이 꺼진다.
+    // 멀티플레이는 안쪽 화면(로그인 모드, 방 만들기, 대기실)이 먼저 받는다 — 나중에 등록된 BackHandler가 우선하기 때문이다.
+    BackHandler(enabled = controller == null) { if (screen == Screen.HOME) onExit() else screen = Screen.HOME }
     val you = stringResource(R.string.game_you)
     val tutor = stringResource(R.string.game_tutor_name)
 
@@ -155,13 +169,26 @@ private fun AppScreens(
     val state by controller.state.collectAsState()
     val current = state
     if (current != null) {
+        // 진행 중인 판에서 뒤로 가기는 바로 나가지 않고 한 번 묻는다(실수로 판을 잃지 않게). 결과가 나온 뒤에는 결과 대화상자가 받는다.
+        var confirmLeave by rememberSaveable { mutableStateOf(false) }
+        BackHandler(enabled = current.result == null) { confirmLeave = true }
         GameScreen(
             state = current,
             messages = controller.messages,
             actions = viewModel,
-            onExit = { viewModel.quit(); onExit() },
+            // 결과의 "나가기"는 앱을 끄지 않고 홈으로 간다
+            onExit = { viewModel.quit(); screen = Screen.HOME },
             onPlayAgain = { viewModel.quit(); screen = Screen.SETUP }, // 설정으로 돌아가 다시 시작할 수 있다
             modifier = modifier,
         )
+        if (confirmLeave && current.result == null) {
+            ConfirmLeaveDialog(
+                text = R.string.back_leave_game,
+                confirm = R.string.back_confirm_leave,
+                stay = R.string.back_stay_continue,
+                onConfirm = { confirmLeave = false; viewModel.quit(); screen = Screen.SETUP },
+                onStay = { confirmLeave = false },
+            )
+        }
     }
 }

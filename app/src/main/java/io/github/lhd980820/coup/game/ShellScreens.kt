@@ -1,5 +1,10 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectable
@@ -209,6 +214,19 @@ internal fun TutorialGame(
     val progress by guided.progress.collectAsState()
     val current = state ?: return
 
+    // 진행 중에 뒤로 가기는 한 번 묻고, 다 끝난 뒤(완료 대화상자)에는 대화상자가 받는다
+    var confirmLeave by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = !progress.completed) { confirmLeave = true }
+    if (confirmLeave && !progress.completed) {
+        ConfirmLeaveDialog(
+            text = R.string.back_leave_tutorial,
+            confirm = R.string.back_confirm_quit,
+            stay = R.string.back_stay_continue,
+            onConfirm = { confirmLeave = false; onBack() },
+            onStay = { confirmLeave = false },
+        )
+    }
+
     LaunchedEffect(progress.completed) {
         if (progress.completed) onComplete(lesson.id)
     }
@@ -231,7 +249,9 @@ internal fun TutorialGame(
     if (progress.completed) {
         val nextLesson = TutorialLessons.all.getOrNull(TutorialLessons.all.indexOf(lesson) + 1)
         AlertDialog(
-            onDismissRequest = {},
+            // 뒤로 가기 = 목록으로. 바깥을 눌러서는 닫히지 않는다
+            onDismissRequest = onBack,
+            properties = DialogProperties(dismissOnClickOutside = false),
             modifier = Modifier.testTag(ShellTags.COACH_DONE),
             title = { Text(stringResource(R.string.tutorial_complete_title)) },
             text = { Text(tutorialText(lesson.completionKey)) },

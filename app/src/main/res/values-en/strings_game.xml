@@ -117,4 +117,13 @@
     <string name="settings_sound_low">Low</string>
     <string name="settings_sound_off">Off</string>
     <string name="settings_sound_note">Sounds follow the device\'s media volume.</string>
+    <string name="back_exit_hint">Press back again to exit</string>
+    <string name="back_leave_game">Quit the game and leave? The current game will be lost.</string>
+    <string name="back_leave_tutorial">Stop the tutorial? Your progress so far won\'t be saved.</string>
+    <string name="back_leave_room">Leave the room?</string>
+    <string name="back_leave_room_host">If the host leaves, the room closes and everyone returns to the lobby. Leave?</string>
+    <string name="back_confirm_leave">Leave</string>
+    <string name="back_confirm_quit">Stop</string>
+    <string name="back_stay_continue">Continue</string>
+    <string name="back_stay_room">Stay</string>
 </resources>

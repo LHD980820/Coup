@@ -1,5 +1,13 @@
 package io.github.lhd980820.coup.multiplayer
 
+import kotlinx.coroutines.launch
+import io.github.lhd980820.coup.shell.lobby.WaitingRoomModel
+import io.github.lhd980820.coup.game.ConfirmLeaveDialog
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -65,16 +73,38 @@ internal fun MultiplayerFlow(shell: ShellViewModel, onBack: () -> Unit, modifier
                     onBack = onBack,
                     modifier = modifier,
                 )
-                MultiScreen.CREATE -> CreateRoomScreen(
+                MultiScreen.CREATE -> {
+                    BackHandler(onBack = shell::closeCreate) // 방 만들기에서 뒤로 가기 = 로비
+                    CreateRoomScreen(
                     lobby = lobby,
                     defaultTitle = stringResource(R.string.mp_create_default_name, shell.profile?.nickname.orEmpty()),
                     onEnterRoom = { shell.enterRoom(it) },
                     onBack = shell::closeCreate,
                     modifier = modifier,
-                )
-                MultiScreen.ROOM -> shell.room?.let { WaitingRoomScreen(it, onEvent = shell::onRoomEvent, modifier = modifier) }
+                    )
+                }
+                MultiScreen.ROOM -> shell.room?.let { room -> RoomWithBackGuard(room, shell, modifier) }
             }
         }
+    }
+}
+
+/** 대기실. 뒤로 가기는 바로 나가지 않고 한 번 묻는다(방장이 나가면 방이 닫히므로 그 경고를 함께 보인다). */
+@Composable
+private fun RoomWithBackGuard(room: WaitingRoomModel, shell: ShellViewModel, modifier: Modifier) {
+    var confirmLeave by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val isHost = room.state.collectAsState().value?.isHost == true
+    BackHandler { confirmLeave = true }
+    WaitingRoomScreen(room, onEvent = shell::onRoomEvent, modifier = modifier)
+    if (confirmLeave) {
+        ConfirmLeaveDialog(
+            text = if (isHost) R.string.back_leave_room_host else R.string.back_leave_room,
+            confirm = R.string.back_confirm_leave,
+            stay = R.string.back_stay_room,
+            onConfirm = { confirmLeave = false; scope.launch { room.leave() } },
+            onStay = { confirmLeave = false },
+        )
     }
 }
 

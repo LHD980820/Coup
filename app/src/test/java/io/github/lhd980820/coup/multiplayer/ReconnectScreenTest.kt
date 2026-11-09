@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.pressBack
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -216,10 +217,7 @@ class ReconnectScreenTest : MpScreenTest() {
         host.device.cancel()
         serverAbandons(gameId)
         waitFor(GameTags.ABANDONED, timeoutMillis = 20_000)
-        compose.runOnUiThread {
-            @Suppress("UNCHECKED_CAST")
-            (compose as AndroidComposeTestRule<*, androidx.activity.ComponentActivity>).activity.onBackPressedDispatcher.onBackPressed()
-        }
+        compose.pressBack() // 기기와 같은 순서: 열려 있는 대화상자가 먼저 받는다
         waitFor(LobbyTags.NOTICE)
         assertTrue(!exists(GameTags.CONCEDE_CONFIRM))
     }
@@ -276,10 +274,7 @@ class ReconnectScreenTest : MpScreenTest() {
     @Test
     fun `게임 중 뒤로 가기는 바로 나가지 않고 기권을 확인한다`() {
         guestInGame()
-        compose.runOnUiThread {
-            @Suppress("UNCHECKED_CAST")
-            (compose as AndroidComposeTestRule<*, androidx.activity.ComponentActivity>).activity.onBackPressedDispatcher.onBackPressed()
-        }
+        compose.pressBack() // 기기와 같은 순서: 열려 있는 대화상자가 먼저 받는다
         waitFor(GameTags.CONCEDE_CONFIRM)
         assertTrue(exists(GameTags.CONCEDE)) // 아직 게임 화면이다
     }

@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,6 +78,8 @@ internal fun LoginScreen(form: AuthFormModel, onBack: () -> Unit, modifier: Modi
     val scope = rememberCoroutineScope()
     var showPassword by rememberSaveable { mutableStateOf(false) }
     val submit: () -> Unit = { scope.launch { form.submit() } }
+    // 가입·비밀번호 재설정 화면에서 뒤로 가기는 먼저 로그인으로, 로그인에서는 부모(홈)가 받는다
+    BackHandler(enabled = state.mode != AuthMode.SIGN_IN) { form.setMode(AuthMode.SIGN_IN) }
     val title = when (state.mode) {
         AuthMode.SIGN_IN -> R.string.mp_login_title
         AuthMode.REGISTER -> R.string.mp_register_title

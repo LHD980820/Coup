@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.window.DialogProperties
 import io.github.lhd980820.coup.game.sound.SoundCues
 import io.github.lhd980820.coup.game.sound.SoundCue
 import androidx.compose.animation.AnimatedContent
@@ -198,7 +199,7 @@ internal fun GameScreen(
     // 방장이 오래 돌아오지 않아 서버가 판을 끝냈다: 더 둘 수 없으므로 기권 대신 안내하고 나가게 한다
     val abandoned = state.connection == ConnectionState.ABANDONED && state.result == null
     BackHandler(enabled = backConcedes && state.result == null) { if (abandoned) onAbandoned() else confirmConcede = true }
-    BackHandler(enabled = backConcedes && state.result != null) { onExit() }
+    // 결과가 나온 뒤의 뒤로 가기는 아래 결과 대화상자가 받는다(대화상자는 별도 창이라 화면의 BackHandler에 닿지 않는다)
 
     // 상태가 바뀔 때마다 이전 상태와 비교해 소리를 낸다(처음 그릴 때나 회전으로 다시 그릴 때는 이전이 없어 무음)
     val playSound = LocalSounds.current
@@ -261,7 +262,9 @@ internal fun GameScreen(
 
     if (abandoned) {
         AlertDialog(
-            onDismissRequest = {},
+            // 뒤로 가기 = "로비로". 바깥을 눌러서는 닫히지 않는다
+            onDismissRequest = onAbandoned,
+            properties = DialogProperties(dismissOnClickOutside = false),
             modifier = Modifier.testTag(GameTags.ABANDONED),
             title = { Text(stringResource(R.string.mp_abandoned_title)) },
             text = {
@@ -292,7 +295,9 @@ internal fun GameScreen(
 
     state.result?.let { result ->
         AlertDialog(
-            onDismissRequest = {},
+            // 뒤로 가기 = 결과 확인 뒤 다음 화면으로("다시 하기/대기실로"와 같은 길). 바깥을 눌러서는 닫히지 않는다
+            onDismissRequest = onPlayAgain,
+            properties = DialogProperties(dismissOnClickOutside = false),
             modifier = Modifier.testTag(GameTags.RESULT),
             title = { Text(stringResource(R.string.game_result_title)) },
             text = {
