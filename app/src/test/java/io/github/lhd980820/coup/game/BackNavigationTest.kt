@@ -81,6 +81,18 @@ class BackNavigationTest {
     }
 
     @Test
+    fun `종료를 확정한 직후 다시 누르면 새로 안내부터 한다`() {
+        open()
+        compose.pressBack()
+        clock += 500
+        compose.pressBack() // 종료
+        clock += 500
+        compose.pressBack() // 앱이 그대로 떠 있다면 이것은 새 첫 번째다
+        assertEquals(1, exits)
+        assertEquals(2, hints)
+    }
+
+    @Test
     fun `다른 화면에 다녀온 뒤 홈에서 누른 첫 뒤로 가기는 종료가 아니다`() {
         open()
         compose.onNodeWithTag(ShellTags.HOME_TUTORIAL).performClick()

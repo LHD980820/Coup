@@ -1,13 +1,18 @@
 package io.github.lhd980820.coup.multiplayer
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.github.lhd980820.coup.game.BackTags
 import io.github.lhd980820.coup.game.GameTags
 import io.github.lhd980820.coup.game.ShellTags
 import io.github.lhd980820.coup.lobby.RoomStatus
 import io.github.lhd980820.coup.pressBack
+import io.github.lhd980820.coup.R
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -94,6 +99,36 @@ class BackNavigationMpTest : MpScreenTest() {
         waitGone(BackTags.DIALOG)
         assertNotNull(fx.shell.room)
         assertEquals(RoomStatus.WAITING, runBlocking { fx.remote("other@test.co", "다른이").rooms.observe(roomId).first()?.status })
+    }
+
+    @Test
+    fun `방장에게는 방이 닫힌다는 경고가 보인다`() {
+        openRoom()
+        compose.pressBack()
+        waitFor(BackTags.DIALOG)
+        compose.onNodeWithText(string(R.string.back_leave_room_host)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `게스트에게는 방장 경고 없이 묻고, 나가도 방은 그대로 열려 있다`() {
+        signInAndOpenLobby()
+        val host = fx.remote("host@test.co", "방장")
+        runBlocking { host.signUp() }
+        val room = runBlocking { host.createRoom("원격 방") }
+        val hostModel = host.waitingRoom(room.id)
+        fx.scope.launch { hostModel.run() } // 방장 쪽 방 모델이 방을 지켜본다
+        compose.onNodeWithTag(LobbyTags.REFRESH).performClick()
+        waitFor(LobbyTags.join(room.id))
+        click(LobbyTags.join(room.id))
+        waitFor(WaitingTags.READY)
+
+        compose.pressBack()
+        waitFor(BackTags.DIALOG)
+        compose.onNodeWithText(string(R.string.back_leave_room)).assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithText(string(R.string.back_leave_room_host)).fetchSemanticsNodes().isEmpty())
+        compose.onNodeWithTag(BackTags.CONFIRM).performClick()
+        waitFor(LobbyTags.CREATE)
+        assertEquals(RoomStatus.WAITING, runBlocking { host.rooms.observe(room.id).first()?.status }) // 게스트가 나가도 방은 열려 있다
     }
 
     @Test
