@@ -75,7 +75,7 @@
     <string name="game_role_ability_unknown">This card\'s ability isn\'t known in this version.</string>
     <string name="game_ability_note">This game uses changed rules, so it may differ from this standard description.</string>
     <string name="game_ability_close">Close</string>
-    <string name="game_card_inspect">View ability</string>
+    <string name="game_card_inspect">Zoom in</string>
     <string name="game_timer_seconds">%1$ds</string>
     <string name="game_timer_label">%1$d seconds left</string>
     <string name="game_role_unknown">Unknown card</string>
@@ -126,4 +126,7 @@
     <string name="back_confirm_quit">Stop</string>
     <string name="back_stay_continue">Continue</string>
     <string name="back_stay_room">Stay</string>
+    <string name="game_zoom_mine">Your card</string>
+    <string name="game_zoom_mine_lost">Your card — lost influence, now revealed</string>
+    <string name="game_zoom_opponent_lost">%1$s\'s revealed card — lost influence</string>
 </resources>

@@ -1,5 +1,9 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.window.DialogProperties
 import io.github.lhd980820.coup.game.sound.SoundCues
 import io.github.lhd980820.coup.game.sound.SoundCue
@@ -27,8 +31,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.staticCompositionLocalOf
 import io.github.lhd980820.coup.engine.model.RoleId
@@ -127,8 +129,11 @@ internal object GameTags {
     const val COACH = "coach"
     const val COACH_BACK = "coach_back"
     const val LOG_SIDE = "log_side"
-    const val ABILITY_SHEET = "ability_sheet"
-    const val ABILITY_CLOSE = "ability_close"
+    const val CARD_ZOOM = "card_zoom"
+    const val CARD_ZOOM_CLOSE = "card_zoom_close"
+    const val CARD_ZOOM_OWNER = "card_zoom_owner"
+    const val TIMER_ZOOM = "timer_zoom"
+    fun hidden(id: String, index: Int) = "hidden_${id}_$index"
     const val TIMER_MINE = "timer_mine"
     const val RESPONSE_SHEET = "response_sheet"
     const val MY_COINS = "coins_mine"
@@ -147,6 +152,20 @@ internal val LocalNowMillis = staticCompositionLocalOf<() -> Long> { System::cur
 
 /** 효과음을 내는 함수. 기본은 무음이다 — 미리보기와 자동 테스트는 조용하고, 앱이 설정에 맞춰 채운다. */
 internal val LocalSounds = staticCompositionLocalOf<(SoundCue) -> Unit> { {} }
+
+/** 확대해서 보는 카드: 어느 역할이고, 누구의 어떤 카드인가. */
+internal data class ZoomTarget(val role: RoleId, val owner: String, val kind: ZoomKind)
+
+internal enum class ZoomKind {
+    /** 내 손패(아직 가리고 있는 영향력). */
+    MINE,
+
+    /** 내가 잃어서 공개된 카드. */
+    MINE_LOST,
+
+    /** 상대가 잃어서 공개된 카드. */
+    OPPONENT_LOST,
+}
 
 /** 튜토리얼 안내: 지금 단계 문구와, 사용자가 해야 하는 한 수([expect]). null이면 제한 없음. */
 internal data class GuideUi(val message: String, val step: Int, val total: Int, val expect: TutorialExpect?, val offScript: Int)
@@ -208,7 +227,7 @@ internal fun GameScreen(
         SoundCues.between(lastState[0], state).forEach(playSound)
         lastState[0] = state
     }
-    var inspected by remember { mutableStateOf<RoleId?>(null) }
+    var zoomed by remember { mutableStateOf<ZoomTarget?>(null) }
     var showRules by remember { mutableStateOf(false) }
 
     // 아래: 진행 배너·내 카드·결정은 항상 보이게 고정한다.
@@ -222,7 +241,7 @@ internal fun GameScreen(
             onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null,
             onShowRules = if (state.ruleSet.isCustom) ({ showRules = true }) else null,
         )
-        state.me?.let { MyArea(state, it, actions, onInspect = { role -> inspected = role }) }
+        state.me?.let { MyArea(state, it, actions, onZoom = { card -> zoomed = ZoomTarget(card.role, it.name, if (card.revealed) ZoomKind.MINE_LOST else ZoomKind.MINE) }) }
         DecisionPanel(state, texts, actions, guide?.expect)
         if (guide != null) {
             TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
@@ -237,7 +256,7 @@ internal fun GameScreen(
             if (maxWidth >= WIDE_LAYOUT_MIN_WIDTH) {
                 Row(Modifier.fillMaxSize().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(3f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { OpponentsRow(state, texts) }
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { OpponentsRow(state, texts) { zoomed = it } }
                         bottom()
                     }
                     Column(Modifier.weight(2f).fillMaxHeight().verticalScroll(rememberScrollState()).testTag(GameTags.LOG_SIDE)) {
@@ -247,7 +266,7 @@ internal fun GameScreen(
             } else {
                 Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OpponentsRow(state, texts)
+                        OpponentsRow(state, texts) { zoomed = it }
                         LogList(state, texts, COMPACT_LOG_LINES)
                     }
                     bottom()
@@ -257,7 +276,11 @@ internal fun GameScreen(
         }
     }
 
-    inspected?.let { role -> AbilitySheet(role, rulesChanged = state.ruleSet.isCustom, onDismiss = { inspected = null }) }
+    zoomed?.let { target ->
+        // 확대해 보는 동안에도 내 결정의 시간은 흐르므로 남은 시간을 함께 보인다
+        val deadline = state.myDeadline.takeIf { state.decision != null && state.result == null }
+        CardZoom(target, rulesChanged = state.ruleSet.isCustom, deadline = deadline, onDismiss = { zoomed = null })
+    }
     if (showRules) state.ruleSet?.let { RulesDialog(it, onDismiss = { showRules = false }) }
 
     if (abandoned) {
@@ -350,14 +373,16 @@ private fun ConnectionBanner(connection: ConnectionState, onLeave: () -> Unit) {
 // ---- 상대 ---------------------------------------------------------------------------------------
 
 @Composable
-private fun OpponentsRow(state: GameUiState, texts: GameTexts) {
+private fun OpponentsRow(state: GameUiState, texts: GameTexts, onZoom: (ZoomTarget) -> Unit) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        items(state.opponents, key = { it.id.value }) { op -> OpponentCard(op, texts, highlight = op.targetable) }
+        items(state.opponents, key = { it.id.value }) { op ->
+            OpponentCard(op, texts, highlight = op.targetable, onZoom = { role -> onZoom(ZoomTarget(role, op.name, ZoomKind.OPPONENT_LOST)) })
+        }
     }
 }
 
 @Composable
-private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean) {
+private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean, onZoom: (RoleId) -> Unit) {
     Card(
         modifier = Modifier
             .width(150.dp)
@@ -372,10 +397,21 @@ private fun OpponentCard(op: OpponentUi, texts: GameTexts, highlight: Boolean) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 // 화면을 처음 그릴 때 이미 공개돼 있던 카드는 그대로 두고, 그 뒤에 공개되는 카드만 뒤집는다
                 val settled = remember { op.revealed.size }
+                val zoomLabel = stringResource(R.string.game_card_inspect)
                 op.revealed.forEachIndexed { i, role ->
-                    FlipCard(role, animate = i >= settled, modifier = Modifier.size(width = 34.dp, height = 48.dp).testTag(GameTags.flip(op.id.value, i)))
+                    // 공개된 카드는 탭하면 확대된다. 그림은 작지만 누르는 영역은 48dp를 채운다
+                    // 태그는 누르는 영역에 둔다: 안쪽 카드의 접근성 이름·뒤집힘 진행이 이 노드로 합쳐진다
+                    Box(
+                        Modifier.size(MIN_TOUCH).testTag(GameTags.flip(op.id.value, i)).clickable(onClickLabel = zoomLabel) { onZoom(role) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        FlipCard(role, animate = i >= settled, modifier = Modifier.size(width = 34.dp, height = 48.dp))
+                    }
                 }
-                repeat(op.hiddenCount) { CardImage(role = null, revealed = false, modifier = Modifier.size(width = 34.dp, height = 48.dp)) }
+                // 가려진 카드는 무엇인지 모르므로 확대할 것이 없다
+                repeat(op.hiddenCount) { i ->
+                    CardImage(role = null, revealed = false, modifier = Modifier.size(width = 34.dp, height = 48.dp).testTag(GameTags.hidden(op.id.value, i)))
+                }
             }
             val status = when {
                 !op.isAlive -> stringResource(R.string.game_eliminated)
@@ -451,7 +487,7 @@ private fun LogList(state: GameUiState, texts: GameTexts, maxLines: Int) {
 // ---- 내 영역 ------------------------------------------------------------------------------------
 
 @Composable
-private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation.MyUi, actions: GameActions, onInspect: (RoleId) -> Unit) {
+private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation.MyUi, actions: GameActions, onZoom: (CardUi) -> Unit) {
     val pickCard = state.decision as? DecisionUi.PickCard
     val pickExchange = state.decision as? DecisionUi.PickExchange
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -464,35 +500,33 @@ private fun MyArea(state: GameUiState, me: io.github.lhd980820.coup.presentation
             // 카드 선택 결정이 있으면 그 카드 목록(선택 상태 포함)이 손패 자리에 그려진다
             val cards = pickCard?.cards ?: pickExchange?.candidates ?: me.hand
             cards.forEach { card ->
-                val onClick: (() -> Unit)? = when {
-                    state.busy -> null
-                    pickCard != null -> ({ actions.selectCard(card.id) })
-                    pickExchange != null -> ({ actions.toggleExchange(card.id) })
-                    else -> ({ onInspect(card.role) }) // 고르는 중이 아니면 탭해서 능력을 본다
+                // 고르는 중에는 탭이 선택(처리 중에는 잠긴다)이고, 아니면 탭이 확대다. 길게 누르면 언제나 확대한다
+                val onClick: () -> Unit = when {
+                    pickCard != null -> ({ if (!state.busy) actions.selectCard(card.id) })
+                    pickExchange != null -> ({ if (!state.busy) actions.toggleExchange(card.id) })
+                    else -> ({ onZoom(card) })
                 }
-                HandCard(card, onClick, inspect = pickCard == null && pickExchange == null)
+                HandCard(card, onClick = onClick, onLongClick = { onZoom(card) }, tapZooms = pickCard == null && pickExchange == null)
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HandCard(card: CardUi, onClick: (() -> Unit)?, inspect: Boolean) {
+private fun HandCard(card: CardUi, onClick: () -> Unit, onLongClick: () -> Unit, tapZooms: Boolean) {
     val name = stringResource(RoleUiCatalog.of(card.role).name)
     val stateText = buildList {
         if (card.revealed) add(stringResource(R.string.game_card_revealed))
         if (card.selected) add(stringResource(R.string.game_card_selected))
         if (card.satisfiesClaim) add(stringResource(R.string.game_card_proves))
     }.joinToString(", ")
+    val zoomLabel = stringResource(R.string.game_card_inspect)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .testTag(GameTags.card(card.id.value))
-            .let {
-                if (onClick == null) it
-                else if (inspect) it.clickable(onClickLabel = stringResource(R.string.game_card_inspect), onClick = onClick)
-                else it.clickable(onClick = onClick)
-            }
+            .combinedClickable(onClickLabel = if (tapZooms) zoomLabel else null, onClick = onClick, onLongClickLabel = zoomLabel, onLongClick = onLongClick)
             .semantics(mergeDescendants = true) { contentDescription = if (stateText.isEmpty()) name else "$name ($stateText)" },
     ) {
         CardImage(
@@ -509,10 +543,10 @@ private fun HandCard(card: CardUi, onClick: (() -> Unit)?, inspect: Boolean) {
 }
 
 @Composable
-private fun CardImage(role: io.github.lhd980820.coup.engine.model.RoleId?, revealed: Boolean, modifier: Modifier, border: BorderStroke? = null) {
+private fun CardImage(role: io.github.lhd980820.coup.engine.model.RoleId?, revealed: Boolean, modifier: Modifier, border: BorderStroke? = null, description: String? = null) {
     val res = if (role != null && revealed) RoleUiCatalog.of(role).art else RoleUiCatalog.cardBack
     Surface(shape = RoundedCornerShape(6.dp), border = border, modifier = modifier) {
-        Image(painterResource(res), contentDescription = null, modifier = Modifier.fillMaxSize())
+        Image(painterResource(res), contentDescription = description, modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -641,29 +675,56 @@ private fun Countdown(deadline: Long, tag: String, modifier: Modifier = Modifier
 
 private fun millisLeft(deadline: Long, now: () -> Long) = (deadline - now()).coerceAtLeast(0)
 
+private val MIN_TOUCH = 48.dp
 private const val COUNTDOWN_TICK_MILLIS = 250L
 private const val URGENT_SECONDS = 5
 
-// ---- 역할 능력 시트 -----------------------------------------------------------------------------
+// ---- 카드 확대 ----------------------------------------------------------------------------------
 
-/** 내 카드를 탭하면 올라오는 시트: 카드 그림, 이름, 이 역할로 할 수 있는 행동·막기(기본 규칙 기준). */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * 카드를 크게 보여 주는 창: 큰 카드 그림, 이름, 누구의 어떤 카드인지, 이 역할로 할 수 있는 행동·막기(기본 규칙 기준).
+ * 내 카드(탭, 또는 고르는 중이면 길게 누르기)와 상대의 공개된 카드(탭)에서 같이 쓴다. 바깥을 누르거나 뒤로 가기로 닫는다.
+ * 확대해 보는 동안에도 내 결정의 시간은 흐르므로 [deadline]이 있으면 남은 시간을 함께 보인다.
+ */
 @Composable
-private fun AbilitySheet(role: RoleId, rulesChanged: Boolean, onDismiss: () -> Unit) {
-    val entry = RoleUiCatalog.of(role)
-    ModalBottomSheet(onDismissRequest = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_SHEET)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            CardImage(role = role, revealed = true, modifier = Modifier.size(width = 62.dp, height = 88.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(entry.name), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+private fun CardZoom(target: ZoomTarget, rulesChanged: Boolean, deadline: Long?, onDismiss: () -> Unit) {
+    val entry = RoleUiCatalog.of(target.role)
+    val name = stringResource(entry.name)
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(24.dp), tonalElevation = 6.dp, modifier = Modifier.testTag(GameTags.CARD_ZOOM)) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CardImage(
+                    role = target.role,
+                    revealed = true,
+                    modifier = Modifier.height(ZOOM_CARD_HEIGHT).aspectRatio(CARD_ASPECT),
+                    description = name,
+                )
+                Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    when (target.kind) {
+                        ZoomKind.MINE -> stringResource(R.string.game_zoom_mine)
+                        ZoomKind.MINE_LOST -> stringResource(R.string.game_zoom_mine_lost)
+                        ZoomKind.OPPONENT_LOST -> stringResource(R.string.game_zoom_opponent_lost, target.owner)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.testTag(GameTags.CARD_ZOOM_OWNER),
+                )
                 Text(stringResource(entry.ability), style = MaterialTheme.typography.bodyMedium)
                 // 표준 규칙의 판에서는 설명이 그대로 맞다. 규칙이 바뀐 판에서만 달라질 수 있다고 알린다
                 if (rulesChanged) Text(stringResource(R.string.game_ability_note), style = MaterialTheme.typography.labelSmall)
-                TextButton(onClick = onDismiss, modifier = Modifier.testTag(GameTags.ABILITY_CLOSE)) { Text(stringResource(R.string.game_ability_close)) }
+                deadline?.let { Countdown(it, GameTags.TIMER_ZOOM) }
+                TextButton(onClick = onDismiss, modifier = Modifier.testTag(GameTags.CARD_ZOOM_CLOSE)) { Text(stringResource(R.string.game_ability_close)) }
             }
         }
     }
 }
+
+private val ZOOM_CARD_HEIGHT = 260.dp
+private const val CARD_ASPECT = 1414f / 2000f // 카드 그림의 가로:세로
 
 // ---- 응답 시트 ----------------------------------------------------------------------------------
 

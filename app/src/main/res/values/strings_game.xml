@@ -75,7 +75,7 @@
     <string name="game_role_ability_unknown">이 카드의 능력은 이 버전에서 알 수 없습니다.</string>
     <string name="game_ability_note">이 판은 규칙이 바뀌어서, 기본 규칙 기준의 이 설명과 다를 수 있어요.</string>
     <string name="game_ability_close">닫기</string>
-    <string name="game_card_inspect">능력 보기</string>
+    <string name="game_card_inspect">확대해서 보기</string>
     <string name="game_timer_seconds">%1$d초</string>
     <string name="game_timer_label">남은 시간 %1$d초</string>
     <string name="game_role_unknown">알 수 없는 카드</string>
@@ -126,4 +126,7 @@
     <string name="back_confirm_quit">그만하기</string>
     <string name="back_stay_continue">계속하기</string>
     <string name="back_stay_room">머무르기</string>
+    <string name="game_zoom_mine">내 카드</string>
+    <string name="game_zoom_mine_lost">내 카드 — 영향력을 잃어 공개됐어요</string>
+    <string name="game_zoom_opponent_lost">%1$s의 공개된 카드 — 영향력을 잃었어요</string>
 </resources>

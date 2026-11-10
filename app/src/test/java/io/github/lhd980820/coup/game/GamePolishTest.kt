@@ -150,12 +150,12 @@ class GamePolishTest {
     @Test
     fun `내 카드를 탭하면 그 역할의 능력 시트가 뜨고 닫을 수 있다`() {
         show(state())
-        assertTrue(!exists(GameTags.ABILITY_SHEET))
+        assertTrue(!exists(GameTags.CARD_ZOOM))
         compose.onNodeWithTag(GameTags.card(1)).performClick()
-        compose.onNodeWithTag(GameTags.ABILITY_SHEET).assertIsDisplayed()
+        compose.onNodeWithTag(GameTags.CARD_ZOOM).assertIsDisplayed()
         compose.onNodeWithText(string(R.string.game_role_ability_duke)).assertIsDisplayed()
-        compose.onNodeWithTag(GameTags.ABILITY_CLOSE).performClick()
-        compose.waitUntil(5_000) { !exists(GameTags.ABILITY_SHEET) }
+        compose.onNodeWithTag(GameTags.CARD_ZOOM_CLOSE).performClick()
+        compose.waitUntil(5_000) { !exists(GameTags.CARD_ZOOM) }
     }
 
     @Test
@@ -177,7 +177,7 @@ class GamePolishTest {
         }
         compose.onNodeWithTag(GameTags.card(1)).performClick()
         assertEquals(CardId(1), picked)
-        assertTrue(!exists(GameTags.ABILITY_SHEET))
+        assertTrue(!exists(GameTags.CARD_ZOOM))
     }
 
     @Test
