@@ -5,6 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertWidthIsAtLeast
@@ -122,13 +125,16 @@ class CardZoomTest {
     }
 
     @Test
-    fun `확대한 카드는 화면의 작은 카드보다 훨씬 크다`() {
+    fun `확대한 카드 그림 자체가 작은 카드보다 훨씬 크고 충분히 크다`() {
         show(state())
         val small = compose.onNodeWithTag(GameTags.card(1)).fetchSemanticsNode().size
         compose.onNodeWithTag(GameTags.card(1)).performClick()
-        val zoom = compose.onNodeWithTag(GameTags.CARD_ZOOM).fetchSemanticsNode().size
-        // 확대 창 안의 카드 그림: 이름 설명 등을 뺀 높이만으로도 작은 카드(88dp)보다 훨씬 크게 그려진다
-        assertTrue("확대 창 ${zoom.height}px vs 작은 카드 ${small.height}px", zoom.height > small.height * 2)
+        val name = string(R.string.game_role_duke)
+        // 창 전체가 아니라 확대 창 안의 카드 그림 노드만 잰다(이름·설명을 빼도 커야 한다)
+        val image = compose.onNode(hasContentDescription(name) and hasAnyAncestor(hasTestTag(GameTags.CARD_ZOOM)), useUnmergedTree = true)
+        image.assertHeightIsAtLeast(200.dp)
+        val zoom = image.fetchSemanticsNode().size
+        assertTrue("확대 그림 ${zoom.height}px vs 작은 카드 ${small.height}px", zoom.height > small.height * 2)
     }
 
     @Test
@@ -259,6 +265,14 @@ class CardZoomTest {
         show(state(ruleSet = custom))
         compose.onNodeWithTag(GameTags.flip("ai", 0)).performClick()
         compose.onNodeWithText(string(R.string.game_ability_note)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `표준 규칙의 판에는 설명이 다를 수 있다는 안내가 나오지 않는다`() {
+        show(state(ruleSet = BuiltinRules.classicConfig()))
+        compose.onNodeWithTag(GameTags.flip("ai", 0)).performClick()
+        compose.onNodeWithTag(GameTags.CARD_ZOOM).assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithText(string(R.string.game_ability_note)).fetchSemanticsNodes().isEmpty())
     }
 
     @Test
