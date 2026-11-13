@@ -71,6 +71,13 @@ android {
         unitTests {
             // Robolectric으로 Compose 화면을 JVM에서 실행한다(에뮬레이터 없이 버튼 흐름을 검증)
             isIncludeAndroidResources = true
+            // 화면 스크린샷 모음(`-Pscreenshots`, docs/DESIGN.md): 실제 렌더링으로 PNG를 만든다. 평소 테스트에서는 건너뛴다
+            all { test ->
+                providers.gradleProperty("screenshots").orNull?.let { dir ->
+                    test.systemProperty("coup.screenshots", dir.ifBlank { layout.buildDirectory.dir("screenshots").get().asFile.path })
+                    test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+                }
+            }
         }
     }
     packaging {

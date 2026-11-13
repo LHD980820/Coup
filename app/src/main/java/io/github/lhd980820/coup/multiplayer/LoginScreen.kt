@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -91,7 +92,7 @@ internal fun LoginScreen(form: AuthFormModel, onBack: () -> Unit, modifier: Modi
         AuthMode.RESET -> R.string.mp_action_reset
     }
 
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

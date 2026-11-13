@@ -23,6 +23,7 @@ import io.github.lhd980820.coup.multiplayer.LocalCodeSharer
 import io.github.lhd980820.coup.multiplayer.FirebaseBackend
 import io.github.lhd980820.coup.multiplayer.PrefsActiveRoomStore
 import io.github.lhd980820.coup.multiplayer.ShellViewModel
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 
 /** 앱의 유일한 Activity(설계 §10.2). 홈·싱글플레이·튜토리얼·로그인·로비·대기실·게임·랭킹·전적이 모두 이 안의 Compose 화면이다. */
@@ -58,8 +59,11 @@ class MainActivity : ComponentActivity() {
         sounds = SoundPoolPlayer(applicationContext)
         setContent {
             CoupTheme {
-                CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
-                    AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google, settings = settings, sounds = sounds)
+                // 테이블은 창 전체(상태 표시줄·내비게이션 바 아래까지)에 그리고, 화면 내용만 안전 영역 안에 둔다
+                TableSurface {
+                    CompositionLocalProvider(LocalCodeSharer provides codeSharer) {
+                        AppFlow(viewModel, onExit = ::finish, modifier = Modifier.safeDrawingPadding(), shell = shell, google = google, settings = settings, sounds = sounds)
+                    }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,8 +87,8 @@ internal fun WaitingRoomScreen(model: WaitingRoomModel, onEvent: (WaitingRoomEve
     LaunchedEffect(model) { model.events.collect(onEvent) }
 
     val s = state
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        if (s == null) return@Surface
+    TableSurface(modifier) {
+        if (s == null) return@TableSurface
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(s.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))

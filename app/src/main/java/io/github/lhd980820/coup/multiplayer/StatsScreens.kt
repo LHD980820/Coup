@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -58,7 +59,7 @@ internal object StatsTags {
 internal fun RankingScreen(model: RankingModel, myUid: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.run() }
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             StatsHeader(R.string.stats_ranking_title, onBack)
             if (state.offline) OfflineNote()
@@ -108,7 +109,7 @@ internal fun HistoryScreen(model: HistoryModel, onBack: () -> Unit, modifier: Mo
     val state by model.state.collectAsState()
     LaunchedEffect(model) { model.run() }
     val locale: Locale = LocalConfiguration.current.locales[0]
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             StatsHeader(R.string.stats_history_title, onBack)
             if (state.offline) OfflineNote()

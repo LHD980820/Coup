@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,7 +72,7 @@ internal fun CreateRoomScreen(lobby: LobbyModel, defaultTitle: String, onEnterRo
     val range = if (editor.issues(rules.value).isEmpty()) editor.playerRange(rules.value) else 2..6
     val effectiveMax = max.coerceIn(range.first, range.last)
 
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             TextButton(onClick = onBack, modifier = Modifier.testTag(CreateTags.BACK)) { Text(stringResource(R.string.mp_back)) }
             Text(stringResource(R.string.mp_create_title), style = MaterialTheme.typography.headlineMedium)

@@ -5,6 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -236,6 +239,9 @@ class MotionTest {
         compose.onNodeWithTag(GameTags.flip("ai", 0)).assertContentDescriptionEquals(string(R.string.game_role_duke))
     }
 
+    /** 상대 코인 표시 안에 그려진 숫자 글자(코인은 그림 + 숫자로 보이고, 스크린리더에는 "코인 N"으로 읽힌다). */
+    private fun coinDigits(n: Int) = compose.onAllNodes(hasText(n.toString()) and hasAnyAncestor(hasTestTag(GameTags.coins("ai"))), useUnmergedTree = true)
+
     @Test
     fun `코인이 바뀌는 동안 옛 숫자와 새 숫자가 함께 있다가 새 숫자만 남고, 스크린리더는 처음부터 새 값이다`() {
         val s = mutableStateOf(state(oppCoins = 2))
@@ -245,12 +251,12 @@ class MotionTest {
         update(s, state(oppCoins = 5))
         compose.mainClock.advanceTimeBy(48) // 상태 반영 -> 구성 -> 배치가 끝나도록 몇 프레임
         compose.mainClock.advanceTimeBy(100)
-        compose.onAllNodesWithText(string(R.string.game_coins, 2), useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText(string(R.string.game_coins, 5), useUnmergedTree = true).assertCountEquals(1)
+        coinDigits(2).assertCountEquals(1)
+        coinDigits(5).assertCountEquals(1)
         compose.onNodeWithTag(GameTags.coins("ai")).assertContentDescriptionEquals(string(R.string.game_coins, 5))
         compose.mainClock.advanceTimeBy(1_000)
-        compose.onAllNodesWithText(string(R.string.game_coins, 2), useUnmergedTree = true).assertCountEquals(0)
-        compose.onAllNodesWithText(string(R.string.game_coins, 5), useUnmergedTree = true).assertCountEquals(1)
+        coinDigits(2).assertCountEquals(0)
+        coinDigits(5).assertCountEquals(1)
     }
 
     @Test
@@ -260,8 +266,10 @@ class MotionTest {
         show(s, MotionSpeed.OFF)
         update(s, state(oppCoins = 5))
         compose.mainClock.advanceTimeBy(48) // 상태 반영 -> 구성 -> 배치가 끝나도록 몇 프레임
-        compose.onAllNodesWithText(string(R.string.game_coins, 2), useUnmergedTree = true).assertCountEquals(0)
-        compose.onAllNodesWithText(string(R.string.game_coins, 5), useUnmergedTree = true).assertCountEquals(1)
+        coinDigits(2).assertCountEquals(0)
+        coinDigits(5).assertCountEquals(1)
+        // 연출이 꺼져 있어도 스크린리더에는 "코인 N"으로 읽힌다
+        compose.onNodeWithTag(GameTags.coins("ai")).assertContentDescriptionEquals(string(R.string.game_coins, 5))
     }
 
     private val respond = DecisionUi.Respond(WindowKind.ACTION, ActionId("tax"), ai, null, ai, setOf(RoleId("duke")), true, emptyList())

@@ -1,5 +1,21 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import io.github.lhd980820.coup.ui.kit.CoupIcons
+import io.github.lhd980820.coup.ui.kit.Hairline
+import io.github.lhd980820.coup.ui.kit.PrimaryButton
+import io.github.lhd980820.coup.ui.kit.panel
+import io.github.lhd980820.coup.ui.theme.Gold
+import io.github.lhd980820.coup.ui.theme.GoldBright
+import io.github.lhd980820.coup.ui.theme.GoldInk
+import io.github.lhd980820.coup.ui.theme.Panel
+import io.github.lhd980820.coup.ui.theme.PanelHigh
+import io.github.lhd980820.coup.ui.theme.ParchmentDim
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,46 +76,32 @@ internal fun SinglePlayerSetupScreen(
     val you = stringResource(R.string.game_you)
     val aiNames = (1..5).map { stringResource(R.string.game_ai_name, it) }
 
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    TableSurface(modifier) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(stringResource(R.string.game_title), style = MaterialTheme.typography.headlineMedium)
 
-            Text(stringResource(R.string.game_setup_opponents), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle(stringResource(R.string.game_setup_opponents))
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (1..5).forEach { n ->
-                    FilterChip(
-                        selected = opponents == n,
-                        onClick = { opponents = n },
-                        label = { Text(n.toString()) },
-                        modifier = Modifier.testTag(SetupTags.opponents(n)),
-                    )
+                    ChoiceTile(n.toString(), selected = opponents == n, onClick = { opponents = n }, modifier = Modifier.weight(1f).testTag(SetupTags.opponents(n)), big = true)
                 }
             }
 
-            Text(stringResource(R.string.game_setup_difficulty), style = MaterialTheme.typography.titleMedium)
-            Column(Modifier.selectableGroup()) {
+            SectionTitle(stringResource(R.string.game_setup_difficulty))
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     AiDifficulty.EASY to R.string.game_difficulty_easy,
                     AiDifficulty.NORMAL to R.string.game_difficulty_normal,
                     AiDifficulty.HARD to R.string.game_difficulty_hard,
                 ).forEach { (d, label) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .selectable(selected = difficulty == d, onClick = { difficulty = d }, role = Role.RadioButton)
-                            .testTag(SetupTags.difficulty(d))
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = difficulty == d, onClick = null)
-                        Text(stringResource(label), Modifier.padding(start = 8.dp))
-                    }
+                    ChoiceTile(stringResource(label), selected = difficulty == d, onClick = { difficulty = d }, modifier = Modifier.weight(1f).testTag(SetupTags.difficulty(d)))
                 }
             }
 
             RuleSetPicker(editor, rules.value, onChange = { rules.value = it })
 
-            Button(
+            PrimaryButton(
+                stringResource(R.string.game_setup_start),
                 onClick = {
                     onRemember(SetupChoice(opponents, difficulty, rules.value))
                     onStart(
@@ -111,9 +113,45 @@ internal fun SinglePlayerSetupScreen(
                     )
                 },
                 enabled = editor.issues(rules.value).isEmpty(),
+                icon = CoupIcons.Swords,
                 modifier = Modifier.fillMaxWidth().testTag(SetupTags.START),
-            ) { Text(stringResource(R.string.game_setup_start)) }
+            )
         }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, color = Gold)
+}
+
+/**
+ * 여러 개 중 하나를 고르는 칸(상대 수, 난이도). 고른 칸은 금색으로 채우고 굵게 쓴다 — 스크린리더에는 라디오 버튼으로 읽힌다.
+ */
+@Composable
+private fun ChoiceTile(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, big: Boolean = false) {
+    val shape = RoundedCornerShape(14.dp)
+    Box(
+        modifier
+            .heightIn(min = 52.dp)
+            .panel(
+                shape,
+                top = if (selected) GoldBright else PanelHigh,
+                bottom = if (selected) Gold else Panel,
+                line = if (selected) GoldBright else Hairline,
+                lineWidth = if (selected) 2.dp else 1.dp,
+            )
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            style = if (big) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleSmall,
+            fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold,
+            color = if (selected) GoldInk else ParchmentDim,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

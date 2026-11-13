@@ -99,6 +99,9 @@ class GameTextsTest {
     fun `모르는 역할과 행동은 ID 그대로 보여준다`() {
         val t = texts()
         assertEquals("future_action", t.actionName(ActionId("future_action")))
-        assertEquals(RoleUiCatalog.of(mystery).art, RoleUiCatalog.cardBack)
+        // 모르는 역할은 이름도 모습도 제네릭 카드로 간다(초상 없이 문양만)
+        assertEquals(io.github.lhd980820.coup.R.string.game_role_unknown, RoleUiCatalog.of(mystery).name)
+        assertEquals(io.github.lhd980820.coup.ui.kit.RoleVisuals.Unknown, io.github.lhd980820.coup.ui.kit.RoleVisuals.of(mystery.value))
+        assertEquals(null, io.github.lhd980820.coup.ui.kit.RoleVisuals.Unknown.portrait)
     }
 }

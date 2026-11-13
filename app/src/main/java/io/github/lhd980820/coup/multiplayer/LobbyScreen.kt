@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -75,7 +76,7 @@ internal fun LobbyScreen(
     LaunchedEffect(lobby) { lobby.run() }
     LaunchedEffect(lobby) { lobby.events.collect { if (it is LobbyEvent.EnterRoom) onEnterRoom(it.roomId) } }
 
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack, modifier = Modifier.testTag(LobbyTags.BACK)) { Text(stringResource(R.string.mp_back)) }

@@ -129,4 +129,8 @@
     <string name="game_zoom_mine">Your card</string>
     <string name="game_zoom_mine_lost">Your card — lost influence, now revealed</string>
     <string name="game_zoom_opponent_lost">%1$s\'s revealed card — lost influence</string>
+    <string name="game_turn">Turn %1$d</string>
+    <string name="game_waiting_on">Waiting for: %1$s</string>
+    <string name="game_target_tap">Choose as target</string>
+    <string name="game_home_tagline">A card game of bluff and power</string>
 </resources>

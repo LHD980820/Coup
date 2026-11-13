@@ -129,4 +129,8 @@
     <string name="game_zoom_mine">내 카드</string>
     <string name="game_zoom_mine_lost">내 카드 — 영향력을 잃어 공개됐어요</string>
     <string name="game_zoom_opponent_lost">%1$s의 공개된 카드 — 영향력을 잃었어요</string>
+    <string name="game_turn">%1$d턴</string>
+    <string name="game_waiting_on">응답 대기: %1$s</string>
+    <string name="game_target_tap">대상으로 고르기</string>
+    <string name="game_home_tagline">거짓말과 권력의 카드 게임</string>
 </resources>

@@ -1,5 +1,6 @@
 package io.github.lhd980820.coup.multiplayer
 
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import kotlinx.coroutines.launch
 import io.github.lhd980820.coup.shell.lobby.WaitingRoomModel
 import io.github.lhd980820.coup.game.ConfirmLeaveDialog
@@ -110,7 +111,7 @@ private fun RoomWithBackGuard(room: WaitingRoomModel, shell: ShellViewModel, mod
 
 @Composable
 private fun CenteredMessage(message: Int, tag: String, onBack: (() -> Unit)?, onRetry: (() -> Unit)?, modifier: Modifier) {
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(message), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(tag))
             onRetry?.let { Button(onClick = it, modifier = Modifier.testTag(FlowTags.ACCOUNT_RETRY)) { Text(stringResource(R.string.mp_retry)) } }

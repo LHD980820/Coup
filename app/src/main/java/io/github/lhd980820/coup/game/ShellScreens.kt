@@ -1,5 +1,31 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import io.github.lhd980820.coup.engine.model.RoleId
+import io.github.lhd980820.coup.ui.kit.CARD_ASPECT
+import io.github.lhd980820.coup.ui.kit.CoupIcons
+import io.github.lhd980820.coup.ui.kit.Hairline
+import io.github.lhd980820.coup.ui.kit.PrimaryButton
+import io.github.lhd980820.coup.ui.kit.SecondaryButton
+import io.github.lhd980820.coup.ui.theme.Gold
+import io.github.lhd980820.coup.ui.theme.GoldBright
+import io.github.lhd980820.coup.ui.theme.GoldDeep
+import io.github.lhd980820.coup.ui.theme.ParchmentDim
+import io.github.lhd980820.coup.ui.kit.TableSurface
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -82,20 +108,60 @@ internal fun HomeScreen(
     /** 설정 화면 진입. null이면 버튼을 보이지 않는다. */
     onSettings: (() -> Unit)? = null,
 ) {
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(R.string.game_home_title), style = MaterialTheme.typography.displayMedium)
-            profile?.let { ProfileCard(it, onSaveNickname = onSaveNickname, onSignOut = onSignOut, onRanking = onRanking, onHistory = onHistory) }
-            Button(onClick = onSingle, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_SINGLE)) { Text(stringResource(R.string.game_home_single)) }
-            onMultiplayer?.let {
-                Button(onClick = it, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_MULTI)) { Text(stringResource(R.string.mp_home_multiplayer)) }
+    TableSurface(modifier) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            // 낮은 화면(작은 폰, 프로필이 있는 화면)에서는 장식을 줄여 버튼이 스크롤 없이 보이게 한다
+            val roomy = maxHeight >= 640.dp && profile == null
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(horizontal = 28.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (roomy) CardFan()
+                Text(
+                    stringResource(R.string.game_home_title).uppercase(),
+                    style = MaterialTheme.typography.displayLarge.copy(brush = Brush.verticalGradient(listOf(GoldBright, Gold, GoldDeep))),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    GoldRule(Modifier.weight(1f))
+                    Text(stringResource(R.string.game_home_tagline), style = MaterialTheme.typography.labelLarge, color = ParchmentDim)
+                    GoldRule(Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(if (roomy) 12.dp else 2.dp))
+                profile?.let { ProfileCard(it, onSaveNickname = onSaveNickname, onSignOut = onSignOut, onRanking = onRanking, onHistory = onHistory) }
+                PrimaryButton(stringResource(R.string.game_home_single), onSingle, Modifier.fillMaxWidth().testTag(ShellTags.HOME_SINGLE), icon = CoupIcons.Swords)
+                onMultiplayer?.let {
+                    SecondaryButton(stringResource(R.string.mp_home_multiplayer), it, Modifier.fillMaxWidth().testTag(ShellTags.HOME_MULTI), icon = CoupIcons.Group, line = Gold, content = Gold)
+                }
+                SecondaryButton(stringResource(R.string.game_home_tutorial), onTutorial, Modifier.fillMaxWidth().testTag(ShellTags.HOME_TUTORIAL), icon = CoupIcons.Scroll, line = Hairline)
+                onSettings?.let {
+                    TextButton(onClick = it, modifier = Modifier.testTag(ShellTags.HOME_SETTINGS)) {
+                        Icon(CoupIcons.Sliders, contentDescription = null, modifier = Modifier.size(16.dp), tint = ParchmentDim)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.game_home_settings), color = ParchmentDim)
+                    }
+                }
             }
-            OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth().testTag(ShellTags.HOME_TUTORIAL)) {
-                Text(stringResource(R.string.game_home_tutorial))
-            }
-            onSettings?.let {
-                TextButton(onClick = it, modifier = Modifier.testTag(ShellTags.HOME_SETTINGS)) { Text(stringResource(R.string.game_home_settings)) }
-            }
+        }
+    }
+}
+
+/** 홈 화면의 그림: 부채꼴로 펼친 카드 세 장(장식이라 스크린리더에는 내지 않는다). */
+@Composable
+private fun CardFan() {
+    val width = 92.dp
+    val height = width / CARD_ASPECT
+    Box(Modifier.size(width = width * 2.5f, height = height + 26.dp).clearAndSetSemantics { }, contentAlignment = Alignment.BottomCenter) {
+        listOf(Triple("assassin", -16f, -58.dp), Triple("contessa", 16f, 58.dp), Triple("duke", 0f, 0.dp)).forEach { (role, angle, shift) ->
+            RoleCard(
+                role = RoleId(role),
+                faceUp = true,
+                modifier = Modifier
+                    .offset(x = shift, y = if (angle == 0f) (-14).dp else 0.dp)
+                    .graphicsLayer { rotationZ = angle; transformOrigin = TransformOrigin(0.5f, 1f) }
+                    .shadow(10.dp, RoundedCornerShape(8.dp))
+                    .size(width, height),
+            )
         }
     }
 }
@@ -114,7 +180,7 @@ internal fun SettingsScreen(settings: AppSettings, onBack: () -> Unit, modifier:
         MotionSpeed.FAST to R.string.settings_motion_fast,
         MotionSpeed.OFF to R.string.settings_motion_off,
     )
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(R.string.settings_motion_title), style = MaterialTheme.typography.titleMedium)
@@ -166,7 +232,7 @@ internal fun TutorialListScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    TableSurface(modifier) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.tutorial_list_title), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(R.string.tutorial_list_hint), style = MaterialTheme.typography.bodyMedium)
