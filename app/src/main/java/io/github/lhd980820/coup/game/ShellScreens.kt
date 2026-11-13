@@ -20,6 +20,7 @@ import io.github.lhd980820.coup.ui.kit.CARD_ASPECT
 import io.github.lhd980820.coup.ui.kit.CoupIcons
 import io.github.lhd980820.coup.ui.kit.Hairline
 import io.github.lhd980820.coup.ui.kit.PrimaryButton
+import io.github.lhd980820.coup.ui.kit.panel
 import io.github.lhd980820.coup.ui.kit.SecondaryButton
 import io.github.lhd980820.coup.ui.theme.Gold
 import io.github.lhd980820.coup.ui.theme.GoldBright
@@ -240,17 +241,21 @@ internal fun TutorialListScreen(
                 items(lessons, key = { it.id }) { lesson ->
                     val done = lesson.id in completed
                     val doneLabel = stringResource(R.string.tutorial_done_badge)
-                    Card(
+                    Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable { onStart(lesson) }
                             .semantics { if (done) stateDescription = doneLabel } // TalkBack이 "완료"를 함께 읽는다
-                            .testTag(ShellTags.lesson(lesson.id)),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            .testTag(ShellTags.lesson(lesson.id))
+                            .panel(line = if (done) Gold.copy(alpha = 0.55f) else Hairline)
+                            .clickable { onStart(lesson) }
+                            .padding(horizontal = 16.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(tutorialText(lesson.titleKey), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                            if (done) Text(stringResource(R.string.tutorial_done_badge), Modifier.testTag(ShellTags.lessonDone(lesson.id)), color = MaterialTheme.colorScheme.primary)
+                        Text(tutorialText(lesson.titleKey), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        if (done) {
+                            Icon(CoupIcons.Check, contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
+                            Text(stringResource(R.string.tutorial_done_badge), Modifier.testTag(ShellTags.lessonDone(lesson.id)), color = Gold, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }

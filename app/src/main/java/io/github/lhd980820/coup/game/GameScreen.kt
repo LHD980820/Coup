@@ -220,6 +220,7 @@ internal fun GameScreen(
                     state,
                     onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null,
                     onShowRules = if (state.ruleSet.isCustom) ({ showRules = true }) else null,
+                    showDeck = compact,
                 )
             }
             // 아래: 가운데 무대·내 카드·결정은 항상 보이게 고정한다.
@@ -227,7 +228,7 @@ internal fun GameScreen(
                 guide?.let { CoachCard(it) }
                 ConnectionBanner(state.connection, onExit)
                 // 응답할 차례에는 아래의 응답 시트가 무대를 대신한다(누가 무엇을 하려는지 + 남은 시간 + 내 선택이 한 판에 모인다)
-                if (respond == null) StagePanel(state, texts)
+                if (respond == null) StagePanel(state, texts, compact)
                 state.me?.let { MyArea(state, it, actions, compact, onZoom = { card -> zoomed = ZoomTarget(card.role, it.name, if (card.revealed) ZoomKind.MINE_LOST else ZoomKind.MINE) }) }
                 DecisionPanel(state, texts, actions, guide?.expect)
                 if (guide != null) {

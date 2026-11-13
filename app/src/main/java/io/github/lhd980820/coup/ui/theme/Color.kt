@@ -33,6 +33,9 @@ val Crimson = Color(0xFFE5484D)
 val CrimsonLight = Color(0xFFFFB3AE)
 val CrimsonDeep = Color(0xFF7A1B22)
 
+/** 도전 버튼의 붉은색(흰 글씨와 대비 4.5:1 이상). */
+val ChallengeRed = Color(0xFFC2333A)
+
 /** 자리(아바타) 색. 역할 색과 헷갈리지 않게 채도를 낮춘 흙빛 계열이다. */
 val SeatTints = listOf(
     Color(0xFFC98F5A),

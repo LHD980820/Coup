@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -43,6 +44,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.presentation.ActionButtonUi
@@ -71,6 +75,7 @@ import io.github.lhd980820.coup.ui.kit.RoleVisuals
 import io.github.lhd980820.coup.ui.kit.SecondaryButton
 import io.github.lhd980820.coup.ui.kit.panel
 import io.github.lhd980820.coup.ui.kit.seatTint
+import io.github.lhd980820.coup.ui.theme.ChallengeRed
 import io.github.lhd980820.coup.ui.theme.Crimson
 import io.github.lhd980820.coup.ui.theme.CrimsonDeep
 import io.github.lhd980820.coup.ui.theme.CrimsonLight
@@ -89,9 +94,6 @@ private val TILE_SHAPE = RoundedCornerShape(14.dp)
 /** 행동 칸 하나의 최소 너비(글자 크기 설정이 크면 함께 커진다 — 한 줄에 놓는 칸 수가 준다). */
 private val TILE_MIN_WIDTH = 72.dp
 private const val TILE_FONT_SCALE_CAP = 1.35f
-
-/** 도전 버튼의 붉은색(흰 글씨와 대비 4.5:1 이상). */
-private val ChallengeRed = Color(0xFFC2333A)
 
 /** 안내가 가리키는 컨트롤은 테두리로 강조한다(색만으로 전달하지 않도록 코치 문구도 함께 있다). */
 private fun Modifier.guideRing(on: Boolean): Modifier = if (on) this.border(3.dp, GoldBright, RoundedCornerShape(18.dp)).padding(3.dp) else this
@@ -183,7 +185,9 @@ private fun ActionGrid(buttons: List<ActionButtonUi>, texts: GameTexts, enabled:
         val (general, claims) = buttons.partition { it.claimedRoles.isEmpty() }
         Column(verticalArrangement = Arrangement.spacedBy(TILE_GAP)) {
             listOf(general, claims).filter { it.isNotEmpty() }.forEach { group ->
-                val rows = group.chunked(columns)
+                // 한 줄에 다 못 놓으면 줄마다 고르게 나눈다(넷을 세 칸에 놓으면 3+1이 아니라 2+2)
+                val lines = (group.size + columns - 1) / columns
+                val rows = group.chunked((group.size + lines - 1) / lines)
                 rows.forEach { row ->
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(TILE_GAP)) {
                         row.forEach { b ->
@@ -191,7 +195,7 @@ private fun ActionGrid(buttons: List<ActionButtonUi>, texts: GameTexts, enabled:
                             ActionTile(b, texts, enabled && allowed, ring = expect != null && allowed, modifier = Modifier.weight(1f).fillMaxHeight()) { onChoose(b.actionId) }
                         }
                         // 여러 줄로 나뉜 묶음의 마지막 줄은 빈 칸으로 채워 칸 너비를 맞춘다
-                        if (rows.size > 1) repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                        if (rows.size > 1) repeat(rows.first().size - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
@@ -249,25 +253,38 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            ActionGlyph(button.actionId, visual, tint, on)
+            // 문양 옆에 드는 코인: 코인 그림 + 숫자(스크린리더에는 이름과 함께 "암살 (-3)"으로 읽힌다)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                ActionGlyph(button.actionId, visual, tint, on)
+                if (button.cost > 0) {
+                    Row(
+                        Modifier.alpha(if (on) 1f else 0.55f).clearAndSetSemantics { },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text("−${button.cost}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (on) GoldBright else ParchmentDim)
+                        CoinIcon(size = 11.dp)
+                    }
+                }
+            }
+            // 이름은 한 줄에 들어가게 필요하면 글자를 줄인다(긴 영어 이름이 낱말 중간에서 꺾이지 않게)
             Text(
-                label,
+                name,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = if (on) Parchment else ParchmentDim.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                softWrap = false,
+                autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize, stepSize = 0.5.sp),
+                modifier = if (button.cost > 0) Modifier.semantics { contentDescription = label } else Modifier,
             )
             if (caption.isNotEmpty()) {
                 Text(
                     caption,
                     style = MaterialTheme.typography.labelSmall,
-                    color = when {
-                        !on -> ParchmentDim
-                        truthful -> visual!!.accent
-                        else -> ParchmentDim
-                    },
+                    // 역할 색으로 채운 칸 위에서는 역할 색 글씨의 대비가 모자라므로 본문 색으로 쓴다
+                    color = if (on && truthful) Parchment else ParchmentDim,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -218,6 +218,44 @@ class ScreenshotGalleryTest {
     }
 
     @Test
+    fun `튜토리얼 목록`() {
+        val lessons = io.github.lhd980820.coup.presentation.tutorial.TutorialLessons.all
+        show { io.github.lhd980820.coup.game.TutorialListScreen(lessons, completed = setOf(lessons.first().id), onStart = {}, onBack = {}) }
+        shoot("tutorial_list")
+    }
+
+    @Test
+    fun `설정`() {
+        show { io.github.lhd980820.coup.game.SettingsScreen(io.github.lhd980820.coup.game.AppSettings(io.github.lhd980820.coup.game.InMemorySettingsStore(io.github.lhd980820.coup.game.MotionSpeed.NORMAL)), onBack = {}) }
+        shoot("settings")
+    }
+
+    @Test
+    fun `게임 - 튜토리얼 안내`() {
+        show {
+            GameScreen(
+                state(), emptyFlow(), NoActions, onExit = {}, onPlayAgain = {},
+                guide = io.github.lhd980820.coup.game.GuideUi("세금은 공작의 행동입니다. 공작이 없어도 있다고 주장할 수 있어요. 세금을 눌러 보세요.", 2, 5, io.github.lhd980820.coup.presentation.tutorial.TutorialExpect.Action(ActionId("tax")), 0),
+            )
+        }
+        shoot("game_tutorial")
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "ko-w320dp-h568dp-xhdpi")
+    fun `게임 - 작은 화면`() {
+        game(state())
+        shoot("game_small")
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "en-w360dp-h740dp-xhdpi")
+    fun `게임 - 영어`() {
+        game(state())
+        shoot("game_english")
+    }
+
+    @Test
     fun `싱글플레이 설정`() {
         show { SinglePlayerSetupScreen(onStart = {}) }
         shoot("setup")

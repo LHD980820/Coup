@@ -1,5 +1,17 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +52,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.engine.model.PlayerId
@@ -75,7 +88,7 @@ import io.github.lhd980820.coup.ui.theme.ParchmentDim
  * 맨 위 표시줄: 몇 번째 턴인지, 바뀐 규칙(있으면), 기권. 항상 화면 맨 위에 고정돼 있어 응답 시트가 떠도 닿는다.
  */
 @Composable
-internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: (() -> Unit)?) {
+internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: (() -> Unit)?, showDeck: Boolean = false) {
     Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             stringResource(R.string.game_turn, state.turnNumber),
@@ -83,6 +96,10 @@ internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: 
             color = Gold,
             modifier = Modifier.panel(CircleShape, top = PanelTop, bottom = Panel).padding(horizontal = 12.dp, vertical = 5.dp),
         )
+        if (showDeck) {
+            // 낮은 화면에서는 가운데 무대의 덱 그림 대신 여기에 장수를 적는다
+            Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelMedium, color = ParchmentDim, modifier = Modifier.padding(start = 6.dp))
+        }
         Spacer(Modifier.weight(1f))
         if (onShowRules != null) {
             // 표준과 다른 규칙으로 하는 판이면 눈에 띄게 알리고, 탭하면 무엇이 다른지 본다
@@ -157,19 +174,33 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
 @Composable
 private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) -> Unit, onTarget: (() -> Unit)?, modifier: Modifier) {
     val busy = op.isAlive && (op.status == OpponentStatus.ACTING || op.status == OpponentStatus.THINKING)
-    // 지금 움직이는 사람과 고를 수 있는 대상은 테두리가 밝아지며 천천히 맥박친다(테두리 굵기와 상태 글자도 함께 달라진다)
-    val glow = if (busy || op.targetable) pulse().value else 1f
-    val line = when {
-        op.targetable -> GoldBright.copy(alpha = 0.5f + 0.5f * glow)
-        busy -> Gold.copy(alpha = 0.4f + 0.6f * glow)
-        else -> Hairline
+    // 지금 움직이는 사람과 고를 수 있는 대상은 금색 테두리가 천천히 맥박친다(상태 글자도 함께 달라진다).
+    // 맥박 값은 그리는 단계에서만 읽는다 — 매 프레임 자리를 다시 구성하지 않는다
+    val highlight = when {
+        op.targetable -> GoldBright
+        busy -> Gold
+        else -> null
     }
+    val glow = if (highlight != null) pulse() else null
     val targetLabel = stringResource(R.string.game_target_tap)
     Column(
         modifier
             .alpha(fadeTo(if (op.isAlive) 1f else 0.55f))
             .testTag(GameTags.opponent(op.id.value))
-            .panel(line = line, lineWidth = if (busy || op.targetable) 2.dp else 1.dp)
+            .panel()
+            .then(
+                if (highlight == null) Modifier else Modifier.drawWithContent {
+                    drawContent()
+                    val w = 2.dp.toPx()
+                    drawRoundRect(
+                        highlight.copy(alpha = 0.4f + 0.6f * (glow?.value ?: 1f)),
+                        topLeft = Offset(w / 2, w / 2),
+                        size = Size(size.width - w, size.height - w),
+                        cornerRadius = CornerRadius(16.dp.toPx() - w / 2),
+                        style = Stroke(w),
+                    )
+                },
+            )
             .then(if (onTarget != null) Modifier.clickable(onClickLabel = targetLabel, onClick = onTarget) else Modifier)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -239,28 +270,50 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
  * 가운데에 문장으로 풀어 쓰며, 오른쪽에 덱이 놓인다. 내가 결정할 차례면 남은 시간이 막대로 붙는다(응답할 때는 응답 시트가 보인다).
  */
 @Composable
-internal fun StagePanel(state: GameUiState, texts: GameTexts) {
+internal fun StagePanel(state: GameUiState, texts: GameTexts, compact: Boolean = false) {
     val banner = state.banner
+    val motion = LocalMotion.current
+    // 문장(紋章)과 문장(文章): 상황이 바뀌면 새 내용이 아래에서 올라오며 바뀐다(연출이 꺼져 있으면 바로 바뀐다)
+    val headline: @Composable (Banner) -> Unit = { b ->
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StageMedallion(b, if (compact) 34.dp else 42.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(texts.banner(b), style = MaterialTheme.typography.titleMedium, color = Parchment)
+                val waiting = when (b) {
+                    is Banner.ActionDeclared -> b.waitingOn
+                    is Banner.BlockDeclared -> b.waitingOn
+                    is Banner.BlockWindow -> b.waitingOn
+                    else -> emptySet()
+                }
+                if (waiting.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.game_waiting_on, waiting.joinToString(", ") { texts.name(it) }),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = ParchmentDim,
+                    )
+                }
+            }
+        }
+    }
     Row(
-        Modifier.fillMaxWidth().testTag(GameTags.BANNER).felt().padding(horizontal = 12.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().testTag(GameTags.BANNER).felt().padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        StageMedallion(banner)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(texts.banner(banner), style = MaterialTheme.typography.titleMedium, color = Parchment)
-            val waiting = when (banner) {
-                is Banner.ActionDeclared -> banner.waitingOn
-                is Banner.BlockDeclared -> banner.waitingOn
-                is Banner.BlockWindow -> banner.waitingOn
-                else -> emptySet()
-            }
-            if (waiting.isNotEmpty()) {
-                Text(
-                    stringResource(R.string.game_waiting_on, waiting.joinToString(", ") { texts.name(it) }),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = ParchmentDim,
-                )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (!motion.enabled) {
+                headline(banner)
+            } else {
+                AnimatedContent(
+                    targetState = banner,
+                    // 응답을 기다리는 사람이 줄어드는 것처럼 같은 문장 안의 변화에는 움직이지 않는다
+                    contentKey = { texts.banner(it) },
+                    transitionSpec = {
+                        val ms = motion.ms(STAGE_MS)
+                        (fadeIn(tween(ms)) + slideInVertically(tween(ms)) { it / 3 }) togetherWith fadeOut(tween(ms / 2))
+                    },
+                    label = "stage",
+                ) { headline(it) }
             }
             // 내가 결정할 차례일 때만 내 남은 시간을 보인다(끝난 판·기다리는 중에는 숨김)
             val deadline = state.myDeadline
@@ -268,14 +321,17 @@ internal fun StagePanel(state: GameUiState, texts: GameTexts) {
                 Countdown(deadline, GameTags.TIMER_MINE, Modifier.fillMaxWidth(), style = TimerStyle.BAR)
             }
         }
-        DeckPile(state.deckSize)
+        // 낮은 화면에서는 문장이 한 줄에 들어가게 덱 그림을 뺀다(장수는 표시줄에 있다)
+        if (!compact) DeckPile(state.deckSize)
     }
 }
+
+private const val STAGE_MS = 260
 
 private class Medal(val icon: ImageVector?, val top: Color, val bottom: Color, val tint: Color, val rim: Color = Gold)
 
 @Composable
-private fun StageMedallion(banner: Banner) {
+private fun StageMedallion(banner: Banner, size: Dp) {
     fun role(role: RoleId?, icon: ImageVector? = null): Medal {
         val visual = role?.let { RoleVisuals.of(it.value) } ?: return Medal(icon, PanelTop, Panel, Gold)
         return Medal(icon ?: visual.emblem, visual.top, visual.bottom, GoldBright, visual.accent)
@@ -296,17 +352,17 @@ private fun StageMedallion(banner: Banner) {
         is Banner.Exchanging -> role(RoleId("ambassador"))
         is Banner.GameOver -> Medal(CoupIcons.Crown, GoldBright, Gold, GoldInk, GoldBright)
     }
-    // 내 차례에는 문장이 천천히 맥박친다
-    val beat = if (banner is Banner.YourTurn) pulse().value else 1f
+    // 내 차례에는 문장이 천천히 맥박친다(그리는 단계에서만 값을 읽는다)
+    val beat = if (banner is Banner.YourTurn) pulse() else null
     Box(
         Modifier
-            .size(42.dp)
-            .alpha(0.75f + 0.25f * beat)
+            .size(size)
+            .graphicsLayer { alpha = 0.75f + 0.25f * (beat?.value ?: 1f) }
             .panel(CircleShape, top = medal.top, bottom = medal.bottom, line = medal.rim, lineWidth = 1.5.dp)
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
-        if (medal.icon != null) Icon(medal.icon, contentDescription = null, tint = medal.tint, modifier = Modifier.size(22.dp)) else CoinIcon(size = 22.dp)
+        if (medal.icon != null) Icon(medal.icon, contentDescription = null, tint = medal.tint, modifier = Modifier.size(size * 0.52f)) else CoinIcon(size = size * 0.52f)
     }
 }
 
