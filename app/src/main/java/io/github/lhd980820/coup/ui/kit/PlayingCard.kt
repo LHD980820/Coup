@@ -171,7 +171,7 @@ private fun Portrait(visual: RoleVisual, accent: Color, lost: Boolean, zoomed: B
         alignment = if (zoomed) BiasAlignment(0f, -0.6f) else Alignment.Center,
         colorFilter = if (lost) Greyscale else null,
         modifier = Modifier.fillMaxSize().then(
-            // 타원 초상의 네 귀퉁이(테두리)가 보이지 않도록 가운데를 당겨 그린다
+            // 작은 카드는 얼굴이 칸을 채우도록 가운데를 당겨 그린다(초상은 머리를 이 안에 두고 그린다 — tools/card-art)
             if (zoomed) Modifier.graphicsLayer { scaleX = MINI_ZOOM; scaleY = MINI_ZOOM; transformOrigin = TransformOrigin(0.5f, 0.42f) } else Modifier,
         ),
     )

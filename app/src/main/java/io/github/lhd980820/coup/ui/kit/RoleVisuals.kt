@@ -18,7 +18,7 @@ data class RoleVisual(
     val top: Color,
     val bottom: Color,
     val emblem: ImageVector,
-    /** 초상 그림. 모르는 역할은 null(문양만 그린다). */
+    /** 초상 그림(벡터, tools/card-art/portraits.py 가 그린다). 모르는 역할은 null(문양만 그린다). */
     @param:DrawableRes val portrait: Int?,
 )
 
