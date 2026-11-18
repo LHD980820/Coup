@@ -28,6 +28,15 @@ public sealed interface LogEntry {
  * 화면은 큐에 쌓아 순서대로 재생하거나 무시해도 된다 — 진실은 항상 [GameUiState]다.
  */
 public sealed interface UiEffect {
+    /** 행동 선언(쿠·암살처럼 판을 흔드는 행동은 화면이 크게 알린다). */
+    public data class ActionDeclared(val actor: PlayerId, val actionId: ActionId, val target: PlayerId?, val claimedRoles: Set<RoleId>) : UiEffect
+
+    /** 막기 선언. */
+    public data class BlockDeclared(val blocker: PlayerId, val role: RoleId, val actionId: ActionId) : UiEffect
+
+    /** 도전. 뒤따르는 [CardRevealed]가 그 결과(증명/블러핑 발각)다. */
+    public data class Challenged(val challenger: PlayerId, val challenged: PlayerId, val claimedRoles: Set<RoleId>) : UiEffect
+
     public data class CoinsChanged(val player: PlayerId, val delta: Int) : UiEffect
     public data class CardRevealed(val player: PlayerId, val role: RoleId, val proven: Boolean) : UiEffect
     public data class InfluenceLost(val player: PlayerId, val role: RoleId) : UiEffect
@@ -66,6 +75,9 @@ public object EventMapper {
     }
 
     public fun effect(event: VisibleEvent): UiEffect? = when (val e = event.event) {
+        is GameEvent.ActionDeclared -> UiEffect.ActionDeclared(e.actor, e.actionId, e.target, e.claimedRoles)
+        is GameEvent.BlockDeclared -> UiEffect.BlockDeclared(e.blocker, e.role, e.actionId)
+        is GameEvent.ChallengeIssued -> UiEffect.Challenged(e.challenger, e.challenged, e.claimedRoles)
         is GameEvent.CoinsChanged -> UiEffect.CoinsChanged(e.player, e.delta)
         is GameEvent.CardRevealed -> UiEffect.CardRevealed(e.player, e.card.role, e.proven)
         is GameEvent.InfluenceLost -> UiEffect.InfluenceLost(e.player, e.card.role)

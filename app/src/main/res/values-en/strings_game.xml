@@ -133,4 +133,21 @@
     <string name="game_waiting_on">Waiting for: %1$s</string>
     <string name="game_target_tap">Choose as target</string>
     <string name="game_home_tagline">A card game of bluff and power</string>
+    <string name="moment_challenge">Challenge!</string>
+    <string name="moment_challenge_sub">%1$s challenges %2$s\'s %3$s claim</string>
+    <string name="moment_challenge_sub_plain">%1$s challenges %2$s</string>
+    <string name="moment_proven">Proven!</string>
+    <string name="moment_proven_sub">%1$s really had the %2$s</string>
+    <string name="moment_proven_cost">%1$s, who challenged, loses a card</string>
+    <string name="moment_bluff">Bluff!</string>
+    <string name="moment_bluff_sub">%1$s had no %2$s</string>
+    <string name="moment_bluff_sub_plain">%1$s was caught bluffing</string>
+    <string name="moment_bluff_cost">%1$s loses the %2$s</string>
+    <string name="moment_block">Block!</string>
+    <string name="moment_block_sub">%1$s blocks %3$s with the %2$s</string>
+    <string name="moment_coup">Coup!</string>
+    <string name="moment_eliminated">Eliminated!</string>
+    <string name="moment_eliminated_sub">%1$s has lost all influence</string>
+    <string name="moment_eliminated_me">You\'re out</string>
+    <string name="moment_eliminated_me_sub">You can watch the rest of the game</string>
 </resources>

@@ -305,6 +305,7 @@ internal fun TutorialGame(
     GameScreen(
         state = current,
         messages = controller.messages,
+        effects = controller.effects,
         actions = actions,
         onExit = onBack,
         onPlayAgain = onBack,

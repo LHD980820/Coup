@@ -129,6 +129,7 @@ internal fun MultiplayerGame(shell: ShellViewModel, game: GameViewModel, modifie
     GameScreen(
         state = current,
         messages = controller.messages,
+        effects = controller.effects,
         actions = game,
         onExit = shell::finishGame,
         onPlayAgain = shell::finishGame,

@@ -1,5 +1,10 @@
 package io.github.lhd980820.coup
 
+import io.github.lhd980820.coup.game.LocalMotion
+import io.github.lhd980820.coup.game.Motion
+import io.github.lhd980820.coup.game.MotionSpeed
+import io.github.lhd980820.coup.presentation.UiEffect
+import kotlinx.coroutines.flow.MutableSharedFlow
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -210,6 +215,67 @@ class ScreenshotGalleryTest {
         compose.waitForIdle()
         shoot("game_zoom")
     }
+
+    // ---- 극적인 순간: 연출 도중의 한 장면(시계를 멈추고 정해진 시각으로 넘긴다) ----
+
+    private fun momentFrame(name: String, at: Long, vararg effects: UiEffect, base: GameUiState = state(decision = null, deadline = null)) {
+        val flow = MutableSharedFlow<UiEffect>(extraBufferCapacity = 16)
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(LocalNowMillis provides { now }, LocalMotion provides Motion(MotionSpeed.NORMAL)) {
+                CoupTheme { GameScreen(base, emptyFlow(), NoActions, onExit = {}, onPlayAgain = {}, effects = flow) }
+            }
+        }
+        compose.mainClock.advanceTimeBy(64)
+        effects.forEach { flow.tryEmit(it) }
+        compose.mainClock.advanceTimeBy(at)
+        shoot(name)
+    }
+
+    @Test
+    fun `순간 - 도전`() = momentFrame("moment_challenge", 600, UiEffect.Challenged(a1, me, setOf(role("duke"))))
+
+    @Test
+    fun `순간 - 증명`() = momentFrame("moment_proven", 1_150 + 1_050, UiEffect.Challenged(a1, me, setOf(role("duke"))), UiEffect.CardRevealed(me, role("duke"), proven = true))
+
+    @Test
+    fun `순간 - 거짓말`() = momentFrame("moment_bluff", 1_150 + 1_050, UiEffect.Challenged(me, a1, setOf(role("duke"))), UiEffect.CardRevealed(a1, role("contessa"), proven = false))
+
+    @Test
+    fun `순간 - 카드 뒤집는 중`() = momentFrame("moment_flip", 1_150 + 330, UiEffect.Challenged(me, a1, setOf(role("duke"))), UiEffect.CardRevealed(a1, role("contessa"), proven = false))
+
+    @Test
+    fun `순간 - 막기`() = momentFrame("moment_block", 600, UiEffect.BlockDeclared(a2, role("contessa"), ActionId("assassinate")))
+
+    @Test
+    fun `순간 - 쿠`() = momentFrame("moment_coup", 600, UiEffect.ActionDeclared(a1, ActionId("coup"), me, emptySet()))
+
+    @Test
+    fun `순간 - 탈락`() = momentFrame("moment_eliminated", 900, UiEffect.Eliminated(a3))
+
+    @Test
+    fun `순간 - 들어오는 중`() = momentFrame("moment_entering", 130, UiEffect.ActionDeclared(a1, ActionId("coup"), me, emptySet()))
+
+    @Test
+    fun `순간 - 내 카드를 잃음`() = momentFrame("moment_hit", 140, UiEffect.InfluenceLost(me, role("ambassador")))
+
+    private fun resultFrame(name: String, won: Boolean, at: Long) {
+        compose.mainClock.autoAdvance = false
+        val result = if (won) ResultUi(me, listOf(me, a1, a2, a3), iWon = true, myRank = 1) else ResultUi(a1, listOf(a1, me, a2, a3), iWon = false, myRank = 2)
+        compose.setContent {
+            CompositionLocalProvider(LocalNowMillis provides { now }, LocalMotion provides Motion(MotionSpeed.NORMAL)) {
+                CoupTheme { GameScreen(state(banner = Banner.GameOver(result.winner, result.ranking), decision = null, deadline = null, result = result), emptyFlow(), NoActions, onExit = {}, onPlayAgain = {}) }
+            }
+        }
+        compose.mainClock.advanceTimeBy(at)
+        shoot(name)
+    }
+
+    @Test
+    fun `결과 - 승리 연출`() = resultFrame("result_win_burst", won = true, at = 520)
+
+    @Test
+    fun `결과 - 패배 연출`() = resultFrame("result_lose_drop", won = false, at = 140)
 
     @Test
     fun `홈`() {

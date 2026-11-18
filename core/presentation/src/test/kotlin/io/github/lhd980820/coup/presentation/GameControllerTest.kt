@@ -242,7 +242,32 @@ class GameControllerTest {
         assertThat(r.ui().log).containsExactly(
             LogEntry.ActionDeclared(p("me"), ActionId("tax"), null, setOf(RoleId("duke"))),
         )
-        assertThat(effects).containsExactly(UiEffect.Passed(p("a")))
+        // 선언은 연출 신호도 된다(화면이 쿠·암살·도전·막기 같은 순간을 크게 알린다)
+        assertThat(effects).containsExactly(
+            UiEffect.ActionDeclared(p("me"), ActionId("tax"), null, setOf(RoleId("duke"))),
+            UiEffect.Passed(p("a")),
+        )
+    }
+
+    private fun effectsOf(from: GameState, command: Command): Pair<GameState, List<UiEffect>> {
+        val accepted = engine.apply(from, command) as io.github.lhd980820.coup.engine.command.ApplyResult.Accepted
+        val visible = engine.projectEvents(accepted.events, io.github.lhd980820.coup.engine.view.Viewer.Player(p("me")))
+        return accepted.state to visible.mapNotNull(EventMapper::effect)
+    }
+
+    @Test
+    fun `도전과 그 결과, 막기 선언은 연출 신호가 된다`() {
+        val (taxed, _) = effectsOf(table, Command.DeclareAction(p("me"), ActionId("tax")))
+        val (challenged, challenge) = effectsOf(taxed, Command.Challenge(p("a")))
+        assertThat(challenge.first()).isEqualTo(UiEffect.Challenged(p("a"), p("me"), setOf(RoleId("duke"))))
+        // 나는 공작을 들고 있다: 그 카드를 공개하면 증명이다
+        val duke = engine.view(challenged, io.github.lhd980820.coup.engine.view.Viewer.Player(p("me"))).me!!.hand.first { it.card.role == RoleId("duke") }.card
+        val (_, reveal) = effectsOf(challenged, Command.RevealCard(p("me"), duke.id))
+        assertThat(reveal.first()).isEqualTo(UiEffect.CardRevealed(p("me"), RoleId("duke"), proven = true))
+
+        val (aid, _) = effectsOf(table, Command.DeclareAction(p("me"), ActionId("foreign_aid")))
+        val (_, block) = effectsOf(aid, Command.Block(p("a"), RoleId("duke")))
+        assertThat(block.first()).isEqualTo(UiEffect.BlockDeclared(p("a"), RoleId("duke"), ActionId("foreign_aid")))
     }
 
     @Test

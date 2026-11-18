@@ -1,5 +1,19 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import io.github.lhd980820.coup.presentation.UiEffect
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
@@ -108,6 +122,9 @@ internal object GameTags {
     const val CARD_ZOOM_CLOSE = "card_zoom_close"
     const val CARD_ZOOM_OWNER = "card_zoom_owner"
     const val TIMER_ZOOM = "timer_zoom"
+    const val MOMENT = "moment"
+    const val MY_STAMP = "stamp_me"
+    fun stamp(id: String) = "stamp_$id"
     fun hidden(id: String, index: Int) = "hidden_${id}_$index"
     const val TIMER_MINE = "timer_mine"
     const val RESPONSE_SHEET = "response_sheet"
@@ -180,6 +197,8 @@ internal fun GameScreen(
     @StringRes abandonedBody: Int = R.string.mp_abandoned_body,
     /** 버려진 판 안내 아래에 덧붙일 내용(방장이 패배로 반영된 레이팅). */
     abandonedExtra: (@Composable () -> Unit)? = null,
+    /** 연출 신호(컨트롤러의 effects). 도전·공개·탈락 같은 극적인 순간을 크게 알리는 데 쓴다 — 상태는 이것 없이도 이미 맞다. */
+    effects: Flow<UiEffect> = emptyFlow(),
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -206,6 +225,44 @@ internal fun GameScreen(
     var zoomed by remember { mutableStateOf<ZoomTarget?>(null) }
     var showRules by remember { mutableStateOf(false) }
 
+    // ---- 극적인 순간 ----
+    val motion = LocalMotion.current
+    val stage = remember { MomentStage() }
+    val me by rememberUpdatedState(state.me?.id)
+    val director = remember { MomentDirector { me } }
+    val hit = remember { Animatable(0f) }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(effects, motion) {
+        effects.collect { effect ->
+            // 내 카드를 잃었다: 손에 진동이 오고(기기의 터치 진동 설정을 따른다) 화면 가장자리가 붉게 번쩍이며 내 카드가 흔들린다
+            if (effect is UiEffect.InfluenceLost && effect.player == me) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                if (motion.enabled) launch {
+                    hit.snapTo(1f)
+                    hit.animateTo(0f, tween(motion.ms(HIT_MS), easing = LinearEasing))
+                }
+            }
+            if (motion.enabled) director.moment(effect)?.let(stage::offer)
+        }
+    }
+
+    // 판이 끝나면 마지막 순간(마지막 탈락 등)이 지나간 뒤에 결과를 띄운다. 연출이 꺼져 있으면 바로 띄운다.
+    val ended = state.result != null
+    var finaleDone by remember { mutableStateOf(ended) }
+    LaunchedEffect(ended, motion) {
+        if (!ended) {
+            finaleDone = false
+        } else if (!finaleDone) {
+            // 끝을 알리는 상태와 마지막 연출 신호는 거의 같이 오지만 순서는 정해져 있지 않다 — 잠깐 기다렸다가 무대가 빌 때까지 본다
+            delay(motion.ms(FINALE_GRACE_MS).toLong())
+            withTimeoutOrNull(motion.ms(FINALE_MAX_MS).toLong()) { snapshotFlow { stage.idle }.first { it } }
+            finaleDone = true
+        }
+    }
+    val showResult = ended && (!motion.enabled || finaleDone)
+    // 마지막 순간을 보는 동안의 뒤로 가기는 결과로 바로 넘긴다(결과 화면이 뜬 뒤에는 결과 화면이 받는다)
+    BackHandler(enabled = ended && !showResult) { finaleDone = true }
+
     // 대상을 고르는 중이면 고를 수 있는 상대의 자리를 눌러서도 고를 수 있다(아래의 이름 버튼과 같은 동작)
     val onTarget: ((PlayerId) -> Unit)? = if (state.decision is DecisionUi.PickTarget && !state.busy) actions::chooseTarget else null
 
@@ -229,7 +286,14 @@ internal fun GameScreen(
                 ConnectionBanner(state.connection, onExit)
                 // 응답할 차례에는 아래의 응답 시트가 무대를 대신한다(누가 무엇을 하려는지 + 남은 시간 + 내 선택이 한 판에 모인다)
                 if (respond == null) StagePanel(state, texts, compact)
-                state.me?.let { MyArea(state, it, actions, compact, onZoom = { card -> zoomed = ZoomTarget(card.role, it.name, if (card.revealed) ZoomKind.MINE_LOST else ZoomKind.MINE) }) }
+                state.me?.let {
+                    MyArea(
+                        state, it, actions, compact,
+                        onZoom = { card -> zoomed = ZoomTarget(card.role, it.name, if (card.revealed) ZoomKind.MINE_LOST else ZoomKind.MINE) },
+                        // 카드를 잃은 순간 내 자리가 흔들린다(그리는 단계에서만 읽는다)
+                        modifier = Modifier.graphicsLayer { translationX = shake(1f - hit.value, cycles = 4) * 9.dp.toPx() },
+                    )
+                }
                 DecisionPanel(state, texts, actions, guide?.expect)
                 if (guide != null) {
                     TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
@@ -264,6 +328,9 @@ internal fun GameScreen(
                     bottom()
                 }
             }
+            // 극적인 순간은 판 위에 덧입힌다: 누르는 것을 가로채지 않는다. 결과가 뜨면 남은 순간은 보이지 않는다
+            if (!showResult) MomentOverlay(stage, texts, state)
+            Box(Modifier.fillMaxSize().damageVignette { hit.value })
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
     }
@@ -309,10 +376,17 @@ internal fun GameScreen(
         )
     }
 
-    state.result?.let { result ->
+    if (showResult) state.result?.let { result ->
         ResultDialog(result, state, texts, onPlayAgain, onExit, playAgainLabel, resultExtra)
     }
 }
+
+/** 내가 카드를 잃었을 때 붉게 번쩍이며 흔들리는 시간. */
+private const val HIT_MS = 700
+
+/** 끝을 알리는 상태가 온 뒤 마지막 연출 신호를 기다리는 시간과, 마지막 순간을 기다리는 최대 시간(보통 속도 기준). */
+private const val FINALE_GRACE_MS = 160
+private const val FINALE_MAX_MS = 3_600
 
 // ---- 결과 ---------------------------------------------------------------------------------------
 
@@ -328,25 +402,17 @@ private fun ResultDialog(
     extra: (@Composable () -> Unit)?,
 ) {
     val won = result.iWon
+    val entrance = rememberResultEntrance()
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(Unit) { if (won) haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
     AlertDialog(
         // 뒤로 가기 = 결과 확인 뒤 다음 화면으로("다시 하기/대기실로"와 같은 길). 바깥을 눌러서는 닫히지 않는다
         onDismissRequest = onPlayAgain,
         properties = DialogProperties(dismissOnClickOutside = false),
         modifier = Modifier.testTag(GameTags.RESULT),
-        icon = {
-            Box(
-                Modifier.size(56.dp).panel(
-                    CircleShape,
-                    top = if (won) GoldBright else PanelTop,
-                    bottom = if (won) Gold else PanelHigh,
-                    line = if (won) GoldBright else Hairline,
-                    lineWidth = 1.5.dp,
-                ),
-                contentAlignment = Alignment.Center,
-            ) { Icon(if (won) CoupIcons.Crown else CoupIcons.Cross, contentDescription = null, tint = if (won) GoldInk else ParchmentDim, modifier = Modifier.size(30.dp)) }
-        },
+        icon = { ResultEmblem(won, entrance) },
         title = {
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.fillMaxWidth().entranceScale(entrance), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(stringResource(R.string.game_result_title), style = MaterialTheme.typography.labelLarge, color = ParchmentDim)
                 Text(
                     stringResource(if (won) R.string.game_result_win else R.string.game_result_lose),

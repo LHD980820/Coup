@@ -72,6 +72,40 @@ internal class GameTexts(private val res: Resources, state: GameUiState) {
     fun respondPrompt(actor: PlayerId, action: ActionId, windowKind: WindowKind): String =
         str(R.string.game_respond_prompt, name(actor), actionName(action))
 
+    /** 극적인 순간([Moment])의 글: 크게 외치는 한 마디, 무슨 일인지, (있으면) 그래서 어떻게 되는지. */
+    data class MomentText(val headline: String, val line: String, val detail: String? = null)
+
+    fun moment(m: Moment): MomentText = when (m) {
+        is Moment.Challenge -> MomentText(
+            str(R.string.moment_challenge),
+            if (m.claimed.isEmpty()) str(R.string.moment_challenge_sub_plain, name(m.challenger), name(m.challenged))
+            else str(R.string.moment_challenge_sub, name(m.challenger), name(m.challenged), roles(m.claimed)),
+        )
+        is Moment.Reveal -> if (m.proven) {
+            MomentText(
+                str(R.string.moment_proven),
+                str(R.string.moment_proven_sub, name(m.player), role(m.revealed)),
+                m.challenger?.let { str(R.string.moment_proven_cost, name(it)) },
+            )
+        } else {
+            MomentText(
+                str(R.string.moment_bluff),
+                if (m.claimed.isEmpty()) str(R.string.moment_bluff_sub_plain, name(m.player)) else str(R.string.moment_bluff_sub, name(m.player), roles(m.claimed)),
+                str(R.string.moment_bluff_cost, name(m.player), role(m.revealed)),
+            )
+        }
+        is Moment.Block -> MomentText(str(R.string.moment_block), str(R.string.moment_block_sub, name(m.blocker), role(m.role), actionName(m.action)))
+        is Moment.Coup -> MomentText(
+            str(R.string.moment_coup),
+            str(R.string.game_banner_action, name(m.actor), actionDescription(ActionId(COUP), m.target)),
+        )
+        is Moment.Eliminated -> if (m.isMe) {
+            MomentText(str(R.string.moment_eliminated_me), str(R.string.moment_eliminated_me_sub))
+        } else {
+            MomentText(str(R.string.moment_eliminated), str(R.string.moment_eliminated_sub, name(m.player)))
+        }
+    }
+
     /** 노이즈를 줄이려고 일부 항목(교환 상세 등)은 null. */
     fun log(entry: LogEntry): String? = when (entry) {
         is LogEntry.ActionDeclared -> declared(entry.actor, entry.actionId, entry.target, entry.claimedRoles)
@@ -90,5 +124,9 @@ internal class GameTexts(private val res: Resources, state: GameUiState) {
         is LogEntry.Conceded -> str(R.string.game_log_conceded, name(entry.player))
         is LogEntry.Eliminated -> str(R.string.game_log_eliminated, name(entry.player))
         is LogEntry.GameEnded -> str(R.string.game_log_ended, name(entry.winner))
+    }
+
+    private companion object {
+        const val COUP = "coup"
     }
 }

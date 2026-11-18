@@ -175,6 +175,7 @@ private fun AppScreens(
         GameScreen(
             state = current,
             messages = controller.messages,
+            effects = controller.effects,
             actions = viewModel,
             // 결과의 "나가기"는 앱을 끄지 않고 홈으로 간다
             onExit = { viewModel.quit(); screen = Screen.HOME },

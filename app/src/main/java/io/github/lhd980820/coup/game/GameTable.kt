@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -183,9 +184,11 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
     }
     val glow = if (highlight != null) pulse() else null
     val targetLabel = stringResource(R.string.game_target_tap)
-    Column(
+    // 탈락하는 순간을 화면이 봤으면 도장이 떨어지며 찍힌다(처음부터 탈락해 있던 자리는 그냥 찍혀 있다)
+    val sawAlive = remember { booleanArrayOf(op.isAlive) }
+    SideEffect { if (op.isAlive) sawAlive[0] = true }
+    Box(
         modifier
-            .alpha(fadeTo(if (op.isAlive) 1f else 0.55f))
             .testTag(GameTags.opponent(op.id.value))
             .panel()
             .then(
@@ -201,8 +204,11 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
                     )
                 },
             )
-            .then(if (onTarget != null) Modifier.clickable(onClickLabel = targetLabel, onClick = onTarget) else Modifier)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
+            .then(if (onTarget != null) Modifier.clickable(onClickLabel = targetLabel, onClick = onTarget) else Modifier),
+    ) {
+    Column(
+        // 탈락한 자리는 흐려진다(도장은 흐려지지 않는다)
+        Modifier.fillMaxWidth().alpha(fadeTo(if (op.isAlive) 1f else 0.5f)).padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
@@ -242,7 +248,8 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
         ) {
             val small = MaterialTheme.typography.labelSmall
             when {
-                !op.isAlive -> Text(stringResource(R.string.game_eliminated), style = small, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                // 탈락은 자리에 찍힌 도장이 알린다
+                !op.isAlive -> Unit
                 op.claiming.isNotEmpty() -> Text(
                     stringResource(R.string.game_claiming, texts.roles(op.claiming)),
                     style = small,
@@ -260,6 +267,8 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
             val deadline = op.deadline
             if (deadline != null && busy) Countdown(deadline, GameTags.timer(op.id.value))
         }
+    }
+    if (!op.isAlive) EliminatedStamp(animate = sawAlive[0], Modifier.align(Alignment.Center).testTag(GameTags.stamp(op.id.value)))
     }
 }
 
