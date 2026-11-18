@@ -1,6 +1,5 @@
 package io.github.lhd980820.coup.game
 
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.BorderStroke
@@ -77,8 +76,7 @@ internal fun MyArea(state: GameUiState, me: MyUi, actions: GameActions, compact:
     val pickExchange = state.decision as? DecisionUi.PickExchange
     val picking = pickCard != null || pickExchange != null
     // 내가 탈락하는 순간을 화면이 봤으면 도장이 떨어지며 찍힌다(처음부터 탈락해 있었으면 그냥 찍혀 있다)
-    val sawAlive = remember { booleanArrayOf(me.isAlive) }
-    SideEffect { if (me.isAlive) sawAlive[0] = true }
+    val sawAlive = remember { me.isAlive }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Avatar(me.name, Gold, size = if (compact) 26.dp else 32.dp, ring = GoldBright, icon = CoupIcons.Person)
@@ -90,7 +88,7 @@ internal fun MyArea(state: GameUiState, me: MyUi, actions: GameActions, compact:
             val cards = pickCard?.cards ?: pickExchange?.candidates ?: me.hand
             val widest = if (compact) HAND_CARD_WIDTH_COMPACT else HAND_CARD_WIDTH
             val width = if (cards.isEmpty()) widest else minOf(widest, (maxWidth - HAND_GAP * (cards.size - 1)) / cards.size)
-            if (!me.isAlive) EliminatedStamp(animate = sawAlive[0], Modifier.align(Alignment.Center).zIndex(1f).testTag(GameTags.MY_STAMP), large = true)
+            if (!me.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).zIndex(1f).testTag(GameTags.MY_STAMP), large = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HAND_GAP, Alignment.CenterHorizontally)) {
                 cards.forEach { card ->
                     // 고르는 중에는 탭이 선택(처리 중에는 잠긴다)이고, 아니면 탭이 확대다. 길게 누르면 언제나 확대한다

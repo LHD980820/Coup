@@ -146,11 +146,14 @@ class MomentScreenTest {
     // ---- 나타나고 사라진다 ----
 
     @Test
-    fun `연출이 꺼져 있으면 극적인 순간이 나타나지 않는다`() {
+    fun `연출이 꺼져 있으면 극적인 순간이 한 프레임도 나타나지 않는다`() {
         show(mutableStateOf(state()), MotionSpeed.OFF)
         emit(UiEffect.Challenged(a1, me, duke), UiEffect.CardRevealed(me, RoleId("duke"), true), UiEffect.Eliminated(a2))
-        frames(300)
-        assertNull(moment())
+        // 한 프레임씩 넘기며 본다: 잠깐 번쩍이는 것도 안 된다
+        repeat(20) {
+            compose.mainClock.advanceTimeByFrame()
+            assertNull("${it + 1}번째 프레임", moment())
+        }
     }
 
     @Test

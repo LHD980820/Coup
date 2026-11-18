@@ -2,7 +2,6 @@ package io.github.lhd980820.coup.game
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.lhd980820.coup.engine.model.ActionId
@@ -126,16 +125,15 @@ internal data class Played(val seq: Int, val moment: Moment)
 internal class MomentStage(capacity: Int = MomentQueue.DEFAULT_CAPACITY) {
     private val queue = MomentQueue(capacity)
     private var seq = 0
-    private var waiting by mutableIntStateOf(0)
 
     var playing by mutableStateOf<Played?>(null)
         private set
 
-    val idle: Boolean get() = playing == null && waiting == 0
+    /** 무대가 비었다. 기다리는 것이 있으면 언제나 하나가 무대에 올라 있으므로, 지금 오른 것이 없으면 기다리는 것도 없다. */
+    val idle: Boolean get() = playing == null
 
     fun offer(moment: Moment) {
         queue.offer(moment)
-        waiting = queue.size
         if (playing == null) advance()
     }
 
@@ -144,8 +142,6 @@ internal class MomentStage(capacity: Int = MomentQueue.DEFAULT_CAPACITY) {
     }
 
     private fun advance() {
-        val next = queue.poll()
-        waiting = queue.size
-        playing = next?.let { Played(++seq, it) }
+        playing = queue.poll()?.let { Played(++seq, it) }
     }
 }

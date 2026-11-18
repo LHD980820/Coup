@@ -37,7 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -184,9 +183,8 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
     }
     val glow = if (highlight != null) pulse() else null
     val targetLabel = stringResource(R.string.game_target_tap)
-    // 탈락하는 순간을 화면이 봤으면 도장이 떨어지며 찍힌다(처음부터 탈락해 있던 자리는 그냥 찍혀 있다)
-    val sawAlive = remember { booleanArrayOf(op.isAlive) }
-    SideEffect { if (op.isAlive) sawAlive[0] = true }
+    // 처음 그릴 때 살아 있던 자리가 탈락하면(그 순간을 화면이 봤으면) 도장이 떨어지며 찍힌다. 처음부터 탈락해 있던 자리는 그냥 찍혀 있다
+    val sawAlive = remember { op.isAlive }
     Box(
         modifier
             .testTag(GameTags.opponent(op.id.value))
@@ -268,7 +266,7 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
             if (deadline != null && busy) Countdown(deadline, GameTags.timer(op.id.value))
         }
     }
-    if (!op.isAlive) EliminatedStamp(animate = sawAlive[0], Modifier.align(Alignment.Center).testTag(GameTags.stamp(op.id.value)))
+    if (!op.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).testTag(GameTags.stamp(op.id.value)))
     }
 }
 
