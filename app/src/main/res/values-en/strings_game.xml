@@ -150,4 +150,6 @@
     <string name="moment_eliminated_sub">%1$s has lost all influence</string>
     <string name="moment_eliminated_me">You\'re out</string>
     <string name="moment_eliminated_me_sub">You can watch the rest of the game</string>
+    <string name="game_turn_tab">Turn</string>
+    <string name="game_turn_mine">Your turn</string>
 </resources>

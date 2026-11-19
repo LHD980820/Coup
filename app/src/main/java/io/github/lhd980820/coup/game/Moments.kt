@@ -23,11 +23,18 @@ internal sealed interface Moment {
     /** 자동 테스트가 지금 무엇이 보이는지 확인하는 이름. */
     val kind: String
 
+    /**
+     * 이 순간이 다 보일 때까지 판에서 붙잡아 둘 사람들. 그 사람의 카드·생사가 바로 이 순간의 결과라서, 띠보다 먼저 보이면 결과를 미리 말해 버린다
+     * (남은 카드가 1장이면 도전·공개·탈락이 한 번에 일어난다).
+     */
+    val involves: Set<PlayerId>
+
     /** 누군가 [challenged]의 주장에 도전했다. 결과는 뒤따르는 [Reveal]이 알린다. */
     data class Challenge(val challenger: PlayerId, val challenged: PlayerId, val claimed: Set<RoleId>) : Moment {
         override val weight get() = 2
         override val totalMillis get() = 1_150
         override val kind get() = "challenge"
+        override val involves get() = setOf(challenger, challenged)
     }
 
     /**
@@ -38,12 +45,16 @@ internal sealed interface Moment {
         override val weight get() = 3
         override val totalMillis get() = 2_000
         override val kind get() = if (proven) "proven" else "bluff"
+        override val involves get() = setOfNotNull(player, challenger)
     }
 
     data class Block(val blocker: PlayerId, val role: RoleId, val action: ActionId) : Moment {
         override val weight get() = 1
         override val totalMillis get() = 1_150
         override val kind get() = "block"
+
+        // 막기 선언만으로는 누구의 카드도 바뀌지 않는다
+        override val involves get() = emptySet<PlayerId>()
     }
 
     /** 쿠: 막을 수도 도전할 수도 없는 일격. */
@@ -51,12 +62,14 @@ internal sealed interface Moment {
         override val weight get() = 2
         override val totalMillis get() = 1_250
         override val kind get() = "coup"
+        override val involves get() = setOfNotNull(target)
     }
 
     data class Eliminated(val player: PlayerId, val isMe: Boolean) : Moment {
         override val weight get() = 3
         override val totalMillis get() = 1_600
         override val kind get() = if (isMe) "eliminated_me" else "eliminated"
+        override val involves get() = setOf(player)
     }
 }
 
@@ -129,12 +142,27 @@ internal class MomentStage(capacity: Int = MomentQueue.DEFAULT_CAPACITY) {
     var playing by mutableStateOf<Played?>(null)
         private set
 
+    /** 기다리는 순간들(화면이 바뀌는 것을 알 수 있게 상태로 둔다). */
+    private var waiting by mutableStateOf<List<Moment>>(emptyList())
+
     /** 무대가 비었다. 기다리는 것이 있으면 언제나 하나가 무대에 올라 있으므로, 지금 오른 것이 없으면 기다리는 것도 없다. */
     val idle: Boolean get() = playing == null
 
+    /**
+     * 판에서 아직 붙잡아 둘 사람들: 무대에 오른 순간과 기다리는 순간이 다루는 사람([Moment.involves]).
+     * 단, 지금 오른 순간이 그 사람의 탈락이면 놓아준다 — 띠의 "탈락!"과 자리의 도장이 함께 찍힌다.
+     */
+    val held: Set<PlayerId>
+        get() {
+            val now = playing?.moment
+            val all = (listOfNotNull(now) + waiting).flatMapTo(mutableSetOf()) { it.involves }
+            if (now is Moment.Eliminated) all -= now.player
+            return all
+        }
+
     fun offer(moment: Moment) {
         queue.offer(moment)
-        if (playing == null) advance()
+        if (playing == null) advance() else waiting = queue.pending
     }
 
     fun finished(played: Played) {
@@ -143,5 +171,6 @@ internal class MomentStage(capacity: Int = MomentQueue.DEFAULT_CAPACITY) {
 
     private fun advance() {
         playing = queue.poll()?.let { Played(++seq, it) }
+        waiting = queue.pending
     }
 }

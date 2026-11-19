@@ -183,13 +183,19 @@ class MotionTest {
 
     private fun flip(i: Int) = compose.onNodeWithTag(GameTags.flip("ai", i)).fetchSemanticsNode().config[FlipProgress]
 
+    /**
+     * 연출이 켜져 있으면 판은 바뀐 상태를 잠깐([BoardPacing.GRACE_MS]) 기다렸다가 그린다(그 변화를 설명할 극적인 순간이 따라올 수 있다).
+     * 그 시간과, 상태 반영 -> 구성 -> 배치가 끝나는 몇 프레임을 넘긴다.
+     */
+    private fun settle() = compose.mainClock.advanceTimeBy(BoardPacing.GRACE_MS + 48)
+
     @Test
     fun `상대 카드가 공개되면 뒷면에서 앞면으로 뒤집히며 나타난다`() {
         val s = mutableStateOf(state())
         compose.mainClock.autoAdvance = false
         show(s, MotionSpeed.NORMAL)
         update(s, state(revealed = listOf("duke"), hidden = 1))
-        compose.mainClock.advanceTimeBy(48) // 상태 반영 -> 구성 -> 배치가 끝나도록 몇 프레임
+        settle()
         assertTrue("처음에는 뒷면 쪽: ${flip(0)}", flip(0) < 0.2f)
         compose.mainClock.advanceTimeBy(150) // 500ms 연출의 앞쪽(이징 때문에 선형이 아니다)
         assertTrue("도중에는 0과 1 사이: ${flip(0)}", flip(0) in 0.05f..0.95f)
@@ -203,7 +209,7 @@ class MotionTest {
         compose.mainClock.autoAdvance = false
         show(s, MotionSpeed.FAST)
         update(s, state(revealed = listOf("duke"), hidden = 1))
-        compose.mainClock.advanceTimeBy(48) // 상태 반영 -> 구성 -> 배치가 끝나도록 몇 프레임
+        settle()
         compose.mainClock.advanceTimeBy(300) // 보통이면 아직 도중인 시간
         assertEquals(1f, flip(0), 0f)
     }
@@ -217,7 +223,7 @@ class MotionTest {
         assertEquals(1f, flip(0), 0f)
         // 그 뒤에 공개되는 두 번째 카드만 뒤집힌다
         update(s, state(revealed = listOf("duke", "captain"), hidden = 0))
-        compose.mainClock.advanceTimeBy(48) // 상태 반영 -> 구성 -> 배치가 끝나도록 몇 프레임
+        settle()
         assertEquals(1f, flip(0), 0f)
         assertTrue("새로 공개된 카드는 뒷면 쪽에서 시작: ${flip(1)}", flip(1) < 0.2f)
     }

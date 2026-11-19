@@ -118,10 +118,12 @@ class ScreenshotGalleryTest {
         hand: List<CardUi> = listOf(CardUi(CardId(1), role("duke"), false), CardUi(CardId(2), role("ambassador"), false)),
         result: ResultUi? = null,
         coins: Int = 4,
+        turn: PlayerId? = me,
     ) = GameUiState(
         gameId = "g", turnNumber = 7, banner = banner, opponents = opponents,
         me = MyUi(me, "나", coins, hand, true, OpponentStatus.IDLE),
         deckSize = 9, decision = decision, myDeadline = deadline, connection = ConnectionState.CONNECTED, result = result, busy = false, log = log,
+        turnPlayer = turn.takeIf { result == null },
     )
 
     private object NoActions : GameActions {
@@ -180,12 +182,87 @@ class ScreenshotGalleryTest {
         shoot("game_respond")
     }
 
+    // ---- 누가 누구에게: 화살표 ----
+
+    @Test
+    fun `행동 - 상대가 나에게서 갈취`() {
+        val respond = DecisionUi.Respond(WindowKind.ACTION, ActionId("steal"), a1, me, a1, setOf(role("captain")), true, listOf(BlockButtonUi(role("captain"), bluff = true), BlockButtonUi(role("ambassador"), bluff = false)))
+        game(
+            state(
+                banner = Banner.ActionDeclared(a1, ActionId("steal"), me, setOf(role("captain")), setOf(me, a2)),
+                decision = respond,
+                deadline = now + 12_000,
+                opponents = listOf(
+                    OpponentUi(a1, "AI 1", 5, 2, emptyList(), true, OpponentStatus.IDLE, setOf(role("captain")), null, false),
+                    OpponentUi(a2, "AI 2", 1, 1, listOf(role("contessa")), true, OpponentStatus.THINKING, emptySet(), now + 12_000, false),
+                    OpponentUi(a3, "AI 3", 0, 0, listOf(role("captain"), role("assassin")), false, OpponentStatus.ELIMINATED, emptySet(), null, false),
+                ),
+                turn = a1,
+            ),
+        )
+        shoot("action_steal_me")
+    }
+
+    @Test
+    fun `행동 - 상대끼리 암살`() {
+        game(
+            state(
+                banner = Banner.ActionDeclared(a2, ActionId("assassinate"), a1, setOf(role("assassin")), setOf(a1)),
+                decision = null,
+                deadline = null,
+                opponents = listOf(
+                    OpponentUi(a1, "AI 1", 5, 2, emptyList(), true, OpponentStatus.THINKING, emptySet(), now + 9_000, false),
+                    OpponentUi(a2, "AI 2", 0, 1, listOf(role("contessa")), true, OpponentStatus.IDLE, setOf(role("assassin")), null, false),
+                    OpponentUi(a3, "AI 3", 2, 2, emptyList(), true, OpponentStatus.RESPONDED, emptySet(), null, false),
+                ),
+                turn = a2,
+            ),
+        )
+        shoot("action_assassinate_seats")
+    }
+
+    @Test
+    fun `행동 - 막기`() {
+        game(
+            state(
+                banner = Banner.BlockDeclared(a1, role("contessa"), me, ActionId("assassinate"), setOf(me)),
+                decision = null,
+                deadline = null,
+                opponents = listOf(
+                    OpponentUi(a1, "AI 1", 5, 2, emptyList(), true, OpponentStatus.IDLE, setOf(role("contessa")), null, false),
+                    OpponentUi(a2, "AI 2", 1, 1, listOf(role("contessa")), true, OpponentStatus.IDLE, emptySet(), null, false),
+                    OpponentUi(a3, "AI 3", 0, 0, listOf(role("captain"), role("assassin")), false, OpponentStatus.ELIMINATED, emptySet(), null, false),
+                ),
+                turn = me,
+            ),
+        )
+        shoot("action_block")
+    }
+
+    @Test
+    fun `행동 - 도전`() {
+        game(
+            state(
+                banner = Banner.Challenged(me, a2, setOf(role("duke")), againstBlock = false),
+                decision = null,
+                deadline = null,
+                opponents = listOf(
+                    OpponentUi(a1, "AI 1", 5, 2, emptyList(), true, OpponentStatus.IDLE, emptySet(), null, false),
+                    OpponentUi(a2, "AI 2", 4, 2, emptyList(), true, OpponentStatus.THINKING, setOf(role("duke")), now + 8_000, false),
+                    OpponentUi(a3, "AI 3", 0, 0, listOf(role("captain"), role("assassin")), false, OpponentStatus.ELIMINATED, emptySet(), null, false),
+                ),
+                turn = a2,
+            ),
+        )
+        shoot("action_challenge")
+    }
+
     @Test
     fun `게임 - 상대 차례 6인`() {
         val ops = (1..5).map { i ->
             OpponentUi(PlayerId("p$i"), "AI $i", i * 2 - 1, if (i == 4) 1 else 2, if (i == 4) listOf(role("duke")) else emptyList(), true, if (i == 2) OpponentStatus.ACTING else OpponentStatus.IDLE, emptySet(), if (i == 2) now + 14_000 else null, false)
         }
-        game(state(banner = Banner.WaitingFor(PlayerId("p2")), decision = null, deadline = null, opponents = ops))
+        game(state(banner = Banner.WaitingFor(PlayerId("p2")), decision = null, deadline = null, opponents = ops, turn = PlayerId("p2")))
         shoot("game_waiting_6p")
     }
 

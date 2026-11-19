@@ -30,6 +30,11 @@ public data class GameUiState(
     val log: List<LogEntry>,
     /** 이 판의 규칙(기반 룰셋·하우스룰·바꾼 파라미터). 화면이 "규칙 보기"로 보여준다. 알 수 없으면 null. */
     val ruleSet: RuleSetConfig? = null,
+    /**
+     * 지금 누구의 차례인가(행동을 고르는 사람이 아니라 이 턴의 주인 — 응답·도전·카드 고르기 중에도 그대로다). 판이 끝났으면 null.
+     * 화면이 차례인 자리를 크게 표시한다.
+     */
+    val turnPlayer: PlayerId? = null,
 )
 
 public enum class OpponentStatus {

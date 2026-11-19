@@ -1,5 +1,9 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -28,9 +32,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +102,7 @@ internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: 
             color = Gold,
             modifier = Modifier.panel(CircleShape, top = PanelTop, bottom = Panel).padding(horizontal = 12.dp, vertical = 5.dp),
         )
+        TurnChip(state)
         if (showDeck) {
             // 낮은 화면에서는 가운데 무대의 덱 그림 대신 여기에 장수를 적는다
             Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelMedium, color = ParchmentDim, modifier = Modifier.padding(start = 6.dp))
@@ -121,6 +128,37 @@ internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: 
     }
 }
 
+/** 맨 위 표시줄의 "누구의 차례" 칩: 그 사람의 아바타와 이름. 내 차례면 금색으로 채운다. 판이 끝났으면 없다. */
+@Composable
+private fun TurnChip(state: GameUiState, modifier: Modifier = Modifier) {
+    val turn = state.turnPlayer ?: return
+    val mine = turn == state.me?.id
+    val index = state.opponents.indexOfFirst { it.id == turn }
+    val name = if (mine) state.me?.name.orEmpty() else state.opponents.getOrNull(index)?.name ?: turn.value
+    Row(
+        modifier
+            .testTag(GameTags.TURN_CHIP)
+            // 아바타와 글자를 하나로 묶어 "AI 2의 차례"로 한 번에 읽힌다
+            .semantics(mergeDescendants = true) { }
+            .panel(CircleShape, top = if (mine) GoldBright else PanelTop, bottom = if (mine) Gold else Panel, line = if (mine) GoldBright else Gold.copy(alpha = 0.5f))
+            .padding(start = 3.dp, end = 10.dp, top = 3.dp, bottom = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Avatar(name, if (mine) Gold else seatTint(index), size = 22.dp, ring = if (mine) GoldInk.copy(alpha = 0.5f) else GoldDeep, icon = if (mine) CoupIcons.Person else null)
+        Text(
+            if (mine) stringResource(R.string.game_turn_mine) else stringResource(R.string.game_waiting_for, name),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (mine) GoldInk else Parchment,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            // 이름이 아주 길면 줄여 쓴다(기권 버튼 자리는 남긴다)
+            modifier = Modifier.widthIn(max = 150.dp),
+        )
+    }
+}
+
 // ---- 상대 자리 ----------------------------------------------------------------------------------
 
 private val SEAT_GAP = 8.dp
@@ -136,10 +174,11 @@ private val SEAT_CARD_HEIGHT = 50.dp
  * 화면이 좁아 한 줄에 다 못 들어가면 줄 수를 늘린다. 대상을 고르는 중이면 고를 수 있는 자리를 눌러서 고를 수 있다([onTarget]).
  */
 @Composable
-internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTarget) -> Unit, onTarget: ((PlayerId) -> Unit)?) {
+internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTarget) -> Unit, onTarget: ((PlayerId) -> Unit)?, anchors: TableAnchors = remember { TableAnchors() }) {
     val opponents = state.opponents
     if (opponents.isEmpty()) return
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    // 첫 줄 자리 위에 붙는 "차례" 탭이 잘리지 않게 위를 조금 띄운다
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = TAB_ROOM)) {
         val wanted = when (opponents.size) {
             1 -> 1
             2, 4 -> 2
@@ -148,7 +187,7 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
         val fits = ((maxWidth + SEAT_GAP) / (SEAT_MIN_WIDTH + SEAT_GAP)).toInt().coerceAtLeast(1)
         val columns = minOf(wanted, fits)
         val seatWidth = ((maxWidth - SEAT_GAP * (columns - 1)) / columns).coerceAtMost(SEAT_MAX_WIDTH)
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SEAT_GAP)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SEAT_GAP + TAB_ROOM)) {
             opponents.withIndex().chunked(columns).forEach { row ->
                 Row(
                     Modifier.fillMaxWidth().height(IntrinsicSize.Min),
@@ -161,6 +200,8 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
                             texts = texts,
                             onZoom = { role -> onZoom(ZoomTarget(role, op.name, ZoomKind.OPPONENT_LOST)) },
                             onTarget = if (onTarget != null && op.targetable) ({ onTarget(op.id) }) else null,
+                            isTurn = op.id == state.turnPlayer,
+                            anchors = anchors,
                             modifier = Modifier.width(seatWidth).fillMaxHeight(),
                         )
                     }
@@ -172,7 +213,16 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) -> Unit, onTarget: (() -> Unit)?, modifier: Modifier) {
+private fun Seat(
+    op: OpponentUi,
+    index: Int,
+    texts: GameTexts,
+    onZoom: (RoleId) -> Unit,
+    onTarget: (() -> Unit)?,
+    isTurn: Boolean,
+    anchors: TableAnchors,
+    modifier: Modifier,
+) {
     val busy = op.isAlive && (op.status == OpponentStatus.ACTING || op.status == OpponentStatus.THINKING)
     // 지금 움직이는 사람과 고를 수 있는 대상은 금색 테두리가 천천히 맥박친다(상태 글자도 함께 달라진다).
     // 맥박 값은 그리는 단계에서만 읽는다 — 매 프레임 자리를 다시 구성하지 않는다
@@ -185,10 +235,16 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
     val targetLabel = stringResource(R.string.game_target_tap)
     // 처음 그릴 때 살아 있던 자리가 탈락하면(그 순간을 화면이 봤으면) 도장이 떨어지며 찍힌다. 처음부터 탈락해 있던 자리는 그냥 찍혀 있다
     val sawAlive = remember { op.isAlive }
+    val turn = isTurn && op.isAlive
+    // 바깥 상자는 자리 테두리에 걸치는 "차례" 탭과 내민 카드를 자르지 않게 하고, 안쪽 상자가 자리 판이다
+    Box(modifier) {
     Box(
-        modifier
+        Modifier
+            .fillMaxSize()
+            .then(anchors.place(op.id))
             .testTag(GameTags.opponent(op.id.value))
-            .panel()
+            // 차례인 자리는 금빛이 돌고 테두리가 금색이다(맥박치는 테두리는 그 위에 겹친다)
+            .then(if (turn) Modifier.panel(top = TurnGlow, line = Gold, lineWidth = 2.dp) else Modifier.panel())
             .then(
                 if (highlight == null) Modifier else Modifier.drawWithContent {
                     drawContent()
@@ -268,7 +324,58 @@ private fun Seat(op: OpponentUi, index: Int, texts: GameTexts, onZoom: (RoleId) 
     }
     if (!op.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).testTag(GameTags.stamp(op.id.value)))
     }
+    if (turn) TurnTab(stringResource(R.string.game_turn_tab), Modifier.align(Alignment.TopCenter).offset(y = -TAB_ROOM).testTag(GameTags.turn(op.id.value)))
+    // 역할을 주장하는 동안 그 역할 카드를 내밀고 있다(글로도 아래 상태 줄에 나온다)
+    op.claiming.firstOrNull()?.takeIf { op.isAlive }?.let { role ->
+        ClaimCard(role, Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = -TAB_ROOM).testTag(GameTags.claim(op.id.value)))
+    }
+    }
 }
+
+/** 자리 위에 걸치는 탭이 들어갈 자리. */
+private val TAB_ROOM = 10.dp
+
+/** 차례인 자리 판의 위쪽 빛. */
+private val TurnGlow = Color(0xFF4D3A18)
+
+/** 차례인 자리(나면 내 이름 옆)에 붙는 금색 탭: 별과 "차례". */
+@Composable
+internal fun TurnTab(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .shadow(6.dp, CircleShape)
+            .panel(CircleShape, top = GoldBright, bottom = Gold, line = GoldBright, lineWidth = 1.dp)
+            .padding(horizontal = 9.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(CoupIcons.Star, contentDescription = null, tint = GoldInk, modifier = Modifier.size(11.dp))
+        Text(text, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = GoldInk, maxLines = 1)
+    }
+}
+
+/** 역할을 주장하는 사람이 내민 카드: 작은 카드가 기울어진 채 튀어나온다. */
+@Composable
+internal fun ClaimCard(role: RoleId, modifier: Modifier = Modifier) {
+    val motion = LocalMotion.current
+    val pop = remember(role) { androidx.compose.animation.core.Animatable(if (motion.enabled) 0f else 1f) }
+    LaunchedEffect(role) {
+        if (pop.value < 1f) pop.animateTo(1f, androidx.compose.animation.core.tween(motion.ms(CLAIM_POP_MS), easing = SlamEasing))
+    }
+    Box(
+        modifier.graphicsLayer {
+            val p = pop.value
+            rotationZ = 12f
+            scaleX = 0.4f + 0.6f * p
+            scaleY = 0.4f + 0.6f * p
+            alpha = p.coerceIn(0f, 1f)
+        },
+    ) {
+        RoleCard(role, faceUp = true, modifier = Modifier.shadow(4.dp, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)).size(width = 26.dp, height = 36.dp))
+    }
+}
+
+private const val CLAIM_POP_MS = 280
 
 // ---- 가운데 무대 --------------------------------------------------------------------------------
 

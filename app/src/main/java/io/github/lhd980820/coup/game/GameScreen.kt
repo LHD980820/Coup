@@ -123,6 +123,11 @@ internal object GameTags {
     const val CARD_ZOOM_OWNER = "card_zoom_owner"
     const val TIMER_ZOOM = "timer_zoom"
     const val MOMENT = "moment"
+    const val ARROWS = "arrows"
+    const val TURN_CHIP = "turn_chip"
+    const val MY_TURN = "turn_me"
+    fun turn(id: String) = "turn_$id"
+    fun claim(id: String) = "claim_$id"
     const val MY_STAMP = "stamp_me"
     fun stamp(id: String) = "stamp_$id"
     fun hidden(id: String, index: Int) = "hidden_${id}_$index"
@@ -215,13 +220,6 @@ internal fun GameScreen(
     BackHandler(enabled = backConcedes && state.result == null) { if (abandoned) onAbandoned() else confirmConcede = true }
     // 결과가 나온 뒤의 뒤로 가기는 아래 결과 대화상자가 받는다(대화상자는 별도 창이라 화면의 BackHandler에 닿지 않는다)
 
-    // 상태가 바뀔 때마다 이전 상태와 비교해 소리를 낸다(처음 그릴 때나 회전으로 다시 그릴 때는 이전이 없어 무음)
-    val playSound = LocalSounds.current
-    val lastState = remember { arrayOfNulls<GameUiState>(1) }
-    LaunchedEffect(state) {
-        SoundCues.between(lastState[0], state).forEach(playSound)
-        lastState[0] = state
-    }
     var zoomed by remember { mutableStateOf<ZoomTarget?>(null) }
     var showRules by remember { mutableStateOf(false) }
 
@@ -263,18 +261,31 @@ internal fun GameScreen(
     // 마지막 순간을 보는 동안의 뒤로 가기는 결과로 바로 넘긴다(결과 화면이 뜬 뒤에는 결과 화면이 받는다)
     BackHandler(enabled = ended && !showResult) { finaleDone = true }
 
+    // 보이는 판: 극적인 순간이 다 보일 때까지 그 결과(카드·탈락·진행 문구·기록)를 붙잡아 둔다. 결정·시간·코인·버튼은 늘 지금 상태다
+    val board = rememberPacedBoard(state, stage, motion.enabled, released = showResult)
+    val anchors = remember { TableAnchors() }
+
+    // 보이는 판이 바뀔 때마다 이전과 비교해 소리를 낸다(처음 그릴 때나 회전으로 다시 그릴 때는 이전이 없어 무음).
+    // 판을 따르므로 탈락 소리는 띠의 "탈락!"과 함께 난다
+    val playSound = LocalSounds.current
+    val lastBoard = remember { arrayOfNulls<GameUiState>(1) }
+    LaunchedEffect(board) {
+        SoundCues.between(lastBoard[0], board).forEach(playSound)
+        lastBoard[0] = board
+    }
+
     // 대상을 고르는 중이면 고를 수 있는 상대의 자리를 눌러서도 고를 수 있다(아래의 이름 버튼과 같은 동작)
     val onTarget: ((PlayerId) -> Unit)? = if (state.decision is DecisionUi.PickTarget && !state.busy) actions::chooseTarget else null
 
     TableSurface(modifier) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val compact = maxHeight < COMPACT_HEIGHT
-            val respond = state.decision as? DecisionUi.Respond
+            val respond = board.decision as? DecisionUi.Respond
 
             val hud: @Composable () -> Unit = {
                 // 기권은 표시줄에 있다 — 응답 시트가 떠도 항상 닿고, 작은 화면에서 자리를 따로 먹지 않는다
                 GameHud(
-                    state,
+                    board,
                     onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null,
                     onShowRules = if (state.ruleSet.isCustom) ({ showRules = true }) else null,
                     showDeck = compact,
@@ -285,21 +296,22 @@ internal fun GameScreen(
                 guide?.let { CoachCard(it) }
                 ConnectionBanner(state.connection, onExit)
                 // 응답할 차례에는 아래의 응답 시트가 무대를 대신한다(누가 무엇을 하려는지 + 남은 시간 + 내 선택이 한 판에 모인다)
-                if (respond == null) StagePanel(state, texts, compact)
-                state.me?.let {
+                if (respond == null) StagePanel(board, texts, compact)
+                board.me?.let {
                     MyArea(
-                        state, it, actions, compact,
+                        board, it, actions, compact,
                         onZoom = { card -> zoomed = ZoomTarget(card.role, it.name, if (card.revealed) ZoomKind.MINE_LOST else ZoomKind.MINE) },
                         // 카드를 잃은 순간 내 자리가 흔들린다(그리는 단계에서만 읽는다)
                         modifier = Modifier.graphicsLayer { translationX = shake(1f - hit.value, cycles = 4) * 9.dp.toPx() },
+                        anchors = anchors,
                     )
                 }
-                DecisionPanel(state, texts, actions, guide?.expect)
+                DecisionPanel(board, texts, actions, guide?.expect)
                 if (guide != null) {
                     TextButton(onClick = onExit, modifier = Modifier.testTag(GameTags.COACH_BACK)) { Text(stringResource(R.string.tutorial_back)) }
                 }
                 // 응답할 차례가 오면 맨 아래에 응답 시트가 붙는다(표·기록을 가리지 않는 비모달 시트)
-                respond?.let { SheetEntrance { ResponseSheet(state, it, texts, actions, guide?.expect) } }
+                respond?.let { SheetEntrance { ResponseSheet(board, it, texts, actions, guide?.expect) } }
             }
 
             // 큰 화면(태블릿·폴더블 펼침): 테이블 | 기록 두 단. 좁은 화면은 위(상대·기록)만 스크롤하고 아래는 고정한다.
@@ -308,13 +320,13 @@ internal fun GameScreen(
                     Column(Modifier.weight(3f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         hud()
                         val scroll = rememberScrollState()
-                        Column(Modifier.weight(1f).fadingEdges(scroll).verticalScroll(scroll)) { OpponentSeats(state, texts, onZoom = { zoomed = it }, onTarget = onTarget) }
+                        Column(Modifier.weight(1f).fadingEdges(scroll).verticalScroll(scroll)) { OpponentSeats(board, texts, onZoom = { zoomed = it }, onTarget = onTarget, anchors = anchors) }
                         bottom()
                     }
                     Column(
                         Modifier.weight(2f).fillMaxHeight().panel().verticalScroll(rememberScrollState()).padding(12.dp).testTag(GameTags.LOG_SIDE),
                     ) {
-                        LogList(state, texts, WIDE_LOG_LINES)
+                        LogList(board, texts, WIDE_LOG_LINES)
                     }
                 }
             } else {
@@ -322,14 +334,16 @@ internal fun GameScreen(
                     hud()
                     val scroll = rememberScrollState()
                     Column(Modifier.weight(1f).fadingEdges(scroll).verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OpponentSeats(state, texts, onZoom = { zoomed = it }, onTarget = onTarget)
-                        LogList(state, texts, COMPACT_LOG_LINES)
+                        OpponentSeats(board, texts, onZoom = { zoomed = it }, onTarget = onTarget, anchors = anchors)
+                        LogList(board, texts, COMPACT_LOG_LINES)
                     }
                     bottom()
                 }
             }
+            // 누가 누구에게 무엇을 하는지 테이블 위에 화살표로 잇는다(그림일 뿐이라 누르는 것을 가로채지 않는다)
+            if (!showResult) ActionArrows(board.banner, anchors)
             // 극적인 순간은 판 위에 덧입힌다: 누르는 것을 가로채지 않는다. 결과가 뜨면 남은 순간은 보이지 않는다
-            if (!showResult) MomentOverlay(stage, texts, state)
+            if (!showResult) MomentOverlay(stage, texts, board)
             Box(Modifier.fillMaxSize().damageVignette { hit.value })
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }

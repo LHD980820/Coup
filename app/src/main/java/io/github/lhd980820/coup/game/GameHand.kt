@@ -1,5 +1,8 @@
 package io.github.lhd980820.coup.game
 
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.remember
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.BorderStroke
@@ -71,25 +74,42 @@ private const val LIFT_MS = 160
  * [compact]는 화면이 낮을 때(작은 폰): 카드를 줄여 결정 버튼이 잘리지 않게 한다.
  */
 @Composable
-internal fun MyArea(state: GameUiState, me: MyUi, actions: GameActions, compact: Boolean, onZoom: (CardUi) -> Unit, modifier: Modifier = Modifier) {
+internal fun MyArea(
+    state: GameUiState,
+    me: MyUi,
+    actions: GameActions,
+    compact: Boolean,
+    onZoom: (CardUi) -> Unit,
+    modifier: Modifier = Modifier,
+    anchors: TableAnchors? = null,
+) {
     val pickCard = state.decision as? DecisionUi.PickCard
     val pickExchange = state.decision as? DecisionUi.PickExchange
     val picking = pickCard != null || pickExchange != null
     // 내가 탈락하는 순간을 화면이 봤으면 도장이 떨어지며 찍힌다(처음부터 탈락해 있었으면 그냥 찍혀 있다)
     val sawAlive = remember { me.isAlive }
+    val myTurn = state.turnPlayer == me.id && me.isAlive
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Avatar(me.name, Gold, size = if (compact) 26.dp else 32.dp, ring = GoldBright, icon = CoupIcons.Person)
             Text(me.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             CoinCount(me.coins, GameTags.MY_COINS, large = true)
+            if (myTurn) TurnTab(stringResource(R.string.game_turn_mine), Modifier.testTag(GameTags.MY_TURN))
         }
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
+        BoxWithConstraints(
+            Modifier
+                .fillMaxWidth()
+                // 내 차례에는 손패 뒤로 금빛이 번진다
+                .then(if (myTurn) Modifier.drawBehind { drawRect(Brush.radialGradient(listOf(Gold.copy(alpha = 0.22f), Color.Transparent), center = center, radius = size.maxDimension * 0.55f)) } else Modifier),
+        ) {
             // 카드 선택 결정이 있으면 그 카드 목록(선택 상태 포함)이 손패 자리에 그려진다
             val cards = pickCard?.cards ?: pickExchange?.candidates ?: me.hand
             val widest = if (compact) HAND_CARD_WIDTH_COMPACT else HAND_CARD_WIDTH
             val width = if (cards.isEmpty()) widest else minOf(widest, (maxWidth - HAND_GAP * (cards.size - 1)) / cards.size)
             if (!me.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).zIndex(1f).testTag(GameTags.MY_STAMP), large = true)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HAND_GAP, Alignment.CenterHorizontally)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+              // 화살표가 가리키는 내 자리는 카드들이 놓인 곳이다
+              Row(anchors?.place(me.id) ?: Modifier, horizontalArrangement = Arrangement.spacedBy(HAND_GAP)) {
                 cards.forEach { card ->
                     // 고르는 중에는 탭이 선택(처리 중에는 잠긴다)이고, 아니면 탭이 확대다. 길게 누르면 언제나 확대한다
                     val onClick: () -> Unit = when {
@@ -99,6 +119,7 @@ internal fun MyArea(state: GameUiState, me: MyUi, actions: GameActions, compact:
                     }
                     HandCard(card, width, onClick = onClick, onLongClick = { onZoom(card) }, tapZooms = !picking, picking = picking)
                 }
+              }
             }
         }
     }

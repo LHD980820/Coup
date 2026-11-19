@@ -150,4 +150,6 @@
     <string name="moment_eliminated_sub">%1$s이(가) 모든 영향력을 잃었습니다</string>
     <string name="moment_eliminated_me">탈락했습니다</string>
     <string name="moment_eliminated_me_sub">남은 판은 지켜볼 수 있어요</string>
+    <string name="game_turn_tab">차례</string>
+    <string name="game_turn_mine">내 차례</string>
 </resources>

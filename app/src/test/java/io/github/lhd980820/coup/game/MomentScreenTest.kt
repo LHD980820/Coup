@@ -252,7 +252,7 @@ class MomentScreenTest {
         show(s, MotionSpeed.NORMAL)
         assertFalse(exists(GameTags.stamp("a2")))
         update(s, state(a2Alive = false))
-        frames(48)
+        frames(BoardPacing.GRACE_MS + 48) // 판은 연출 신호를 잠깐 기다렸다가 그린다
         assertFalse("막 떨어지는 중", landed(GameTags.stamp("a2")))
         frames(1_000)
         assertTrue(landed(GameTags.stamp("a2")))
@@ -279,7 +279,7 @@ class MomentScreenTest {
         show(s, MotionSpeed.NORMAL)
         assertFalse(exists(GameTags.MY_STAMP))
         update(s, state(meAlive = false))
-        frames(48)
+        frames(BoardPacing.GRACE_MS + 48)
         compose.onNodeWithTag(GameTags.MY_STAMP).assertIsDisplayed()
         assertFalse(landed(GameTags.MY_STAMP))
         frames(1_000)

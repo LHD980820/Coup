@@ -60,6 +60,7 @@ public object GameUiMapper {
             busy = busy,
             log = log,
             ruleSet = view.ruleSet.config,
+            turnPlayer = view.turn.activePlayer.takeIf { view.phase !is PublicPhase.GameOver },
         )
     }
 

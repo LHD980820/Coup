@@ -71,6 +71,17 @@ class GameUiMapperTest {
     }
 
     @Test
+    fun `차례의 주인은 응답을 기다리는 동안에도 그대로이고 판이 끝나면 없다`() {
+        assertThat(ui(table).turnPlayer).isEqualTo(p("me"))
+        // 내가 세금을 선언하고 상대들이 응답을 고르는 동안에도 이 턴의 주인은 나다
+        assertThat(ui(table.after(Command.DeclareAction(p("me"), ActionId("tax")))).turnPlayer).isEqualTo(p("me"))
+        // 수입은 바로 끝나고 다음 사람의 차례가 된다
+        assertThat(ui(table.after(Command.DeclareAction(p("me"), ActionId("income")))).turnPlayer).isEqualTo(p("a"))
+        val over = crafted(listOf("duke", "captain"), mapOf("a" to listOf("contessa", "assassin"))).after(Command.Concede(p("a")))
+        assertThat(ui(over).turnPlayer).isNull()
+    }
+
+    @Test
     fun `상대 차례에는 결정이 없고 대기 배너와 행동 중 표시가 나온다`() {
         val waiting = ui(table.after(Command.DeclareAction(p("me"), ActionId("income"))))
         assertThat(waiting.banner).isEqualTo(Banner.WaitingFor(p("a")))
