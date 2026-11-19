@@ -49,6 +49,8 @@ internal class GameViewModel(
     private val aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
     scope: CoroutineScope? = null,
     val tutorialStore: TutorialStore = InMemoryTutorialStore(),
+    /** AI가 화면의 연출을 기다리는 최대 시간(테스트에서 줄인다). */
+    private val stageWaitMaxMs: Long = STAGE_WAIT_MAX_MS,
 ) : ViewModel(), GameActions {
     /** 게임을 돌리는 코루틴 범위. 기본은 [viewModelScope]이고, 테스트는 메인 루퍼에 의존하지 않는 범위를 넘긴다. */
     private val gameScope: CoroutineScope = scope ?: viewModelScope
@@ -76,11 +78,11 @@ internal class GameViewModel(
 
     /**
      * AI가 수를 두기 직전에 부른다: 화면이 방금 일어난 일을 다 보여 줄 때까지 기다리고, 끝나면 숨을 고른 뒤 돌아온다.
-     * 화면이 알려 주지 않아도(꺼졌거나 멈췄어도) [STAGE_WAIT_MAX_MS]를 넘겨 기다리지는 않는다.
+     * 화면이 알려 주지 않아도(꺼졌거나 멈췄어도) [stageWaitMaxMs]를 넘겨 기다리지는 않는다.
      */
     internal suspend fun awaitStage() {
         if (!stageBusy.value) return
-        withTimeoutOrNull(STAGE_WAIT_MAX_MS) { stageBusy.first { !it } }
+        withTimeoutOrNull(stageWaitMaxMs) { stageBusy.first { !it } }
         delay(AFTER_STAGE_MS)
     }
 
@@ -141,7 +143,7 @@ internal class GameViewModel(
         controller?.close()
     }
 
-    private companion object {
+    internal companion object {
         /** 연출을 기다리는 최대 시간: 극적인 순간 셋(도전·공개·탈락)이 이어져도 5초가 안 된다. */
         const val STAGE_WAIT_MAX_MS = 6_000L
 

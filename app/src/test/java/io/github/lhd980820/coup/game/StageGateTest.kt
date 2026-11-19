@@ -106,6 +106,33 @@ class StageGateTest {
     }
 
     @Test
+    fun `화면이 한가하다고 알려 주지 않아도 AI는 정해진 시간 뒤에 움직인다`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val vm = GameViewModel(scope = scope, stageWaitMaxMs = 300)
+        try {
+            vm.setStageBusy(true)
+            val started = System.currentTimeMillis()
+            withTimeout(3_000) { vm.awaitStage() } // 바쁜 채로 남아도 돌아온다
+            assertTrue("상한까지는 기다렸다", System.currentTimeMillis() - started >= 300)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `판을 그만두면 붙잡던 것을 놓는다`() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val vm = GameViewModel(scope = scope)
+        try {
+            vm.setStageBusy(true)
+            vm.quit()
+            withTimeout(200) { vm.awaitStage() } // 다음 판의 AI가 붙잡히지 않는다
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `뷰모델은 바쁜 동안 AI를 붙잡고, 한가해지면 숨을 고른 뒤 놓아준다`() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val vm = GameViewModel(scope = scope)
