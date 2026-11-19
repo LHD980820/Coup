@@ -280,6 +280,8 @@ internal fun TutorialGame(
     onBack: () -> Unit,
     onNext: ((TutorialLesson) -> Unit)?,
     modifier: Modifier = Modifier,
+    /** 극적인 순간을 보여 주는 중인지 알린다(튜터가 그동안 다음 수를 기다린다). */
+    onStageBusy: (Boolean) -> Unit = {},
 ) {
     val state by controller.state.collectAsState()
     val progress by guided.progress.collectAsState()
@@ -306,6 +308,7 @@ internal fun TutorialGame(
         state = current,
         messages = controller.messages,
         effects = controller.effects,
+        onStageBusy = onStageBusy,
         actions = actions,
         onExit = onBack,
         onPlayAgain = onBack,

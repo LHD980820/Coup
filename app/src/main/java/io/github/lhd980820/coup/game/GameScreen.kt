@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -204,6 +205,8 @@ internal fun GameScreen(
     abandonedExtra: (@Composable () -> Unit)? = null,
     /** 연출 신호(컨트롤러의 effects). 도전·공개·탈락 같은 극적인 순간을 크게 알리는 데 쓴다 — 상태는 이것 없이도 이미 맞다. */
     effects: Flow<UiEffect> = emptyFlow(),
+    /** 극적인 순간을 보여 주는 중인지 알린다(싱글플레이의 AI가 그동안 다음 수를 기다린다). */
+    onStageBusy: (Boolean) -> Unit = {},
 ) {
     val texts = GameTexts(LocalResources.current, state)
     val snackbar = remember { SnackbarHostState() }
@@ -243,6 +246,11 @@ internal fun GameScreen(
             if (motion.enabled) director.moment(effect)?.let(stage::offer)
         }
     }
+
+    // 순간을 보여 주는 동안에는 AI가 다음 수를 기다린다(화면이 지난 일을 말하는 동안 새 일이 벌어지지 않게)
+    val reportBusy by rememberUpdatedState(onStageBusy)
+    LaunchedEffect(stage) { snapshotFlow { !stage.idle }.collect { reportBusy(it) } }
+    DisposableEffect(Unit) { onDispose { reportBusy(false) } }
 
     // 판이 끝나면 마지막 순간(마지막 탈락 등)이 지나간 뒤에 결과를 띄운다. 연출이 꺼져 있으면 바로 띄운다.
     val ended = state.result != null

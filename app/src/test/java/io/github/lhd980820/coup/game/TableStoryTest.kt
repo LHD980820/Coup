@@ -148,6 +148,8 @@ class TableStoryTest {
         assertFalse("도전 중에는 아직 탈락이 아니다", exists(GameTags.stamp("a2")))
         assertTrue("마지막 카드는 아직 가려져 있다", exists(GameTags.hidden("a2", 0)))
         assertFalse("기록도 아직 탈락을 말하지 않는다", logShows(eliminated, after()))
+        assertTrue("차례도 아직 넘어가지 않는다", exists(GameTags.turn("a2")))
+        assertFalse(exists(GameTags.turn("a1")))
 
         frames(1_150)
         assertEquals("bluff", moment())
@@ -161,6 +163,7 @@ class TableStoryTest {
         frames(1_700)
         assertEquals(null, moment())
         assertTrue("다 보인 뒤에 기록이 따라온다", logShows(eliminated, after()))
+        assertTrue("차례도 그때 넘어간다", exists(GameTags.turn("a1")))
     }
 
     @Test
@@ -238,6 +241,48 @@ class TableStoryTest {
         compose.onNodeWithTag(GameTags.MY_TURN).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.TURN_CHIP).assertTextContains(string(R.string.game_turn_mine))
         assertTrue(compose.onAllNodesWithTag(GameTags.turn("a1")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun `탈락한 사람에게는 차례 탭이 붙지 않는다`() {
+        val dead = before(turn = a2).copy(
+            opponents = before().opponents.map { if (it.id == a2) it.copy(hiddenCount = 0, revealed = listOf(RoleId("captain"), RoleId("contessa")), isAlive = false, status = OpponentStatus.ELIMINATED) else it },
+        )
+        show(mutableStateOf(dead), MotionSpeed.OFF)
+        assertFalse(exists(GameTags.turn("a2")))
+        assertFalse("탈락한 사람은 카드를 내밀지 않는다", exists(GameTags.claim("a2")))
+    }
+
+    @Test
+    fun `내가 탈락했으면 내 차례 표시가 붙지 않는다`() {
+        val out = before(turn = me).copy(me = before().me!!.copy(hand = before().me!!.hand.map { it.copy(revealed = true) }, isAlive = false))
+        show(mutableStateOf(out), MotionSpeed.OFF)
+        assertFalse(exists(GameTags.MY_TURN))
+    }
+
+    @Test
+    fun `자리가 없는 사람을 잇는 화살표는 그리지 않는다`() {
+        val stray = before().copy(banner = Banner.ActionDeclared(a1, ActionId("steal"), PlayerId("ghost"), setOf(RoleId("captain")), emptySet()))
+        show(mutableStateOf(stray), MotionSpeed.OFF)
+        assertEquals(emptyList<String>(), arrows())
+    }
+
+    @Test
+    fun `탈락 효과음은 띠의 탈락과 함께 난다`() {
+        val cues = mutableListOf<io.github.lhd980820.coup.game.sound.SoundCue>()
+        val s = mutableStateOf(before())
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(LocalNowMillis provides { now }, LocalMotion provides Motion(MotionSpeed.NORMAL), LocalSounds provides { cues += it }) {
+                CoupTheme { GameScreen(s.value, emptyFlow(), NoActions, onExit = {}, onPlayAgain = {}, effects = effects) }
+            }
+        }
+        frames(48)
+        challengeLastCard(s)
+        frames(200)
+        assertFalse("도전 중에는 아직 탈락 소리가 나지 않는다: $cues", io.github.lhd980820.coup.game.sound.SoundCue.ELIMINATED in cues)
+        frames(1_150 + 2_000)
+        assertTrue("탈락 띠와 함께 난다: $cues", io.github.lhd980820.coup.game.sound.SoundCue.ELIMINATED in cues)
     }
 
     @Test

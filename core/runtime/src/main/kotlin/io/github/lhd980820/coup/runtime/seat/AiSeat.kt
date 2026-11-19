@@ -23,6 +23,8 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * AI 좌석(설계 §6.2). 에이전트에게 **자기 시점의 뷰와 이벤트만** 전달한다.
  * 결정은 [decisionDispatcher]에서 계산하고, 연출용 [thinkTime](테스트에서는 0)과 계산 중 긴 쪽이 지난 뒤 제출한다.
+ * 제출 직전에 [awaitStage]를 기다린다: 화면이 방금 일어난 일(도전·공개·탈락 연출)을 다 보여 줄 때까지 다음 수를 두지 않는다.
+ * 기다림의 상한은 그 함수를 주는 쪽이 정한다(화면이 없으면 바로 돌아와야 한다).
  * 에이전트가 예외를 던지면 아무것도 제출하지 않는다 — 권한자의 타임아웃 기본 수가 대신한다.
  */
 public class AiSeat(
@@ -32,6 +34,7 @@ public class AiSeat(
     private val decisionDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val thinkTime: ClosedRange<Duration> = Duration.ZERO..Duration.ZERO,
     seed: Long = 0,
+    private val awaitStage: suspend () -> Unit = {},
 ) : SeatController {
     override val kind: SeatKind = SeatKind.AI
 
@@ -61,6 +64,8 @@ public class AiSeat(
             }
             if (wait > Duration.ZERO) delay(wait)
             val command = decision.await() ?: return@launch
+            // 생각하는 척이 끝난 뒤에 본다: 그때쯤이면 화면이 방금 일어난 일의 연출을 시작했다
+            awaitStage()
             submit(command) // 그사이 상태가 바뀌었으면 STALE_VERSION으로 거절되고 다음 결정 요청을 기다린다
         }
     }

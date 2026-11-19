@@ -75,6 +75,8 @@ public object TutorialSessionFactory {
         humanName: String = "Player",
         tutorName: String = "Tutor",
         agent: AiAgent = ScriptedAgent(lesson.tutorScript),
+        /** 튜터가 수를 두기 직전에 기다릴 것(화면의 연출이 끝날 때까지). */
+        awaitStage: suspend () -> Unit = {},
     ): GuidedSession {
         val setup = GameSetup(
             gameId = "tutorial-${lesson.id}",
@@ -91,6 +93,7 @@ public object TutorialSessionFactory {
             clock = clock,
             scope = scope,
             aiDispatcher = aiDispatcher,
+            awaitStage = awaitStage,
         )
         return GuidedSession(local, lesson)
     }

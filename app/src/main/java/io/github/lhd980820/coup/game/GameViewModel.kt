@@ -1,5 +1,9 @@
 package io.github.lhd980820.coup.game
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -63,9 +67,26 @@ internal class GameViewModel(
     var completedLessons by mutableStateOf(tutorialStore.completed())
         private set
 
+    /** 화면이 극적인 순간을 보여 주는 중인가(게임 화면이 알린다). AI는 그동안 다음 수를 두지 않는다. */
+    private val stageBusy = MutableStateFlow(false)
+
+    fun setStageBusy(busy: Boolean) {
+        stageBusy.value = busy
+    }
+
+    /**
+     * AI가 수를 두기 직전에 부른다: 화면이 방금 일어난 일을 다 보여 줄 때까지 기다리고, 끝나면 숨을 고른 뒤 돌아온다.
+     * 화면이 알려 주지 않아도(꺼졌거나 멈췄어도) [STAGE_WAIT_MAX_MS]를 넘겨 기다리지는 않는다.
+     */
+    internal suspend fun awaitStage() {
+        if (!stageBusy.value) return
+        withTimeoutOrNull(STAGE_WAIT_MAX_MS) { stageBusy.first { !it } }
+        delay(AFTER_STAGE_MS)
+    }
+
     fun start(config: SinglePlayerConfig) {
         controller?.close()
-        val session = SinglePlayerSessionFactory.create(config, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher)
+        val session = SinglePlayerSessionFactory.create(config, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher, awaitStage = ::awaitStage)
         controller = GameController(session, gameScope)
     }
 
@@ -78,7 +99,7 @@ internal class GameViewModel(
     fun startTutorial(lesson: TutorialLesson, humanName: String, tutorName: String) {
         controller?.close()
         val guided = TutorialSessionFactory.create(
-            lesson, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher, humanName = humanName, tutorName = tutorName,
+            lesson, GameEngines.create(), gameScope, aiDispatcher = aiDispatcher, humanName = humanName, tutorName = tutorName, awaitStage = ::awaitStage,
         )
         tutorial = guided
         tutorialLesson = lesson
@@ -93,6 +114,7 @@ internal class GameViewModel(
 
     fun quit() {
         controller?.close()
+        stageBusy.value = false
         controller = null
         tutorial = null
         tutorialLesson = null
@@ -117,5 +139,13 @@ internal class GameViewModel(
 
     override fun onCleared() {
         controller?.close()
+    }
+
+    private companion object {
+        /** 연출을 기다리는 최대 시간: 극적인 순간 셋(도전·공개·탈락)이 이어져도 5초가 안 된다. */
+        const val STAGE_WAIT_MAX_MS = 6_000L
+
+        /** 연출이 끝난 뒤 다음 수까지 숨 고르는 시간. */
+        const val AFTER_STAGE_MS = 350L
     }
 }

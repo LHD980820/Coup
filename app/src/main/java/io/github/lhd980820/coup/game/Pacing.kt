@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
  *
  * 남은 카드가 1장인 사람에게 도전하면 도전·공개·탈락이 한꺼번에 일어나 상태가 단번에 바뀐다. 그대로 그리면 띠가 "도전!"을 외치는 동안
  * 자리에는 벌써 탈락 도장이 찍혀 결과를 미리 말해 버린다. 그래서 **보이는 판**(자리의 카드·생사, 내 손패, 진행 문구, 기록)만
- * 순간이 다 보일 때까지 붙잡아 둔다. 결정·남은 시간·코인·버튼·결과처럼 사람이 반응해야 하는 것은 언제나 지금 상태를 따른다.
+ * 순간이 다 보일 때까지 붙잡아 둔다(차례 표시도 이야기가 끝난 뒤에 넘어간다). 결정·남은 시간·코인·버튼·결과처럼 사람이 반응해야 하는 것은 언제나 지금 상태를 따른다.
  */
 internal object BoardPacing {
     /** 상태가 바뀐 뒤, 그 변화를 설명할 연출 신호가 따라올 때까지 기다리는 시간. 상태가 신호보다 먼저 오기 때문이다(세션이 상태를 먼저 알린다). */
@@ -42,10 +42,12 @@ internal object BoardPacing {
             },
             banner = if (busy) shown.banner else ripe.banner,
             log = if (busy) shown.log else ripe.log,
+            // 차례도 이야기가 끝난 뒤에 넘어간다(띠가 지난 턴의 일을 말하는 동안 다음 사람이 차례로 보이면 헷갈린다)
+            turnPlayer = if (busy) shown.turnPlayer else ripe.turnPlayer,
         )
     }
 
-    /** 보이는 판 [board]에 지금 상태 [live]의 살아 움직이는 부분(결정·시간·코인·상태·버튼·결과)을 얹는다. */
+    /** 보이는 판 [board]에 지금 상태 [live]의 살아 움직이는 부분(결정·시간·코인·상태·버튼·결과)을 얹는다. 차례 표시는 보이는 판을 따른다. */
     fun withLive(board: GameUiState, live: GameUiState): GameUiState {
         val shown = board.opponents.associateBy { it.id }
         return live.copy(
@@ -62,6 +64,7 @@ internal object BoardPacing {
             me = live.me?.let { m -> board.me?.takeIf { it.id == m.id }?.let { b -> m.copy(hand = b.hand, isAlive = b.isAlive) } ?: m },
             banner = board.banner,
             log = board.log,
+            turnPlayer = board.turnPlayer,
         )
     }
 }

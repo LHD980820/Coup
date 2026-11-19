@@ -43,6 +43,8 @@ public class LocalGameSession(
     scope: CoroutineScope,
     aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
     aiThinkTime: ClosedRange<Duration> = Duration.ZERO..Duration.ZERO,
+    /** AI가 수를 두기 직전에 기다릴 것(화면의 연출이 끝날 때까지). 상한은 주는 쪽이 정한다. */
+    awaitStage: suspend () -> Unit = {},
 ) : GameSession {
     private val human: LocalPlayer = players.singleOrNull { it.agent == null }
         ?: throw IllegalArgumentException("exactly one human (agent == null) is required")
@@ -68,7 +70,7 @@ public class LocalGameSession(
         val seats: Map<PlayerId, SeatController> = players.associate { p ->
             p.id to (
                 p.agent?.let { agent ->
-                    AiSeat(p.id, agent, scope, aiDispatcher, aiThinkTime, seed = p.id.value.hashCode().toLong())
+                    AiSeat(p.id, agent, scope, aiDispatcher, aiThinkTime, seed = p.id.value.hashCode().toLong(), awaitStage = awaitStage)
                 } ?: LocalHumanSeat(p.id)
                 )
         }

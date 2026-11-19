@@ -63,10 +63,11 @@ class PacingAndArrowsTest {
     }
 
     @Test
-    fun `순간이 무대에 있는 동안에는 진행 문구와 기록도 붙잡는다`() {
+    fun `순간이 무대에 있는 동안에는 진행 문구와 기록과 차례도 붙잡는다`() {
         val paced = BoardPacing.pace(before, after, held = emptySet(), busy = true)
         assertEquals(before.banner, paced.banner)
         assertEquals(before.log, paced.log)
+        assertEquals(me, paced.turnPlayer)
         assertTrue("붙잡히지 않은 사람의 카드는 따라간다", !paced.opponents.first { it.id == a }.isAlive)
     }
 
@@ -100,7 +101,7 @@ class PacingAndArrowsTest {
         assertEquals(DecisionUi.Actions(emptyList()), shown.decision)
         assertEquals(123L, shown.myDeadline)
         assertTrue(shown.busy)
-        assertEquals("차례는 지금 상태", b, shown.turnPlayer)
+        assertEquals("차례 표시는 보이는 판(이야기가 끝난 뒤에 넘어간다)", me, shown.turnPlayer)
         assertEquals("진행 문구는 보이는 판", before.banner, shown.banner)
         assertEquals(before.log, shown.log)
     }

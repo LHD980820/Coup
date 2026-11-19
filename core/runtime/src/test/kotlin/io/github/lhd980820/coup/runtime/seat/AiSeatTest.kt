@@ -59,6 +59,24 @@ class AiSeatTest {
     }
 
     @Test
+    fun `화면의 연출이 끝날 때까지 기다렸다가 제출한다`() = runTest {
+        val stage = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var asked = -1L
+        var submittedAt = -1L
+        val seat = AiSeat(
+            me, RandomAgent(3), backgroundScope, StandardTestDispatcher(testScheduler), thinkTime = 1.seconds..1.seconds,
+            awaitStage = { asked = testScheduler.currentTime; stage.await() },
+        )
+        seat.onDecisionRequired(view, request) { submittedAt = testScheduler.currentTime; ApplyResult.Rejected(Rejection.STALE_VERSION) }
+        settle()
+        assertThat(asked).isEqualTo(1_000L) // 생각하는 척이 끝난 뒤에 묻는다(그때쯤 화면이 연출을 시작했다)
+        assertThat(submittedAt).isEqualTo(-1L) // 연출이 끝나기 전에는 두지 않는다
+        stage.complete(Unit)
+        settle()
+        assertThat(submittedAt).isEqualTo(5_000L) // 연출이 끝난 그 시각(settle이 흘린 시간 뒤)에 둔다
+    }
+
+    @Test
     fun `에이전트가 예외를 던지면 아무것도 제출하지 않고, 좌석과 범위는 그대로 살아 있다`() = runTest {
         var fail = true
         val agent = object : AiAgent {

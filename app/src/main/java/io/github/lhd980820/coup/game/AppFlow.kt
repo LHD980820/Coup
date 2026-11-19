@@ -162,6 +162,7 @@ private fun AppScreens(
             onBack = { viewModel.quit(); screen = Screen.TUTORIALS },
             onNext = { next -> viewModel.quit(); viewModel.startTutorial(next, you, tutor) },
             modifier = modifier,
+            onStageBusy = viewModel::setStageBusy,
         )
         return
     }
@@ -176,6 +177,7 @@ private fun AppScreens(
             state = current,
             messages = controller.messages,
             effects = controller.effects,
+            onStageBusy = viewModel::setStageBusy,
             actions = viewModel,
             // 결과의 "나가기"는 앱을 끄지 않고 홈으로 간다
             onExit = { viewModel.quit(); screen = Screen.HOME },

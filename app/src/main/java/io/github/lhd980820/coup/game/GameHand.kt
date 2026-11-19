@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -92,7 +93,8 @@ internal fun MyArea(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Avatar(me.name, Gold, size = if (compact) 26.dp else 32.dp, ring = GoldBright, icon = CoupIcons.Person)
-            Text(me.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            // 이름이 길면 줄여 써서 코인과 "내 차례" 표시가 밀려나지 않게 한다
+            Text(me.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             CoinCount(me.coins, GameTags.MY_COINS, large = true)
             if (myTurn) TurnTab(stringResource(R.string.game_turn_mine), Modifier.testTag(GameTags.MY_TURN))
         }

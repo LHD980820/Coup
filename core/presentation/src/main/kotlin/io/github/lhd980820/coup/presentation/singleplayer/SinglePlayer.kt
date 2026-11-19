@@ -65,6 +65,8 @@ public object SinglePlayerSessionFactory {
         scope: CoroutineScope,
         clock: Clock = Clock.System,
         aiDispatcher: CoroutineDispatcher = Dispatchers.Default,
+        /** AI가 수를 두기 직전에 기다릴 것(화면의 연출이 끝날 때까지). */
+        awaitStage: suspend () -> Unit = {},
     ): LocalGameSession {
         val issues = validate(config)
         require(issues.isEmpty()) { "invalid single player config: $issues" }
@@ -94,6 +96,7 @@ public object SinglePlayerSessionFactory {
             scope = scope,
             aiDispatcher = aiDispatcher,
             aiThinkTime = config.aiThinkTime,
+            awaitStage = awaitStage,
         )
     }
 
