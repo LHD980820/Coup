@@ -30,6 +30,7 @@ import io.github.lhd980820.coup.presentation.OpponentStatus
 import io.github.lhd980820.coup.presentation.OpponentUi
 import io.github.lhd980820.coup.presentation.UiEffect
 import io.github.lhd980820.coup.runtime.session.ConnectionState
+import io.github.lhd980820.coup.pressBack
 import io.github.lhd980820.coup.ui.theme.CoupTheme
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -164,6 +165,28 @@ class TableStoryTest {
         assertEquals(null, moment())
         assertTrue("다 보인 뒤에 기록이 따라온다", logShows(eliminated, after()))
         assertTrue("차례도 그때 넘어간다", exists(GameTags.turn("a1")))
+    }
+
+    @Test
+    fun `결과가 뜨면 붙잡던 판을 놓는다`() {
+        // 2인 판: 마지막 카드 1장인 AI 2에게 도전해 이긴다. 마지막 순간을 보는 중에 뒤로 가기로 결과를 바로 띄운다
+        val duo = before().copy(opponents = before().opponents.filter { it.id == a2 })
+        val won = after().copy(
+            opponents = after().opponents.filter { it.id == a2 },
+            banner = Banner.GameOver(me, listOf(me, a2)),
+            result = io.github.lhd980820.coup.presentation.ResultUi(me, listOf(me, a2), iWon = true, myRank = 1),
+            turnPlayer = null,
+        )
+        val s = mutableStateOf(duo)
+        show(s, MotionSpeed.NORMAL)
+        challengeLastCard(s, won)
+        frames(400)
+        assertEquals("challenge", moment())
+        assertFalse(exists(GameTags.stamp("a2")))
+        compose.pressBack()
+        frames(BoardPacing.GRACE_MS + 48)
+        assertTrue(exists(GameTags.RESULT))
+        assertTrue("결과 뒤의 판은 끝난 모습이다", exists(GameTags.stamp("a2")))
     }
 
     @Test

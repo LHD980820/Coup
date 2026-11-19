@@ -106,6 +106,15 @@ class PacingAndArrowsTest {
         assertEquals(before.log, shown.log)
     }
 
+    @Test
+    fun `보이는 판에 지금 상태를 얹어도 붙잡은 내 손패와 생사는 그대로다`() {
+        val held = BoardPacing.pace(state(), state(meAlive = false), held = setOf(me), busy = false)
+        val shown = BoardPacing.withLive(held, state(meAlive = false).copy(decision = DecisionUi.Actions(emptyList())))
+        assertTrue(shown.me!!.isAlive)
+        assertEquals(state().me!!.hand, shown.me!!.hand)
+        assertEquals("내 코인·결정은 지금 상태", DecisionUi.Actions(emptyList()), shown.decision)
+    }
+
     // ---- 순간이 붙잡는 사람 ----
 
     @Test
@@ -131,6 +140,15 @@ class PacingAndArrowsTest {
         assertEquals(emptySet<PlayerId>(), stage.held)
         stage.finished(stage.playing!!)
         assertEquals(emptySet<PlayerId>(), stage.held)
+    }
+
+    @Test
+    fun `다른 순간이 재생되는 중에 줄 선 순간의 사람도 바로 붙잡는다`() {
+        val stage = MomentStage()
+        stage.offer(Moment.Block(b, duke, ActionId("foreign_aid"))) // 아무도 붙잡지 않는 순간이 재생 중
+        assertEquals(emptySet<PlayerId>(), stage.held)
+        stage.offer(Moment.Coup(a, me)) // 그 뒤에 줄 선 쿠: 나를 붙잡아야 쿠보다 내 카드 상실이 먼저 보이지 않는다
+        assertEquals(setOf(me), stage.held)
     }
 
     // ---- 화살표 ----
@@ -193,5 +211,13 @@ class PacingAndArrowsTest {
         assertEquals(Offset(100f, 25f), edgeToward(r, Offset(300f, 25f), gap = 0f))
         assertEquals(Offset(50f, 0f), edgeToward(r, Offset(50f, -200f), gap = 0f))
         assertEquals(Offset(50f, 25f), edgeToward(r, Offset(50f, 25f), gap = 0f))
+        // 테두리에서 조금 떨어진 곳에서 나간다(자리의 테두리와 겹치지 않게)
+        assertNear(Offset(105f, 25f), edgeToward(r, Offset(300f, 25f), gap = 5f))
+        assertNear(Offset(50f, -5f), edgeToward(r, Offset(50f, -200f), gap = 5f))
+    }
+
+    private fun assertNear(expected: Offset, actual: Offset) {
+        assertEquals("x: $actual", expected.x, actual.x, 0.01f)
+        assertEquals("y: $actual", expected.y, actual.y, 0.01f)
     }
 }
