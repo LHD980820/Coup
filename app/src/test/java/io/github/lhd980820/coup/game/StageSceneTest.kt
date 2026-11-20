@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.test.core.app.ApplicationProvider
 import io.github.lhd980820.coup.engine.model.ActionId
 import io.github.lhd980820.coup.engine.model.CardId
@@ -178,5 +179,28 @@ class StageSceneTest {
         shown.value = false
         compose.waitForIdle()
         assertNull(anchors.stage)
+    }
+
+    @Test
+    fun `판은 내 결정의 남은 시간을 보이지만, 응답할 때는 보이지 않는다(응답 시트가 보인다)`() {
+        val deadline = 1_000_000L + 9_000
+        val pick = state.copy(decision = io.github.lhd980820.coup.presentation.DecisionUi.PickTarget(ActionId("steal"), listOf(a1)), myDeadline = deadline)
+        val respond = state.copy(
+            decision = io.github.lhd980820.coup.presentation.DecisionUi.Respond(
+                io.github.lhd980820.coup.engine.model.WindowKind.ACTION, ActionId("tax"), a1, null, a1, setOf(RoleId("duke")), true, emptyList(),
+            ),
+            myDeadline = deadline,
+        )
+        val shown = mutableStateOf(pick)
+        compose.setContent {
+            CompositionLocalProvider(LocalNowMillis provides { 1_000_000L }) {
+                CoupTheme { StagePanel(shown.value, GameTexts(res, shown.value)) }
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(1, compose.onAllNodesWithTag(GameTags.TIMER_MINE).fetchSemanticsNodes().size)
+        shown.value = respond
+        compose.waitForIdle()
+        assertEquals(0, compose.onAllNodesWithTag(GameTags.TIMER_MINE).fetchSemanticsNodes().size)
     }
 }

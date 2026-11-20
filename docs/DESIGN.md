@@ -99,6 +99,10 @@ python3 tools/card-art/portraits.py --preview DIR    # 확인용 SVG 와 preview
 지금 벌어지는 일을 **그림 한 줄**로 보인다(`StagePanel` / `SceneRow`): **[누가] [무슨 카드/문양] [무엇을 · +코인 · 기다리는 얼굴] → [누구에게]**.
 글은 한두 낱말("세금", "막기", "도전")뿐이고, 스크린리더에는 진행 문장 전체와 기다리는 사람이 읽힌다(`spokenScene`).
 
+| 공작 세금(+3)에 응답 | 사령관 갈취에 응답 | 기록 창 |
+|---|---|---|
+| ![세금](design/action_tax.jpg) | ![갈취](design/action_steal_me.jpg) | ![기록](design/game_log_dialog.jpg) |
+
 | 진행 | 장면 |
 |---|---|
 | 내 차례 | 금색 별, "내 차례"(쿠만 할 수 있으면 번개) |

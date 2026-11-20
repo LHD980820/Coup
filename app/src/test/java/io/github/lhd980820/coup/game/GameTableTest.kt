@@ -193,10 +193,18 @@ class GameTableTest {
 
     @Test
     fun `들어 보인 카드는 자리 크기를 바꾸지 않는다`() {
-        show(state(opponents = listOf(opponent(1, claiming = setOf(RoleId("captain"))), opponent(2))))
+        // 같은 줄의 자리는 늘 높이가 같으므로 옆 자리가 아니라 같은 자리의 주장 전후를 비교한다
+        val shown = androidx.compose.runtime.mutableStateOf(state(opponents = listOf(opponent(1), opponent(2))))
+        compose.setContent {
+            CompositionLocalProvider(LocalNowMillis provides { now }) {
+                CoupTheme { GameScreen(shown.value, emptyFlow(), Recorder(), onExit = {}, onPlayAgain = {}) }
+            }
+        }
+        val before = compose.onNodeWithTag(GameTags.opponent("p1")).getUnclippedBoundsInRoot()
+        shown.value = state(opponents = listOf(opponent(1, claiming = setOf(RoleId("captain"))), opponent(2)))
+        compose.waitForIdle()
         val claiming = compose.onNodeWithTag(GameTags.opponent("p1")).getUnclippedBoundsInRoot()
-        val idle = compose.onNodeWithTag(GameTags.opponent("p2")).getUnclippedBoundsInRoot()
-        assertEquals(idle.bottom - idle.top, claiming.bottom - claiming.top)
+        assertEquals(before.bottom - before.top, claiming.bottom - claiming.top)
         // 카드는 자리 안, 카드 줄 위에 놓인다
         val card = compose.onNodeWithTag(GameTags.claim("p1")).getUnclippedBoundsInRoot()
         assertTrue("$card in $claiming", card.top >= claiming.top && card.bottom <= claiming.bottom)

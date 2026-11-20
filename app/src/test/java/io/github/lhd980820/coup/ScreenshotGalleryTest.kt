@@ -204,6 +204,34 @@ class ScreenshotGalleryTest {
     }
 
     @Test
+    fun `행동 - 공작 세금`() {
+        // 대상이 없는 행동: 화살표 대신 들어 보인 카드와 가운데 판의 +3이 알린다
+        val respond = DecisionUi.Respond(WindowKind.ACTION, ActionId("tax"), a1, null, a1, setOf(role("duke")), true, emptyList())
+        game(
+            state(
+                banner = Banner.ActionDeclared(a1, ActionId("tax"), null, setOf(role("duke")), setOf(me, a2)),
+                decision = respond,
+                deadline = now + 10_000,
+                opponents = listOf(
+                    OpponentUi(a1, "AI 1", 5, 2, emptyList(), true, OpponentStatus.IDLE, setOf(role("duke")), null, false),
+                    OpponentUi(a2, "AI 2", 1, 1, listOf(role("contessa")), true, OpponentStatus.THINKING, emptySet(), now + 10_000, false),
+                    OpponentUi(a3, "AI 3", 0, 0, listOf(role("captain"), role("assassin")), false, OpponentStatus.ELIMINATED, emptySet(), null, false),
+                ),
+                turn = a1,
+            ),
+        )
+        shoot("action_tax")
+    }
+
+    @Test
+    fun `게임 - 기록 창`() {
+        game(state(decision = null, deadline = null))
+        compose.onNodeWithTag(GameTags.LOG_OPEN).performClick()
+        compose.waitForIdle()
+        shoot("game_log")
+    }
+
+    @Test
     fun `행동 - 상대끼리 암살`() {
         game(
             state(
