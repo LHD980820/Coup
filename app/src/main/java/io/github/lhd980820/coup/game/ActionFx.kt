@@ -27,14 +27,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -77,6 +81,11 @@ internal class TableAnchors {
     operator fun get(id: PlayerId): Rect? = rects[id]
 
     fun place(id: PlayerId): Modifier = Modifier.onGloballyPositioned { rects[id] = it.boundsInRoot() }
+
+    /** 가운데 판이 놓인 곳. 화살표는 판 아래로 지나간다(판의 그림을 가리지 않는다). 판이 없으면(응답 시트가 대신할 때) null. */
+    var stage: Rect? by mutableStateOf(null)
+
+    fun stageArea(): Modifier = Modifier.onGloballyPositioned { stage = it.boundsInRoot() }
 }
 
 internal enum class ArrowKind {
@@ -142,16 +151,17 @@ internal fun ActionArrows(banner: Banner, anchors: TableAnchors, modifier: Modif
             .onGloballyPositioned { origin = it.boundsInRoot().topLeft }
             .clearAndSetSemantics { testTag = GameTags.ARROWS; arrowsShown = labels },
     ) {
+        val stage = anchors.stage?.translate(-origin)
         specs.forEach { spec ->
             val from = anchors[spec.from] ?: return@forEach
             val to = anchors[spec.to] ?: return@forEach
-            Arrow(spec, from.translate(-origin), to.translate(-origin), motion)
+            Arrow(spec, from.translate(-origin), to.translate(-origin), stage, motion)
         }
     }
 }
 
 @Composable
-private fun Arrow(spec: ArrowSpec, from: Rect, to: Rect, motion: Motion) {
+private fun Arrow(spec: ArrowSpec, from: Rect, to: Rect, under: Rect?, motion: Motion) {
     val look = lookOf(spec)
     val density = LocalDensity.current
     // 처음 나타날 때 행동한 자리에서 대상으로 뻗어 간다
@@ -169,13 +179,22 @@ private fun Arrow(spec: ArrowSpec, from: Rect, to: Rect, motion: Motion) {
     }
     val curve = remember(from, to) { arrowCurve(from, to, with(density) { 6.dp.toPx() }) }
     Canvas(Modifier.fillMaxSize()) {
-        drawTarget(to, look.color, pulse?.value ?: 1f)
-        drawArrow(curve, look.color, reach.value, flow?.value ?: 0f)
+        // 가운데 판 위는 그리지 않는다: 화살표가 판 아래로 지나가는 것처럼 보이고 판의 그림·글을 가리지 않는다
+        val hole = under?.let { Path().apply { addRoundRect(RoundRect(it, CornerRadius(16.dp.toPx()))) } }
+        if (hole == null) {
+            drawTarget(to, look.color, pulse?.value ?: 1f)
+            drawArrow(curve, look.color, reach.value, flow?.value ?: 0f)
+        } else {
+            clipPath(hole, ClipOp.Difference) {
+                drawTarget(to, look.color, pulse?.value ?: 1f)
+                drawArrow(curve, look.color, reach.value, flow?.value ?: 0f)
+            }
+        }
     }
-    // 곡선 가운데에 문양을 싣는다(곡선이 다 뻗은 뒤에 나타난다)
-    val mid = curve.point(0.5f)
+    // 곡선 가운데에 문양을 싣는다(곡선이 다 뻗은 뒤에 나타난다). 가운데가 판 아래에 묻히면 판 밖의 가장 가까운 곳으로 옮긴다
     val disc = 30.dp
     val half = with(density) { (disc / 2).toPx() }
+    val mid = discPoint(curve, under?.inflate(half))
     Box(
         Modifier
             .offset { IntOffset((mid.x - half).roundToInt(), (mid.y - half).roundToInt()) }
@@ -189,6 +208,18 @@ private fun Arrow(spec: ArrowSpec, from: Rect, to: Rect, motion: Motion) {
             .panel(CircleShape, top = look.top, bottom = look.bottom, line = look.color, lineWidth = 1.5.dp),
         contentAlignment = Alignment.Center,
     ) { Icon(look.icon, contentDescription = null, tint = if (spec.kind == ArrowKind.ATTACK && spec.role == null) GoldBright else Parchment, modifier = Modifier.size(17.dp)) }
+}
+
+/** 곡선 위에서 문양을 실을 곳: 가운데(t = 0.5)에서 시작해 [avoid] 밖의 가장 가까운 곳. 어디나 가려지면 가운데. */
+internal fun discPoint(curve: ArrowCurve, avoid: Rect?): Offset {
+    if (avoid == null) return curve.point(0.5f)
+    for (step in 0..8) {
+        for (sign in intArrayOf(-1, 1)) {
+            val p = curve.point(0.5f + sign * step * 0.05f)
+            if (!avoid.contains(p)) return p
+        }
+    }
+    return curve.point(0.5f)
 }
 
 /** 두 자리를 잇는 곡선: 서로 마주 보는 테두리에서 나가고 들어오며, 가운데가 위쪽(세로로 놓이면 오른쪽)으로 휜다. */

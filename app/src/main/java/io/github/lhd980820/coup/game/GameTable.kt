@@ -4,13 +4,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.shadow
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -31,19 +26,23 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -63,22 +62,16 @@ import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.RoleId
-import io.github.lhd980820.coup.presentation.Banner
-import io.github.lhd980820.coup.presentation.DecisionUi
 import io.github.lhd980820.coup.presentation.GameUiState
 import io.github.lhd980820.coup.presentation.OpponentStatus
 import io.github.lhd980820.coup.presentation.OpponentUi
 import io.github.lhd980820.coup.ui.kit.Avatar
-import io.github.lhd980820.coup.ui.kit.CoinIcon
+import io.github.lhd980820.coup.ui.kit.CARD_ASPECT
 import io.github.lhd980820.coup.ui.kit.CoupIcons
-import io.github.lhd980820.coup.ui.kit.Hairline
 import io.github.lhd980820.coup.ui.kit.PlayingCardBack
 import io.github.lhd980820.coup.ui.kit.RoleVisuals
-import io.github.lhd980820.coup.ui.kit.felt
 import io.github.lhd980820.coup.ui.kit.panel
 import io.github.lhd980820.coup.ui.kit.seatTint
-import io.github.lhd980820.coup.ui.theme.Crimson
-import io.github.lhd980820.coup.ui.theme.CrimsonDeep
 import io.github.lhd980820.coup.ui.theme.Gold
 import io.github.lhd980820.coup.ui.theme.GoldBright
 import io.github.lhd980820.coup.ui.theme.GoldDeep
@@ -91,23 +84,18 @@ import io.github.lhd980820.coup.ui.theme.ParchmentDim
 // ---- 상단 표시줄 --------------------------------------------------------------------------------
 
 /**
- * 맨 위 표시줄: 몇 번째 턴인지, 바뀐 규칙(있으면), 기권. 항상 화면 맨 위에 고정돼 있어 응답 시트가 떠도 닿는다.
+ * 맨 위 표시줄: 누구의 차례인지(왼쪽), 그리고 구석의 작은 그림들 — 덱, 진행 기록([onShowLog]), 바뀐 규칙(있으면), 기권.
+ * 글은 차례 칩 하나뿐이고 나머지는 그림이다(스크린리더에는 이름이 읽힌다). 항상 화면 맨 위에 고정돼 있어 응답 시트가 떠도 닿는다.
  */
 @Composable
-internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: (() -> Unit)?, showDeck: Boolean = false) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            stringResource(R.string.game_turn, state.turnNumber),
-            style = MaterialTheme.typography.labelLarge,
-            color = Gold,
-            modifier = Modifier.panel(CircleShape, top = PanelTop, bottom = Panel).padding(horizontal = 12.dp, vertical = 5.dp),
-        )
-        TurnChip(state)
-        if (showDeck) {
-            // 낮은 화면에서는 가운데 무대의 덱 그림 대신 여기에 장수를 적는다
-            Text(stringResource(R.string.game_deck, state.deckSize), style = MaterialTheme.typography.labelMedium, color = ParchmentDim, modifier = Modifier.padding(start = 6.dp))
+internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: (() -> Unit)?, onShowLog: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        // 차례 칩은 남는 너비 안에서만 자란다(이름이 아주 길면 줄여 쓰고, 구석의 그림들은 밀려나지 않는다)
+        Box(Modifier.weight(1f)) { TurnChip(state) }
+        DeckCount(state.deckSize)
+        if (onShowLog != null) {
+            HudButton(CoupIcons.History, stringResource(R.string.game_log_title), onShowLog, Modifier.testTag(GameTags.LOG_OPEN))
         }
-        Spacer(Modifier.weight(1f))
         if (onShowRules != null) {
             // 표준과 다른 규칙으로 하는 판이면 눈에 띄게 알리고, 탭하면 무엇이 다른지 본다
             val count = state.ruleSet.let { it!!.houseRules.size + it.paramOverrides.size }
@@ -119,12 +107,38 @@ internal fun GameHud(state: GameUiState, onConcede: (() -> Unit)?, onShowRules: 
             }
         }
         if (onConcede != null) {
-            TextButton(onClick = onConcede, modifier = Modifier.testTag(GameTags.CONCEDE)) {
-                Icon(CoupIcons.Flag, contentDescription = null, modifier = Modifier.size(15.dp), tint = ParchmentDim)
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.game_concede), color = ParchmentDim)
+            HudButton(CoupIcons.Flag, stringResource(R.string.game_concede), onConcede, Modifier.testTag(GameTags.CONCEDE))
+        }
+    }
+}
+
+/** 표시줄 구석의 그림 버튼(누르는 영역은 48dp). 이름은 스크린리더가 읽는다. */
+@Composable
+private fun HudButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier.size(MIN_TOUCH).semantics { contentDescription = label }) {
+        Icon(icon, contentDescription = null, tint = ParchmentDim, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** 덱: 카드 뒷면 그림과 남은 장수. */
+@Composable
+private fun DeckCount(deckSize: Int) {
+    val label = stringResource(R.string.game_deck, deckSize)
+    Row(
+        Modifier.clearAndSetSemantics { contentDescription = label }.padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(Modifier.size(width = 18.dp, height = 22.dp)) {
+            // 두 장이 살짝 어긋나게 겹친 더미(덱이 비면 빈 자리만)
+            if (deckSize > 1) PlayingCardBack(Modifier.align(Alignment.BottomEnd).size(width = 14.dp, height = 19.dp))
+            if (deckSize > 0) {
+                PlayingCardBack(Modifier.align(Alignment.TopStart).size(width = 14.dp, height = 19.dp))
+            } else {
+                Box(Modifier.align(Alignment.TopStart).size(width = 14.dp, height = 19.dp).panel(androidx.compose.foundation.shape.RoundedCornerShape(2.dp), top = Color.Transparent, bottom = Color.Transparent))
             }
         }
+        Text(deckSize.toString(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = ParchmentDim)
     }
 }
 
@@ -166,15 +180,39 @@ private val SEAT_GAP = 8.dp
 /** 자리 하나의 최소 너비: 카드 두 장의 누르는 영역(48dp씩)이 들어가야 한다. */
 private val SEAT_MIN_WIDTH = 104.dp
 private val SEAT_MAX_WIDTH = 200.dp
-private val SEAT_CARD_WIDTH = 36.dp
 private val SEAT_CARD_HEIGHT = 50.dp
+private val SEAT_CARD_MAX_HEIGHT = 84.dp
+
+/** 기본 크기 카드(50dp)로 그린 자리 하나의 높이(이름·코인·카드·상태 줄). */
+private val SEAT_BASE_HEIGHT = 140.dp
+
+/**
+ * 자리 카드의 높이: 자리들에 줄 수 있는 높이([room])가 남으면 남는 만큼(4분의 3) 키운다. 자리 너비에 카드 두 장이 나란히 들어가야 하고,
+ * [SEAT_CARD_MAX_HEIGHT]를 넘지 않는다.
+ */
+internal fun seatCardHeight(room: Dp?, rows: Int, seatWidth: Dp): Dp {
+    if (room == null || rows <= 0) return SEAT_CARD_HEIGHT
+    val spare = (room - TAB_ROOM - SEAT_BASE_HEIGHT * rows - (SEAT_GAP + TAB_ROOM) * (rows - 1)) / rows
+    val byHeight = SEAT_CARD_HEIGHT + spare * 0.75f
+    // 자리 안쪽 여백(양쪽 8dp)과 카드 사이(4dp)를 빼고 두 장
+    val byWidth = ((seatWidth - 20.dp) / 2) / CARD_ASPECT
+    return minOf(byHeight, byWidth, SEAT_CARD_MAX_HEIGHT).coerceAtLeast(SEAT_CARD_HEIGHT)
+}
 
 /**
  * 테이블 건너편의 상대들. 가로로 밀어 보지 않아도 모두 한눈에 보이게 줄을 나눈다(1~3명은 한 줄, 4명은 2x2, 5명은 3+2).
  * 화면이 좁아 한 줄에 다 못 들어가면 줄 수를 늘린다. 대상을 고르는 중이면 고를 수 있는 자리를 눌러서 고를 수 있다([onTarget]).
  */
 @Composable
-internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTarget) -> Unit, onTarget: ((PlayerId) -> Unit)?, anchors: TableAnchors = remember { TableAnchors() }) {
+internal fun OpponentSeats(
+    state: GameUiState,
+    texts: GameTexts,
+    onZoom: (ZoomTarget) -> Unit,
+    onTarget: ((PlayerId) -> Unit)?,
+    anchors: TableAnchors = remember { TableAnchors() },
+    /** 자리들에 줄 수 있는 높이. 남으면 카드 그림을 키운다(공개된 카드가 잘 보이게). null이면 기본 크기. */
+    room: Dp? = null,
+) {
     val opponents = state.opponents
     if (opponents.isEmpty()) return
     // 첫 줄 자리 위에 붙는 "차례" 탭이 잘리지 않게 위를 조금 띄운다
@@ -187,6 +225,8 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
         val fits = ((maxWidth + SEAT_GAP) / (SEAT_MIN_WIDTH + SEAT_GAP)).toInt().coerceAtLeast(1)
         val columns = minOf(wanted, fits)
         val seatWidth = ((maxWidth - SEAT_GAP * (columns - 1)) / columns).coerceAtMost(SEAT_MAX_WIDTH)
+        val rows = (opponents.size + columns - 1) / columns
+        val cardHeight = seatCardHeight(room, rows, seatWidth)
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(SEAT_GAP + TAB_ROOM)) {
             opponents.withIndex().chunked(columns).forEach { row ->
                 Row(
@@ -202,6 +242,7 @@ internal fun OpponentSeats(state: GameUiState, texts: GameTexts, onZoom: (ZoomTa
                             onTarget = if (onTarget != null && op.targetable) ({ onTarget(op.id) }) else null,
                             isTurn = op.id == state.turnPlayer,
                             anchors = anchors,
+                            cardHeight = cardHeight,
                             modifier = Modifier.width(seatWidth).fillMaxHeight(),
                         )
                     }
@@ -221,8 +262,12 @@ private fun Seat(
     onTarget: (() -> Unit)?,
     isTurn: Boolean,
     anchors: TableAnchors,
+    cardHeight: Dp,
     modifier: Modifier,
 ) {
+    val cardWidth = cardHeight * CARD_ASPECT
+    // 카드 그림은 작아도 누르는 영역은 48dp를 채운다
+    val slotWidth = maxOf(MIN_TOUCH, cardWidth)
     val busy = op.isAlive && (op.status == OpponentStatus.ACTING || op.status == OpponentStatus.THINKING)
     // 지금 움직이는 사람과 고를 수 있는 대상은 금색 테두리가 천천히 맥박친다(상태 글자도 함께 달라진다).
     // 맥박 값은 그리는 단계에서만 읽는다 — 매 프레임 자리를 다시 구성하지 않는다
@@ -273,6 +318,7 @@ private fun Seat(
                 CoinCount(op.coins, GameTags.coins(op.id.value))
             }
         }
+        Box(contentAlignment = Alignment.Center) {
         FlowRow(horizontalArrangement = Arrangement.Center, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             // 화면을 처음 그릴 때 이미 공개돼 있던 카드는 그대로 두고, 그 뒤에 공개되는 카드만 뒤집는다
             val settled = remember { op.revealed.size }
@@ -281,54 +327,51 @@ private fun Seat(
                 // 공개된 카드는 탭하면 확대된다. 그림은 작지만 누르는 영역은 48dp를 채운다
                 // 태그는 누르는 영역에 둔다: 안쪽 카드의 접근성 이름·뒤집힘 진행이 이 노드로 합쳐진다
                 Box(
-                    Modifier.size(MIN_TOUCH, SEAT_CARD_HEIGHT).testTag(GameTags.flip(op.id.value, i)).clickable(onClickLabel = zoomLabel) { onZoom(role) },
+                    Modifier.size(slotWidth, cardHeight).testTag(GameTags.flip(op.id.value, i)).clickable(onClickLabel = zoomLabel) { onZoom(role) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    FlipCard(role, animate = i >= settled, modifier = Modifier.size(SEAT_CARD_WIDTH, SEAT_CARD_HEIGHT))
+                    FlipCard(role, animate = i >= settled, modifier = Modifier.size(cardWidth, cardHeight))
                 }
             }
             // 가려진 카드는 무엇인지 모르므로 확대할 것이 없다
             repeat(op.hiddenCount) { i ->
-                Box(Modifier.size(MIN_TOUCH, SEAT_CARD_HEIGHT), contentAlignment = Alignment.Center) {
-                    RoleCard(role = null, faceUp = false, modifier = Modifier.size(SEAT_CARD_WIDTH, SEAT_CARD_HEIGHT).testTag(GameTags.hidden(op.id.value, i)))
+                Box(Modifier.size(slotWidth, cardHeight), contentAlignment = Alignment.Center) {
+                    RoleCard(role = null, faceUp = false, modifier = Modifier.size(cardWidth, cardHeight).testTag(GameTags.hidden(op.id.value, i)))
                 }
             }
         }
-        // 상태 줄: 탈락 > 주장 중인 역할 > 행동 중/생각 중/응답함. 남은 시간은 옆에 붙는다. 자리가 들썩이지 않게 한 줄 높이는 늘 차지한다
-        FlowRow(
-            Modifier.heightIn(min = 18.dp).padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            val small = MaterialTheme.typography.labelSmall
-            when {
-                // 탈락은 자리에 찍힌 도장이 알린다
-                !op.isAlive -> Unit
-                op.claiming.isNotEmpty() -> Text(
-                    stringResource(R.string.game_claiming, texts.roles(op.claiming)),
-                    style = small,
-                    fontWeight = FontWeight.Bold,
-                    color = RoleVisuals.of(op.claiming.first().value).accent,
-                )
-                op.status == OpponentStatus.ACTING -> Text(stringResource(R.string.game_status_acting), style = small, color = Gold)
-                op.status == OpponentStatus.THINKING -> Text(stringResource(R.string.game_status_thinking), style = small, color = Gold)
-                op.status == OpponentStatus.RESPONDED -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Icon(CoupIcons.Check, contentDescription = null, tint = ParchmentDim, modifier = Modifier.size(11.dp))
-                    Text(stringResource(R.string.game_status_responded), style = small, color = ParchmentDim)
-                }
-                else -> Unit
+        // 역할을 주장하는 동안 그 역할 카드를 카드들 위로 크게 들어 보인다(역할 색으로 빛난다). 카드 줄보다 커도 자리 크기는 그대로다
+        op.claiming.firstOrNull()?.takeIf { op.isAlive }?.let { role ->
+            Box(Modifier.matchParentSize().wrapContentSize(unbounded = true)) {
+                ClaimCard(role, stringResource(R.string.game_claiming, texts.roles(op.claiming)), cardHeight * CLAIM_SCALE, Modifier.testTag(GameTags.claim(op.id.value)))
             }
+        }
+        }
+        // 상태 줄(그림): 행동·생각 중이면 남은 시간 고리(시간 제한이 없으면 모래시계), 응답했으면 체크. 탈락은 도장이, 주장은 들어 보인 카드가 알린다.
+        // 스크린리더에는 상태가 글로 읽힌다. 자리가 들썩이지 않게 한 줄 높이는 늘 차지한다
+        val statusLabel = when {
+            !op.isAlive -> null
+            op.status == OpponentStatus.ACTING -> stringResource(R.string.game_status_acting)
+            op.status == OpponentStatus.THINKING -> stringResource(R.string.game_status_thinking)
+            op.status == OpponentStatus.RESPONDED -> stringResource(R.string.game_status_responded)
+            else -> null
+        }
+        Row(
+            Modifier.heightIn(min = 22.dp).then(if (statusLabel != null) Modifier.semantics { contentDescription = statusLabel } else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             val deadline = op.deadline
-            if (deadline != null && busy) Countdown(deadline, GameTags.timer(op.id.value))
+            when {
+                statusLabel == null -> Unit
+                op.status == OpponentStatus.RESPONDED -> Icon(CoupIcons.Check, contentDescription = null, tint = ParchmentDim, modifier = Modifier.size(15.dp))
+                deadline != null && busy -> Countdown(deadline, GameTags.timer(op.id.value))
+                else -> Icon(CoupIcons.Hourglass, contentDescription = null, tint = Gold, modifier = Modifier.size(14.dp))
+            }
         }
     }
     if (!op.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).testTag(GameTags.stamp(op.id.value)))
     }
     if (turn) TurnTab(stringResource(R.string.game_turn_tab), Modifier.align(Alignment.TopCenter).offset(y = -TAB_ROOM).testTag(GameTags.turn(op.id.value)))
-    // 역할을 주장하는 동안 그 역할 카드를 내밀고 있다(글로도 아래 상태 줄에 나온다)
-    op.claiming.firstOrNull()?.takeIf { op.isAlive }?.let { role ->
-        ClaimCard(role, Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = -TAB_ROOM).testTag(GameTags.claim(op.id.value)))
-    }
     }
 }
 
@@ -354,158 +397,61 @@ internal fun TurnTab(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** 역할을 주장하는 사람이 내민 카드: 작은 카드가 기울어진 채 튀어나온다. */
+/**
+ * 역할을 주장하는 사람이 들어 보인 카드: 자리의 카드들 위로 기울어진 채 튀어나오고 역할 색으로 빛난다. 스크린리더에는 "[역할] 주장"으로 읽힌다.
+ * 그림일 뿐이라 아래 카드를 누르는 것(확대)을 가로채지 않는다.
+ */
 @Composable
-internal fun ClaimCard(role: RoleId, modifier: Modifier = Modifier) {
+internal fun ClaimCard(role: RoleId, label: String, height: Dp, modifier: Modifier = Modifier) {
+    val width = height * CARD_ASPECT
     val motion = LocalMotion.current
     val pop = remember(role) { androidx.compose.animation.core.Animatable(if (motion.enabled) 0f else 1f) }
     LaunchedEffect(role) {
         if (pop.value < 1f) pop.animateTo(1f, androidx.compose.animation.core.tween(motion.ms(CLAIM_POP_MS), easing = SlamEasing))
     }
+    val glow = RoleVisuals.of(role.value).accent
     Box(
-        modifier.graphicsLayer {
-            val p = pop.value
-            rotationZ = 12f
-            scaleX = 0.4f + 0.6f * p
-            scaleY = 0.4f + 0.6f * p
-            alpha = p.coerceIn(0f, 1f)
-        },
-    ) {
-        RoleCard(role, faceUp = true, modifier = Modifier.shadow(4.dp, androidx.compose.foundation.shape.RoundedCornerShape(3.dp)).size(width = 26.dp, height = 36.dp))
-    }
-}
-
-private const val CLAIM_POP_MS = 280
-
-// ---- 가운데 무대 --------------------------------------------------------------------------------
-
-/**
- * 테이블 한가운데: 지금 무슨 일이 벌어지고 있는가. 왼쪽 문장(紋章)이 상황을 한눈에 알리고(내 차례 = 별, 도전 = 칼, 막기 = 방패, 역할 주장 = 그 역할),
- * 가운데에 문장으로 풀어 쓰며, 오른쪽에 덱이 놓인다. 내가 결정할 차례면 남은 시간이 막대로 붙는다(응답할 때는 응답 시트가 보인다).
- */
-@Composable
-internal fun StagePanel(state: GameUiState, texts: GameTexts, compact: Boolean = false) {
-    val banner = state.banner
-    val motion = LocalMotion.current
-    // 문장(紋章)과 문장(文章): 상황이 바뀌면 새 내용이 아래에서 올라오며 바뀐다(연출이 꺼져 있으면 바로 바뀐다)
-    val headline: @Composable (Banner) -> Unit = { b ->
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StageMedallion(b, if (compact) 34.dp else 42.dp)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(texts.banner(b), style = MaterialTheme.typography.titleMedium, color = Parchment)
-                val waiting = when (b) {
-                    is Banner.ActionDeclared -> b.waitingOn
-                    is Banner.BlockDeclared -> b.waitingOn
-                    is Banner.BlockWindow -> b.waitingOn
-                    else -> emptySet()
-                }
-                if (waiting.isNotEmpty()) {
-                    Text(
-                        stringResource(R.string.game_waiting_on, waiting.joinToString(", ") { texts.name(it) }),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ParchmentDim,
-                    )
-                }
+        modifier
+            .clearAndSetSemantics { contentDescription = label }
+            .size(width = width + 24.dp, height = height + 12.dp)
+            .graphicsLayer {
+                val p = pop.value
+                scaleX = 0.4f + 0.6f * p
+                scaleY = 0.4f + 0.6f * p
+                alpha = p.coerceIn(0f, 1f)
             }
-        }
-    }
-    Row(
-        Modifier.fillMaxWidth().testTag(GameTags.BANNER).felt().padding(horizontal = 12.dp, vertical = if (compact) 8.dp else 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (!motion.enabled) {
-                headline(banner)
-            } else {
-                AnimatedContent(
-                    targetState = banner,
-                    // 응답을 기다리는 사람이 줄어드는 것처럼 같은 문장 안의 변화에는 움직이지 않는다
-                    contentKey = { texts.banner(it) },
-                    transitionSpec = {
-                        val ms = motion.ms(STAGE_MS)
-                        (fadeIn(tween(ms)) + slideInVertically(tween(ms)) { it / 3 }) togetherWith fadeOut(tween(ms / 2))
-                    },
-                    label = "stage",
-                ) { headline(it) }
-            }
-            // 내가 결정할 차례일 때만 내 남은 시간을 보인다(끝난 판·기다리는 중에는 숨김)
-            val deadline = state.myDeadline
-            if (deadline != null && state.decision != null && state.decision !is DecisionUi.Respond && state.result == null) {
-                Countdown(deadline, GameTags.TIMER_MINE, Modifier.fillMaxWidth(), style = TimerStyle.BAR)
-            }
-        }
-        // 낮은 화면에서는 문장이 한 줄에 들어가게 덱 그림을 뺀다(장수는 표시줄에 있다)
-        if (!compact) DeckPile(state.deckSize)
-    }
-}
-
-private const val STAGE_MS = 260
-
-private class Medal(val icon: ImageVector?, val top: Color, val bottom: Color, val tint: Color, val rim: Color = Gold)
-
-@Composable
-private fun StageMedallion(banner: Banner, size: Dp) {
-    fun role(role: RoleId?, icon: ImageVector? = null): Medal {
-        val visual = role?.let { RoleVisuals.of(it.value) } ?: return Medal(icon, PanelTop, Panel, Gold)
-        return Medal(icon ?: visual.emblem, visual.top, visual.bottom, GoldBright, visual.accent)
-    }
-    val medal = when (banner) {
-        is Banner.YourTurn -> Medal(CoupIcons.Star, GoldBright, Gold, GoldInk, GoldBright)
-        is Banner.WaitingFor -> Medal(CoupIcons.Hourglass, PanelTop, Panel, ParchmentDim, Hairline)
-        is Banner.ActionDeclared -> when {
-            banner.claimedRoles.isNotEmpty() -> role(banner.claimedRoles.first())
-            banner.actionId.value == "coup" -> Medal(CoupIcons.Bolt, Crimson, CrimsonDeep, Parchment, Crimson)
-            // 수입·해외 원조처럼 역할을 주장하지 않는 행동은 코인으로 그린다
-            else -> Medal(null, PanelTop, Panel, Gold)
-        }
-        is Banner.BlockDeclared -> role(banner.role, CoupIcons.Shield)
-        is Banner.BlockWindow -> Medal(CoupIcons.Shield, PanelTop, Panel, Gold)
-        is Banner.Challenged -> Medal(CoupIcons.Swords, Crimson, CrimsonDeep, Parchment, Crimson)
-        is Banner.LosingInfluence -> Medal(CoupIcons.Cross, CrimsonDeep, Color(0xFF2A0A0E), Parchment, Crimson)
-        is Banner.Exchanging -> role(RoleId("ambassador"))
-        is Banner.GameOver -> Medal(CoupIcons.Crown, GoldBright, Gold, GoldInk, GoldBright)
-    }
-    // 내 차례에는 문장이 천천히 맥박친다(그리는 단계에서만 값을 읽는다)
-    val beat = if (banner is Banner.YourTurn) pulse() else null
-    Box(
-        Modifier
-            .size(size)
-            .graphicsLayer { alpha = 0.75f + 0.25f * (beat?.value ?: 1f) }
-            .panel(CircleShape, top = medal.top, bottom = medal.bottom, line = medal.rim, lineWidth = 1.5.dp)
-            .clearAndSetSemantics { },
+            .drawBehind { drawCircle(Brush.radialGradient(listOf(glow.copy(alpha = 0.6f), Color.Transparent), center = center, radius = size.maxDimension * 0.62f)) },
         contentAlignment = Alignment.Center,
     ) {
-        if (medal.icon != null) Icon(medal.icon, contentDescription = null, tint = medal.tint, modifier = Modifier.size(size * 0.52f)) else CoinIcon(size = size * 0.52f)
+        RoleCard(
+            role, faceUp = true,
+            modifier = Modifier
+                .graphicsLayer { rotationZ = 8f }
+                .shadow(8.dp, RoundedCornerShape(4.dp))
+                .size(width = width, height = height),
+        )
     }
 }
 
-/** 덱: 겹쳐 놓인 카드 뒷면과 남은 장수. */
-@Composable
-private fun DeckPile(deckSize: Int) {
-    val label = stringResource(R.string.game_deck, deckSize)
-    Column(Modifier.clearAndSetSemantics { contentDescription = label }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Box(Modifier.size(width = 32.dp, height = 40.dp)) {
-            val layers = minOf(deckSize, 3)
-            repeat(layers) { i ->
-                PlayingCardBack(Modifier.align(Alignment.BottomStart).offset(x = (i * 3).dp, y = (-i * 2).dp).size(width = 26.dp, height = 36.dp))
-            }
-            if (layers == 0) {
-                Box(Modifier.align(Alignment.BottomStart).size(width = 26.dp, height = 36.dp).panel(androidx.compose.foundation.shape.RoundedCornerShape(3.dp), top = Color.Transparent, bottom = Color.Transparent))
-            }
-        }
-        Text(label, style = MaterialTheme.typography.labelSmall, color = ParchmentDim)
-    }
-}
+/** 들어 보인 카드는 자리의 카드보다 조금 크다. */
+private const val CLAIM_SCALE = 1.12f
+private const val CLAIM_POP_MS = 280
 
 // ---- 기록 ---------------------------------------------------------------------------------------
 
-/** 진행 기록. 가장 최근 일이 맨 위에 크게 나오고 오래된 일일수록 아래로 내려간다 — 아래가 잘려도 방금 일어난 일은 항상 보인다. */
+/**
+ * 진행 기록. 가장 최근 일이 맨 위에 크게 나오고 오래된 일일수록 아래로 내려간다 — 아래가 잘려도 방금 일어난 일은 항상 보인다.
+ * 머리에는 몇 번째 턴인지가 붙는다. 폰에서는 표시줄 구석의 기록 버튼을 눌러야 뜨고([LogSheet]), 넓은 화면에서는 옆 단에 늘 있다.
+ */
 @Composable
 internal fun LogList(state: GameUiState, texts: GameTexts, maxLines: Int) {
     val lines = state.log.mapNotNull { texts.log(it) }.takeLast(maxLines).asReversed()
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.game_log_title), style = MaterialTheme.typography.labelMedium, color = Gold)
+        Row(Modifier.fillMaxWidth().padding(bottom = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(CoupIcons.History, contentDescription = null, tint = Gold, modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.game_log_title), style = MaterialTheme.typography.labelLarge, color = Gold, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.game_turn, state.turnNumber), style = MaterialTheme.typography.labelMedium, color = ParchmentDim)
+        }
         lines.forEachIndexed { i, line ->
             val latest = i == 0
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -516,6 +462,25 @@ internal fun LogList(state: GameUiState, texts: GameTexts, maxLines: Int) {
                     color = if (latest) Parchment else ParchmentDim,
                 )
             }
+        }
+    }
+}
+
+/** 폰의 진행 기록 창: 표시줄 구석의 기록 버튼을 누르면 뜨고, 바깥을 누르거나 뒤로 가기로 닫는다. 판은 그대로 흘러간다. */
+@Composable
+internal fun LogSheet(state: GameUiState, texts: GameTexts, maxLines: Int, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .testTag(GameTags.LOG_SHEET)
+                .panel(RoundedCornerShape(22.dp), top = PanelTop, bottom = Panel, line = Gold.copy(alpha = 0.5f))
+                .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { LogList(state, texts, maxLines) }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End).testTag(GameTags.LOG_CLOSE)) { Text(stringResource(R.string.game_ability_close)) }
         }
     }
 }

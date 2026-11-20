@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -41,6 +42,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import io.github.lhd980820.coup.engine.model.RoleId
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -50,7 +54,6 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,10 +92,13 @@ import io.github.lhd980820.coup.ui.theme.Parchment
 import io.github.lhd980820.coup.ui.theme.ParchmentDim
 
 private val TILE_GAP = 8.dp
+
+/** 막기 버튼은 반 폭에 "사령관으로 막기"가 한 줄로 들어가야 한다. */
+private val BLOCK_PADDING = PaddingValues(horizontal = 10.dp, vertical = 10.dp)
 private val TILE_SHAPE = RoundedCornerShape(14.dp)
 
 /** 행동 칸 하나의 최소 너비(글자 크기 설정이 크면 함께 커진다 — 한 줄에 놓는 칸 수가 준다). */
-private val TILE_MIN_WIDTH = 72.dp
+private val TILE_MIN_WIDTH = 66.dp
 private const val TILE_FONT_SCALE_CAP = 1.35f
 
 /** 안내가 가리키는 컨트롤은 테두리로 강조한다(색만으로 전달하지 않도록 코치 문구도 함께 있다). */
@@ -118,15 +124,11 @@ internal fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAc
     val enabled = !state.busy
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when (decision) {
-            null -> if (state.result == null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(CoupIcons.Hourglass, contentDescription = null, tint = ParchmentDim, modifier = Modifier.size(14.dp))
-                    Text(stringResource(R.string.game_waiting_decision), style = MaterialTheme.typography.bodyMedium, color = ParchmentDim, modifier = Modifier.testTag(GameTags.WAITING))
-                }
-            }
+            // 내가 할 일이 없으면 아무것도 그리지 않는다(누구를 기다리는지는 가운데 판이 그림으로 보인다)
+            null -> Unit
             is DecisionUi.Actions -> ActionGrid(decision.buttons, texts, enabled, expect, actions::chooseAction)
             is DecisionUi.PickTarget -> {
-                Prompt(stringResource(R.string.game_pick_target))
+                Prompt(stringResource(R.string.game_pick_target), CoupIcons.Target)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     decision.targets.forEach { id ->
                         val name = texts.name(id)
@@ -148,17 +150,19 @@ internal fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAc
             }
             is DecisionUi.Respond -> Unit // 아래에 붙는 응답 시트([ResponseSheet])가 그린다
             is DecisionUi.PickCard -> {
-                Prompt(
-                    if (decision.purpose == CardPurpose.REVEAL) stringResource(R.string.game_pick_reveal, texts.roles(decision.claimedRoles))
-                    else stringResource(R.string.game_pick_lose),
-                )
+                if (decision.purpose == CardPurpose.REVEAL) {
+                    // 도전받은 주장: 그 역할 카드를 작게 보이고 "공개할 카드"를 고르게 한다(증명하는 카드에는 손패에서 금색 체크가 붙는다)
+                    Prompt(stringResource(R.string.game_pick_reveal), roles = decision.claimedRoles.toList())
+                } else {
+                    Prompt(stringResource(R.string.game_pick_lose), CoupIcons.Cross, tint = CrimsonLight)
+                }
                 PrimaryButton(
                     stringResource(R.string.game_confirm), actions::confirmCard,
                     Modifier.fillMaxWidth().testTag(GameTags.CONFIRM), enabled = enabled && decision.selected != null, icon = CoupIcons.Check,
                 )
             }
             is DecisionUi.PickExchange -> {
-                Prompt(stringResource(R.string.game_pick_exchange, decision.keepCount))
+                Prompt(stringResource(R.string.game_pick_exchange, decision.keepCount), CoupIcons.Swap, tint = RoleVisuals.of("ambassador").accent)
                 PrimaryButton(
                     stringResource(R.string.game_confirm), actions::confirmExchange,
                     Modifier.fillMaxWidth().testTag(GameTags.CONFIRM), enabled = enabled && decision.canConfirm, icon = CoupIcons.Check,
@@ -168,9 +172,14 @@ internal fun DecisionPanel(state: GameUiState, texts: GameTexts, actions: GameAc
     }
 }
 
+/** 결정 안내 한 줄: 앞에 그림(또는 작은 역할 카드)이 붙는다. */
 @Composable
-private fun Prompt(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = Parchment)
+private fun Prompt(text: String, icon: ImageVector? = null, tint: Color = Gold, roles: List<RoleId> = emptyList()) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        icon?.let { Icon(it, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp)) }
+        roles.forEach { RoleCard(it, faceUp = true, modifier = Modifier.size(width = 20.dp, height = 28.dp)) }
+        Text(text, style = MaterialTheme.typography.titleSmall, color = Parchment)
+    }
 }
 
 /**
@@ -211,15 +220,17 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
     val coup = button.actionId.value == "coup"
     val name = texts.actionName(button.actionId)
     val label = if (button.cost > 0) stringResource(R.string.game_action_cost, name, button.cost) else name
-    // 색만으로 의미를 전달하지 않는다: 블러핑/필수/비활성 사유는 글자로도 표시. 그런 것이 없으면 주장하는 역할 이름을 적는다
-    val note = when {
-        button.disabledReason == DisabledReason.INSUFFICIENT_COINS -> stringResource(R.string.game_reason_no_coins)
-        button.disabledReason == DisabledReason.NO_VALID_TARGET -> stringResource(R.string.game_reason_no_target)
-        button.forced -> stringResource(R.string.game_forced)
-        button.bluff -> stringResource(R.string.game_bluff)
-        else -> ""
+    // 색만으로 의미를 전달하지 않는다: 할 수 없음(자물쇠)·필수(느낌표)·블러핑(가면)은 이름 앞의 작은 그림으로 보이고, 스크린리더에는 글로 읽힌다
+    val badge: Pair<ImageVector, String>? = when {
+        button.disabledReason == DisabledReason.INSUFFICIENT_COINS -> CoupIcons.Lock to stringResource(R.string.game_reason_no_coins)
+        button.disabledReason == DisabledReason.NO_VALID_TARGET -> CoupIcons.Lock to stringResource(R.string.game_reason_no_target)
+        button.forced -> CoupIcons.Exclaim to stringResource(R.string.game_forced)
+        button.bluff -> CoupIcons.Mask to stringResource(R.string.game_bluff)
+        else -> null
     }
-    val caption = note.ifEmpty { button.claimedRoles.firstOrNull()?.let { texts.role(it) }.orEmpty() }
+    val roleName = button.claimedRoles.firstOrNull()?.let { texts.role(it) }
+    // 스크린리더에는 이름(드는 코인)이 먼저, 그다음 주장하는 역할, 그다음 표시 그림이 읽힌다: "암살 (-3), 암살자, 블러핑"
+    val spokenName = if (button.cost > 0 || roleName != null) listOfNotNull(label, roleName).joinToString(", ") else null
     val fill = when {
         !on -> listOf(PanelLow, PanelLow)
         truthful -> listOf(visual!!.top, visual.bottom)
@@ -244,7 +255,7 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
         modifier
             .guideRing(ring && on)
             .testTag(GameTags.action(button.actionId.value))
-            .heightIn(min = 64.dp)
+            .heightIn(min = 58.dp)
             .clip(TILE_SHAPE)
             .background(Brush.verticalGradient(fill))
             .then(if (dashed) Modifier.dashedBorder(line, 14.dp) else Modifier.border(if (on) 1.5.dp else 1.dp, line, TILE_SHAPE))
@@ -252,7 +263,7 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
             .padding(horizontal = 4.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             // 문양 옆에 드는 코인: 코인 그림 + 숫자(스크린리더에는 이름과 함께 "암살 (-3)"으로 읽힌다)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 ActionGlyph(button.actionId, visual, tint, on)
@@ -267,28 +278,28 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
                     }
                 }
             }
-            // 이름은 한 줄에 들어가게 필요하면 글자를 줄인다(긴 영어 이름이 낱말 중간에서 꺾이지 않게)
-            Text(
-                name,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = if (on) Parchment else ParchmentDim.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                softWrap = false,
-                autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize, stepSize = 0.5.sp),
-                modifier = if (button.cost > 0) Modifier.semantics { contentDescription = label } else Modifier,
-            )
-            if (caption.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                // 이름은 한 줄에 들어가게 필요하면 글자를 줄인다(긴 영어 이름이 낱말 중간에서 꺾이지 않게)
                 Text(
-                    caption,
-                    style = MaterialTheme.typography.labelSmall,
-                    // 역할 색으로 채운 칸 위에서는 역할 색 글씨의 대비가 모자라므로 본문 색으로 쓴다
-                    color = if (on && truthful) Parchment else ParchmentDim,
+                    name,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (on) Parchment else ParchmentDim.copy(alpha = 0.7f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize, stepSize = 0.5.sp),
+                    modifier = Modifier.weight(1f, fill = false).then(if (spokenName != null) Modifier.semantics { contentDescription = spokenName } else Modifier),
                 )
+                badge?.let { (icon, desc) ->
+                    val badgeTint = when {
+                        !on -> ParchmentDim.copy(alpha = 0.8f)
+                        icon == CoupIcons.Exclaim -> GoldBright
+                        // 역할 색으로 채운 칸이 아니므로(블러핑은 테두리만) 역할 색 가면이 잘 보인다
+                        else -> visual?.accent ?: Parchment
+                    }
+                    Icon(icon, contentDescription = desc, tint = badgeTint, modifier = Modifier.size(15.dp))
+                }
             }
         }
     }
@@ -297,7 +308,7 @@ private fun ActionTile(button: ActionButtonUi, texts: GameTexts, enabled: Boolea
 /** 행동의 문양: 역할 행동은 그 역할의 문양, 수입은 코인 한 닢, 해외 원조는 코인 더미, 쿠는 번개. */
 @Composable
 private fun ActionGlyph(action: ActionId, visual: RoleVisual?, tint: Color, on: Boolean) {
-    val size = 20.dp
+    val size = 22.dp
     when {
         visual != null -> Icon(visual.emblem, contentDescription = null, tint = tint, modifier = Modifier.size(size))
         action.value == "income" -> CoinIcon(Modifier.alpha(if (on) 1f else 0.45f), size = 18.dp)
@@ -329,19 +340,13 @@ internal fun ResponseSheet(state: GameUiState, decision: DecisionUi.Respond, tex
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         state.myDeadline?.let { Countdown(it, GameTags.TIMER_MINE, Modifier.fillMaxWidth(), style = TimerStyle.BAR) }
-        // 이 줄이 응답하는 동안의 "지금 벌어지는 일"이다(가운데 무대를 대신한다)
-        Row(Modifier.testTag(GameTags.BANNER), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (claim != null) RoleCard(claim, faceUp = true, modifier = Modifier.size(width = 40.dp, height = 56.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(texts.respondHeadline(state.banner, decision.actor, decision.actionId, decision.windowKind), style = MaterialTheme.typography.titleMedium)
-                if (claim != null) {
-                    Text(
-                        texts.name(decision.claimant) + " · " + stringResource(R.string.game_claiming, texts.roles(decision.claimedRoles)),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = RoleVisuals.of(claim.value).accent,
-                    )
-                }
-            }
+        // 이 줄이 응답하는 동안의 "지금 벌어지는 일"이다(가운데 판을 대신한다): 판과 같은 그림 한 줄. 스크린리더에는 문장으로 읽힌다
+        val res = LocalResources.current
+        val scene = respondScene(state, decision, texts, stageWordsOf(res))
+        val claimLine = claim?.let { ". " + texts.name(decision.claimant) + " · " + stringResource(R.string.game_claiming, texts.roles(decision.claimedRoles)) }.orEmpty()
+        val spoken = spokenScene(res, texts.respondHeadline(state.banner, decision.actor, decision.actionId, decision.windowKind) + claimLine, scene, texts)
+        Box(Modifier.fillMaxWidth().testTag(GameTags.BANNER).clearAndSetSemantics { contentDescription = spoken }) {
+            SceneRow(scene, state, texts, compact = false)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SecondaryButton(
@@ -369,11 +374,16 @@ internal fun ResponseSheet(state: GameUiState, decision: DecisionUi.Respond, tex
 private fun BlockButton(block: BlockButtonUi, texts: GameTexts, enabled: Boolean, expect: TutorialExpect?, modifier: Modifier, onClick: () -> Unit) {
     val allowed = expect.allowsBlock(block.role.value)
     val visual = RoleVisuals.of(block.role.value)
-    val label = Josa.fix(stringResource(R.string.game_block_with, texts.role(block.role))) + if (block.bluff) " · " + stringResource(R.string.game_bluff) else ""
+    val label = Josa.fix(stringResource(R.string.game_block_with, texts.role(block.role)))
     val tagged = modifier.guideRing(expect != null && allowed).testTag(GameTags.block(block.role.value))
     if (block.bluff) {
-        SecondaryButton(label, onClick, tagged, enabled = enabled && allowed, icon = CoupIcons.Shield, line = visual.accent, content = visual.accent)
+        // 그 역할 카드가 없는 막기(블러핑)는 테두리만 있고 방패 대신 가면이 그려진다. 스크린리더에는 "블러핑"이 덧붙어 읽힌다
+        val bluff = stringResource(R.string.game_bluff)
+        SecondaryButton(
+            label, onClick, tagged.semantics { contentDescription = "$label · $bluff" },
+            enabled = enabled && allowed, icon = CoupIcons.Mask, line = visual.accent, content = visual.accent, contentPadding = BLOCK_PADDING,
+        )
     } else {
-        PrimaryButton(label, onClick, tagged, enabled = enabled && allowed, icon = CoupIcons.Shield, container = visual.top, content = Parchment)
+        PrimaryButton(label, onClick, tagged, enabled = enabled && allowed, icon = CoupIcons.Shield, container = visual.top, content = Parchment, contentPadding = BLOCK_PADDING)
     }
 }

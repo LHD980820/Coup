@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -135,7 +136,17 @@ class TableStoryTest {
     private fun moment(): String? = compose.onAllNodesWithTag(GameTags.MOMENT).fetchSemanticsNodes().firstOrNull()?.config?.get(MomentKind)
     private fun string(id: Int, vararg args: Any) = ApplicationProvider.getApplicationContext<Context>().getString(id, *args)
     private fun texts(state: GameUiState) = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, state)
-    private fun logShows(entry: LogEntry, state: GameUiState) = compose.onAllNodesWithText(texts(state).log(entry)!!).fetchSemanticsNodes().isNotEmpty()
+    /** 기록 창(폰에서는 표시줄의 기록 버튼으로 연다)에 그 줄이 있는가. 처음 물을 때 창을 열어 두고, 창도 보이는 판을 따른다. */
+    private fun logShows(entry: LogEntry, state: GameUiState): Boolean {
+        if (!exists(GameTags.LOG_SHEET)) {
+            compose.onNodeWithTag(GameTags.LOG_OPEN).performClick()
+            frames(48)
+            compose.waitForIdle()
+            frames(16)
+            assertTrue("기록 창이 열려야 한다", exists(GameTags.LOG_SHEET))
+        }
+        return compose.onAllNodesWithText(texts(state).log(entry)!!).fetchSemanticsNodes().isNotEmpty()
+    }
 
     // ---- 1. 결과가 공개보다 먼저 보이지 않는다 ----
 
@@ -261,7 +272,8 @@ class TableStoryTest {
     @Test
     fun `내 차례면 내 자리에 내 차례 표시가 붙는다`() {
         show(mutableStateOf(before(turn = me)), MotionSpeed.OFF)
-        compose.onNodeWithTag(GameTags.MY_TURN).assertIsDisplayed()
+        // 내 아바타의 금색 별: 그림이지만 스크린리더에는 "내 차례"로 읽힌다
+        compose.onNodeWithTag(GameTags.MY_TURN).assertIsDisplayed().assertContentDescriptionEquals(string(R.string.game_turn_mine))
         compose.onNodeWithTag(GameTags.TURN_CHIP).assertTextContains(string(R.string.game_turn_mine))
         assertTrue(compose.onAllNodesWithTag(GameTags.turn("a1")).fetchSemanticsNodes().isEmpty())
     }

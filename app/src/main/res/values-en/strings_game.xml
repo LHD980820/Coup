@@ -17,7 +17,6 @@
     <string name="game_status_responded">Responded</string>
     <string name="game_claiming">Claims %1$s</string>
     <string name="game_bluff">Bluff</string>
-    <string name="game_waiting_decision">Waiting for other players…</string>
     <string name="game_your_turn">Your turn. Choose an action.</string>
     <string name="game_your_turn_forced">With 10 or more coins you must Coup.</string>
     <string name="game_waiting_for">%1$s\'s turn</string>
@@ -55,7 +54,7 @@
     <string name="game_block_with">Block with %1$s</string>
     <string name="game_respond_pane">Your response</string>
     <string name="game_respond_prompt">What will you do about %1$s\'s %2$s?</string>
-    <string name="game_pick_reveal">Your claim of %1$s was challenged. Choose a card to reveal</string>
+    <string name="game_pick_reveal">Pick a card to reveal</string>
     <string name="game_pick_lose">Choose a card to lose</string>
     <string name="game_pick_exchange">Choose %1$d card(s) to keep</string>
     <string name="game_confirm">Confirm</string>
@@ -152,4 +151,7 @@
     <string name="moment_eliminated_me_sub">You can watch the rest of the game</string>
     <string name="game_turn_tab">Turn</string>
     <string name="game_turn_mine">Your turn</string>
+    <string name="stage_block">Block</string>
+    <string name="stage_losing">Loses a card</string>
+    <string name="stage_wins">Wins</string>
 </resources>

@@ -7,6 +7,9 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -195,6 +198,7 @@ class GamePolishTest {
     fun `큰 화면에서는 테이블 옆에 기록이 따로 보이고, 결정 컨트롤은 그대로 보인다`() {
         show(state(decision = DecisionUi.Actions(emptyList())))
         compose.onNodeWithTag(GameTags.LOG_SIDE).assertIsDisplayed()
+        assertTrue("기록이 옆 단에 늘 있으므로 기록 버튼이 없다", !exists(GameTags.LOG_OPEN))
         compose.onNodeWithTag(GameTags.BANNER).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.card(1)).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.CONCEDE).assertIsDisplayed()
@@ -204,6 +208,8 @@ class GamePolishTest {
     fun `좁은 화면에서는 기록 단이 따로 없다`() {
         show(state(decision = DecisionUi.Actions(emptyList())))
         assertTrue(!exists(GameTags.LOG_SIDE))
+        // 기록은 표시줄 구석의 버튼으로 연다
+        compose.onNodeWithTag(GameTags.LOG_OPEN).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.BANNER).assertIsDisplayed()
     }
 
@@ -230,15 +236,15 @@ class GamePolishTest {
         compose.onNodeWithTag(GameTags.PASS).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.CHALLENGE).assertIsDisplayed()
         compose.onNodeWithTag(GameTags.block("contessa")).assertIsDisplayed()
-        // 누가 무엇을 주장하는지도 시트에 보인다
-        compose.onNodeWithText(string(R.string.game_claiming, string(R.string.game_role_duke)), substring = true).assertIsDisplayed()
+        // 누가 무엇을 주장하는지도 시트에 그림으로 보이고, 스크린리더에는 글로 읽힌다
+        compose.onNode(hasTestTag(GameTags.BANNER) and hasContentDescription(string(R.string.game_claiming, string(R.string.game_role_duke)), substring = true)).assertIsDisplayed()
     }
 
     @Test
-    fun `주장이 없는 행동에는 주장 줄이 없다`() {
+    fun `주장이 없는 행동에는 주장을 읽지 않는다`() {
         show(state(decision = respond(roles = emptySet())))
         compose.onNodeWithTag(GameTags.RESPONSE_SHEET).assertIsDisplayed()
-        compose.onAllNodesWithText(string(R.string.game_claiming, ""), substring = true).assertCountEquals(0)
+        compose.onAllNodes(hasContentDescription(string(R.string.game_claiming, ""), substring = true)).assertCountEquals(0)
     }
 
     @Test
@@ -260,9 +266,14 @@ class GamePolishTest {
     }
 
     @Test
-    fun `블러핑 막기는 글자로도 표시된다`() {
-        show(state(decision = respond(blocks = listOf(BlockButtonUi(RoleId("contessa"), bluff = true)))))
-        compose.onNodeWithTag(GameTags.block("contessa")).assertTextContains(string(R.string.game_bluff), substring = true)
+    fun `블러핑 막기는 가면 그림이고 스크린리더에는 블러핑으로 읽힌다`() {
+        show(state(decision = respond(blocks = listOf(BlockButtonUi(RoleId("contessa"), bluff = true), BlockButtonUi(RoleId("captain"), bluff = false)))))
+        compose.onNodeWithTag(GameTags.block("contessa")).assert(hasContentDescription(string(R.string.game_bluff), substring = true))
+        // 글은 "백작부인으로 막기" 한 줄뿐이다
+        compose.onNodeWithTag(GameTags.block("contessa")).assert(hasText(Josa.fix(string(R.string.game_block_with, string(R.string.game_role_contessa)))))
+        assertTrue(compose.onAllNodesWithText(string(R.string.game_bluff), substring = true).fetchSemanticsNodes().isEmpty())
+        // 그 역할 카드를 들고 있는 막기에는 블러핑이 없다
+        compose.onNodeWithTag(GameTags.block("captain")).assert(androidx.compose.ui.test.hasContentDescription(string(R.string.game_bluff), substring = true).not())
     }
 
     @Test

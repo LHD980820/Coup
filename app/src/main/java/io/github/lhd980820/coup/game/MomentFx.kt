@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -65,6 +66,7 @@ import io.github.lhd980820.coup.R
 import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.presentation.GameUiState
 import io.github.lhd980820.coup.ui.kit.Avatar
+import io.github.lhd980820.coup.ui.kit.CARD_ASPECT
 import io.github.lhd980820.coup.ui.kit.CoupIcons
 import io.github.lhd980820.coup.ui.kit.RoleVisuals
 import io.github.lhd980820.coup.ui.kit.panel
@@ -163,7 +165,13 @@ internal fun MomentOverlay(stage: MomentStage, texts: GameTexts, state: GameUiSt
     Box(
         modifier
             .fillMaxSize()
-            .clearAndSetSemantics { testTag = GameTags.MOMENT; momentKind = m.kind }
+            // 띠의 그림에는 같은 뜻의 문장을 달아 둔다(한 마디 + 무슨 일인지 + 그래서 어떻게 되는지). 저절로 읽히지는 않는다 —
+            // 같은 일을 판과 기록이 이미 알리므로 두 번 읽히지 않게, 띠를 짚었을 때만 읽힌다
+            .clearAndSetSemantics {
+                testTag = GameTags.MOMENT
+                momentKind = m.kind
+                contentDescription = listOfNotNull(text.headline, text.line, text.detail).joinToString(" ")
+            }
             // 둘레를 살짝 어둡게 해 띠에 눈이 가게 한다
             .drawBehind {
                 val a = envelope(clock.value, enter, exit)
@@ -208,17 +216,67 @@ internal fun MomentOverlay(stage: MomentStage, texts: GameTexts, state: GameUiSt
                     is Moment.Eliminated -> EliminatedFace(m.player, m.isMe, state)
                     else -> Medallion(look)
                 }
-                Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Headline(text.headline, look, clock, stampAt, stampLength)
-                    // 공개는 카드가 뒤집히고 판정이 찍힌 뒤에 설명이 나온다(먼저 나오면 결과를 미리 말해 버린다)
+                    // 무슨 일인지는 글 대신 얼굴과 카드로: 누가 누구에게, 무슨 주장이 참/거짓이었고 누가 카드를 잃는지.
+                    // 공개는 카드가 뒤집히고 판정이 찍힌 뒤에 나온다(먼저 나오면 결과를 미리 말해 버린다)
                     val explain = Modifier.graphicsLayer { if (m is Moment.Reveal) alpha = window(clock.value, stampAt + stampLength * 0.5f, stampLength) }
-                    Text(text.line, explain, style = MaterialTheme.typography.titleSmall, color = Parchment, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    text.detail?.let { Text(it, explain, style = MaterialTheme.typography.labelLarge, color = ParchmentDim, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                    MomentPicture(m, state, texts, explain)
                 }
             }
         }
     }
 }
+
+/**
+ * 띠의 그림 한 줄(문장 대신): 도전 = [도전자] 칼 → [주장한 사람] [의심받는 카드], 공개 = [공개한 사람] [주장 카드 ✓/✗] · [잃는 사람] [잃는 카드],
+ * 막기 = [막는 사람] [역할 카드] 방패 [막는 행동], 쿠 = [행동한 사람] 번개 → [대상], 탈락 = 이름.
+ */
+@Composable
+private fun MomentPicture(m: Moment, state: GameUiState, texts: GameTexts, modifier: Modifier) {
+    val face = 30.dp
+    val card = 24.dp
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        when (m) {
+            is Moment.Challenge -> {
+                Figure(m.challenger, state, texts, face)
+                Glyph(CoupIcons.Swords, CrimsonLight)
+                Glyph(CoupIcons.ArrowRight, CrimsonLight)
+                Figure(m.challenged, state, texts, face)
+                m.claimed.firstOrNull()?.let { MarkedCard(it, card, Mark.DOUBT) }
+            }
+            is Moment.Reveal -> {
+                Figure(m.player, state, texts, face)
+                m.claimed.firstOrNull()?.let { MarkedCard(it, card, if (m.proven) Mark.TRUE else Mark.FALSE) }
+                // 그래서 카드를 잃는 사람: 증명됐으면 도전한 사람, 아니면 들통난 사람(잃는 카드는 왼쪽의 공개된 카드다)
+                val loser = if (m.proven) m.challenger else m.player
+                if (loser != null) {
+                    Glyph(CoupIcons.ArrowRight, ParchmentDim)
+                    if (loser != m.player) Figure(loser, state, texts, face)
+                    MarkedCard(if (m.proven) null else m.revealed, card, Mark.FALSE)
+                }
+            }
+            is Moment.Block -> {
+                Figure(m.blocker, state, texts, face)
+                RoleCard(m.role, faceUp = true, modifier = Modifier.size(width = card, height = card / CARD_ASPECT))
+                Glyph(CoupIcons.Shield, RoleVisuals.of(m.role.value).accent)
+                Glyph(ActionUiCatalog.icon(m.action), ParchmentDim)
+            }
+            is Moment.Coup -> {
+                Figure(m.actor, state, texts, face)
+                Glyph(CoupIcons.Bolt, CrimsonLight)
+                m.target?.let {
+                    Glyph(CoupIcons.ArrowRight, CrimsonLight)
+                    Figure(it, state, texts, face)
+                }
+            }
+            is Moment.Eliminated -> Text(texts.name(m.player), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Parchment, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun Glyph(icon: ImageVector, tint: Color) = Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
 
 /** 띠: 가장자리로 갈수록 투명해지는 먹색 바탕, 위아래 강조 색 실선, 지나가는 한 줄기 빛. */
 private fun DrawScope.drawBand(accent: Color, sweep: Float) {

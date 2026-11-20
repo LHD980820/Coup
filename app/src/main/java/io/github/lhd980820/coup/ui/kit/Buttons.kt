@@ -48,12 +48,14 @@ fun PrimaryButton(
     icon: ImageVector? = null,
     container: Color = Gold,
     content: Color = GoldInk,
+    /** 좁은 자리에 긴 이름이 들어가야 하면(막기 버튼) 줄인다. */
+    contentPadding: PaddingValues = ButtonPadding,
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
         shape = ButtonShape,
-        contentPadding = ButtonPadding,
+        contentPadding = contentPadding,
         colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
         modifier = modifier.heightIn(min = 52.dp),
     ) { Label(icon, text) }
@@ -69,12 +71,13 @@ fun SecondaryButton(
     icon: ImageVector? = null,
     line: Color = Gold.copy(alpha = 0.7f),
     content: Color = Parchment,
+    contentPadding: PaddingValues = ButtonPadding,
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
         shape = ButtonShape,
-        contentPadding = ButtonPadding,
+        contentPadding = contentPadding,
         border = BorderStroke(1.5.dp, if (enabled) line else MaterialTheme.colorScheme.outlineVariant),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = content),
         modifier = modifier.heightIn(min = 52.dp),

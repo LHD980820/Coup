@@ -35,8 +35,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +56,7 @@ import io.github.lhd980820.coup.ui.kit.Avatar
 import io.github.lhd980820.coup.ui.kit.CARD_ASPECT
 import io.github.lhd980820.coup.ui.kit.CoupIcons
 import io.github.lhd980820.coup.ui.kit.Hairline
+import io.github.lhd980820.coup.ui.kit.panel
 import io.github.lhd980820.coup.ui.theme.Gold
 import io.github.lhd980820.coup.ui.theme.GoldBright
 import io.github.lhd980820.coup.ui.theme.GoldInk
@@ -92,11 +95,14 @@ internal fun MyArea(
     val myTurn = state.turnPlayer == me.id && me.isAlive
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Avatar(me.name, Gold, size = if (compact) 26.dp else 32.dp, ring = GoldBright, icon = CoupIcons.Person)
-            // 이름이 길면 줄여 써서 코인과 "내 차례" 표시가 밀려나지 않게 한다
+            // 내 차례면 아바타에 금색 별이 붙는다(가운데 판의 "내 차례"와 손패 뒤의 금빛이 함께 알린다)
+            Box {
+                Avatar(me.name, Gold, size = if (compact) 26.dp else 32.dp, ring = GoldBright, icon = CoupIcons.Person)
+                if (myTurn) TurnStar(stringResource(R.string.game_turn_mine), Modifier.align(Alignment.BottomEnd).offset(x = 5.dp, y = 4.dp).testTag(GameTags.MY_TURN))
+            }
+            // 이름이 길면 줄여 써서 코인이 밀려나지 않게 한다
             Text(me.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             CoinCount(me.coins, GameTags.MY_COINS, large = true)
-            if (myTurn) TurnTab(stringResource(R.string.game_turn_mine), Modifier.testTag(GameTags.MY_TURN))
         }
         BoxWithConstraints(
             Modifier
@@ -167,18 +173,22 @@ private fun HandCard(card: CardUi, width: Dp, onClick: () -> Unit, onLongClick: 
                 ) { Icon(CoupIcons.Check, contentDescription = null, tint = GoldInk, modifier = Modifier.size(14.dp)) }
             }
         }
-        // 상태는 색만이 아니라 글자로도 알린다. 고르는 중에는 고를 때마다 아래가 들썩이지 않게 한 줄을 늘 차지한다
-        if (stateText.isNotEmpty() || picking) {
-            Text(
-                stateText,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (card.selected) GoldBright else ParchmentDim,
-                fontWeight = if (card.selected) FontWeight.Bold else FontWeight.Medium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.width(width).padding(top = 3.dp),
-            )
-        }
+        // 상태는 글자 대신 그림으로 보인다: 잃은 카드는 흐리고 붉은 X, 고른 카드는 올라오며 금테, 증명하는 카드는 금색 체크.
+        // 스크린리더에는 위의 설명("공작 (선택됨)")으로 읽힌다
     }
+}
+
+/** 내 차례 표시: 아바타 모서리의 금색 별. 스크린리더에는 "내 차례"로 읽힌다. */
+@Composable
+private fun TurnStar(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .clearAndSetSemantics { contentDescription = label }
+            .size(17.dp)
+            .shadow(3.dp, CircleShape)
+            .panel(CircleShape, top = GoldBright, bottom = Gold, line = GoldInk.copy(alpha = 0.5f), lineWidth = 1.dp),
+        contentAlignment = Alignment.Center,
+    ) { Icon(CoupIcons.Star, contentDescription = null, tint = GoldInk, modifier = Modifier.size(11.dp)) }
 }
 
 // ---- 카드 확대 ----------------------------------------------------------------------------------

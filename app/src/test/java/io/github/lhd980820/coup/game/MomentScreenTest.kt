@@ -235,6 +235,22 @@ class MomentScreenTest {
         compose.onAllNodesWithText(string(R.string.moment_challenge)).assertCountEquals(0)
     }
 
+    @Test
+    fun `띠는 문장 대신 그림 한 줄이고, 그림에는 같은 뜻의 문장이 달려 있다`() {
+        val s = mutableStateOf(state())
+        show(s, MotionSpeed.NORMAL)
+        emit(UiEffect.Challenged(a1, me, duke))
+        frames(500)
+        val text = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, s.value).moment(Moment.Challenge(a1, me, duke))
+        // 화면에는 문장이 없다
+        compose.onAllNodesWithText(text.line).assertCountEquals(0)
+        val node = compose.onNodeWithTag(GameTags.MOMENT).fetchSemanticsNode()
+        val said = node.config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
+        assertTrue(said, said.contains(text.headline) && said.contains(text.line))
+        // 저절로 읽히지는 않는다(판과 기록이 같은 일을 이미 알린다)
+        assertFalse(node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.LiveRegion))
+    }
+
     // ---- 탈락 도장 ----
 
     @Test

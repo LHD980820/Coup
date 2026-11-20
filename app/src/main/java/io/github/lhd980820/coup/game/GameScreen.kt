@@ -115,10 +115,12 @@ internal object GameTags {
     const val ABANDONED_LEAVE = "game_abandoned_leave"
     const val CONCEDE = "concede"
     const val CONCEDE_CONFIRM = "concede_confirm"
-    const val WAITING = "waiting"
     const val COACH = "coach"
     const val COACH_BACK = "coach_back"
     const val LOG_SIDE = "log_side"
+    const val LOG_OPEN = "log_open"
+    const val LOG_SHEET = "log_sheet"
+    const val LOG_CLOSE = "log_close"
     const val CARD_ZOOM = "card_zoom"
     const val CARD_ZOOM_CLOSE = "card_zoom_close"
     const val CARD_ZOOM_OWNER = "card_zoom_owner"
@@ -145,8 +147,7 @@ private val WIDE_LAYOUT_MIN_WIDTH = 840.dp
 
 /** 화면이 이보다 낮으면(작은 폰) 내 카드를 줄여 결정 버튼이 잘리지 않게 한다(dp). */
 private val COMPACT_HEIGHT = 620.dp
-private const val COMPACT_LOG_LINES = 8
-private const val WIDE_LOG_LINES = 40
+private const val LOG_LINES = 40
 
 /** 남은 시간을 그릴 때 쓰는 현재 시각(epoch millis). 마감 시각을 만든 시계와 같은 시계(기기 시계)이며, 테스트는 고정 값으로 바꾼다. */
 internal val LocalNowMillis = staticCompositionLocalOf<() -> Long> { System::currentTimeMillis }
@@ -180,8 +181,8 @@ internal fun TutorialExpect?.allowsBlock(role: String) = this == null || (this i
  * 게임 화면(설계 §10.3, 모습은 docs/DESIGN.md). 상태는 [GameUiState] 하나이고 규칙 판단은 하지 않는다 — 버튼의 활성/블러핑 표시는 모두 상태에서 온다.
  * 모든 버튼은 [GameUiState.busy]일 때 잠긴다(중복 탭 방지).
  *
- * 위에서 아래로 테이블에 앉은 모습이다: 표시줄(턴·규칙·기권) -> 건너편의 상대들과 기록(이 부분만 스크롤) ->
- * 가운데 무대(지금 벌어지는 일) -> 내 카드 -> 내가 누를 것. 아래 셋은 항상 보이게 고정한다.
+ * 위에서 아래로 테이블에 앉은 모습이다: 표시줄(차례 | 덱·기록·규칙·기권) -> 건너편의 상대들(넘치면 이 부분만 스크롤) ->
+ * 가운데 판(지금 벌어지는 일을 그림으로) -> 내 카드 -> 내가 누를 것. 아래 셋은 항상 보이게 고정한다. 폰에서 기록은 표시줄의 버튼으로 연다.
  */
 @Composable
 internal fun GameScreen(
@@ -225,6 +226,7 @@ internal fun GameScreen(
 
     var zoomed by remember { mutableStateOf<ZoomTarget?>(null) }
     var showRules by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(false) }
 
     // ---- 극적인 순간 ----
     val motion = LocalMotion.current
@@ -288,23 +290,25 @@ internal fun GameScreen(
     TableSurface(modifier) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val compact = maxHeight < COMPACT_HEIGHT
+            val wide = maxWidth >= WIDE_LAYOUT_MIN_WIDTH
             val respond = board.decision as? DecisionUi.Respond
 
             val hud: @Composable () -> Unit = {
-                // 기권은 표시줄에 있다 — 응답 시트가 떠도 항상 닿고, 작은 화면에서 자리를 따로 먹지 않는다
+                // 기권·기록은 표시줄 구석에 있다 — 응답 시트가 떠도 항상 닿고, 테이블 가운데를 글로 채우지 않는다.
+                // 넓은 화면은 기록이 옆 단에 늘 있으므로 기록 버튼이 없다
                 GameHud(
                     board,
                     onConcede = if (guide == null && state.result == null && !abandoned) ({ confirmConcede = true }) else null,
                     onShowRules = if (state.ruleSet.isCustom) ({ showRules = true }) else null,
-                    showDeck = compact,
+                    onShowLog = if (wide) null else ({ showLog = true }),
                 )
             }
-            // 아래: 가운데 무대·내 카드·결정은 항상 보이게 고정한다.
+            // 아래: 가운데 판·내 카드·결정은 항상 보이게 고정한다.
             val bottom: @Composable ColumnScope.() -> Unit = {
                 guide?.let { CoachCard(it) }
                 ConnectionBanner(state.connection, onExit)
-                // 응답할 차례에는 아래의 응답 시트가 무대를 대신한다(누가 무엇을 하려는지 + 남은 시간 + 내 선택이 한 판에 모인다)
-                if (respond == null) StagePanel(board, texts, compact)
+                // 응답할 차례에는 아래의 응답 시트가 판을 대신한다(누가 무엇을 하려는지 + 남은 시간 + 내 선택이 한곳에 모인다)
+                if (respond == null) StagePanel(board, texts, compact, anchors)
                 board.me?.let {
                     MyArea(
                         board, it, actions, compact,
@@ -322,8 +326,8 @@ internal fun GameScreen(
                 respond?.let { SheetEntrance { ResponseSheet(board, it, texts, actions, guide?.expect) } }
             }
 
-            // 큰 화면(태블릿·폴더블 펼침): 테이블 | 기록 두 단. 좁은 화면은 위(상대·기록)만 스크롤하고 아래는 고정한다.
-            if (maxWidth >= WIDE_LAYOUT_MIN_WIDTH) {
+            // 큰 화면(태블릿·폴더블 펼침): 테이블 | 기록 두 단. 좁은 화면은 위(상대들)만 스크롤하고 아래는 고정한다 — 기록은 표시줄의 버튼으로 연다.
+            if (wide) {
                 Row(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(3f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         hud()
@@ -334,16 +338,21 @@ internal fun GameScreen(
                     Column(
                         Modifier.weight(2f).fillMaxHeight().panel().verticalScroll(rememberScrollState()).padding(12.dp).testTag(GameTags.LOG_SIDE),
                     ) {
-                        LogList(board, texts, WIDE_LOG_LINES)
+                        LogList(board, texts, LOG_LINES)
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     hud()
-                    val scroll = rememberScrollState()
-                    Column(Modifier.weight(1f).fadingEdges(scroll).verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OpponentSeats(board, texts, onZoom = { zoomed = it }, onTarget = onTarget, anchors = anchors)
-                        LogList(board, texts, COMPACT_LOG_LINES)
+                    // 상대들은 남는 높이의 가운데에 앉는다. 높이가 남으면 자리의 카드 그림이 커지고, 모자라면 이 부분만 스크롤된다
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                        val room = maxHeight
+                        val scroll = rememberScrollState()
+                        Column(Modifier.fillMaxSize().fadingEdges(scroll).verticalScroll(scroll)) {
+                            Column(Modifier.fillMaxWidth().heightIn(min = room), verticalArrangement = Arrangement.Center) {
+                                OpponentSeats(board, texts, onZoom = { zoomed = it }, onTarget = onTarget, anchors = anchors, room = room)
+                            }
+                        }
                     }
                     bottom()
                 }
@@ -354,6 +363,8 @@ internal fun GameScreen(
             if (!showResult) MomentOverlay(stage, texts, board)
             Box(Modifier.fillMaxSize().damageVignette { hit.value })
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+            // 기록 창도 보이는 판을 따른다(연출 중에 열어도 결과를 미리 말하지 않는다)
+            if (showLog && !wide) LogSheet(board, texts, LOG_LINES, onDismiss = { showLog = false })
         }
     }
 

@@ -17,7 +17,6 @@
     <string name="game_status_responded">응답함</string>
     <string name="game_claiming">%1$s 주장</string>
     <string name="game_bluff">블러핑</string>
-    <string name="game_waiting_decision">다른 플레이어를 기다리는 중…</string>
     <string name="game_your_turn">내 차례입니다. 행동을 고르세요.</string>
     <string name="game_your_turn_forced">코인이 10개 이상이면 쿠만 할 수 있습니다.</string>
     <string name="game_waiting_for">%1$s의 차례</string>
@@ -55,7 +54,7 @@
     <string name="game_block_with">%1$s(으)로 막기</string>
     <string name="game_respond_pane">응답할 차례</string>
     <string name="game_respond_prompt">%1$s의 %2$s에 어떻게 하시겠어요?</string>
-    <string name="game_pick_reveal">%1$s 주장에 도전받았습니다. 공개할 카드를 고르세요</string>
+    <string name="game_pick_reveal">공개할 카드를 고르세요</string>
     <string name="game_pick_lose">잃을 카드를 고르세요</string>
     <string name="game_pick_exchange">남길 카드 %1$d장을 고르세요</string>
     <string name="game_confirm">확정</string>
@@ -152,4 +151,7 @@
     <string name="moment_eliminated_me_sub">남은 판은 지켜볼 수 있어요</string>
     <string name="game_turn_tab">차례</string>
     <string name="game_turn_mine">내 차례</string>
+    <string name="stage_block">막기</string>
+    <string name="stage_losing">카드 잃기</string>
+    <string name="stage_wins">승리</string>
 </resources>

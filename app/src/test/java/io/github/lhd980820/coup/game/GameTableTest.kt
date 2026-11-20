@@ -11,9 +11,9 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -166,10 +166,42 @@ class GameTableTest {
     }
 
     @Test
-    fun `주장 중인 역할과 탈락은 자리에 글자로 나온다`() {
+    fun `주장 중인 역할은 자리에 들어 보인 카드로, 탈락은 도장으로 나온다`() {
         show(state(opponents = listOf(opponent(1, claiming = setOf(RoleId("duke")), status = OpponentStatus.ACTING), opponent(2, alive = false))))
-        compose.onNodeWithText(string(R.string.game_claiming, string(R.string.game_role_duke))).assertIsDisplayed()
+        // 글자 대신 카드 그림이지만 스크린리더에는 "공작 주장"으로 읽힌다
+        compose.onNodeWithTag(GameTags.claim("p1")).assertIsDisplayed().assertContentDescriptionEquals(string(R.string.game_claiming, string(R.string.game_role_duke)))
+        assertTrue("주장은 글자로 쓰지 않는다", compose.onAllNodesWithText(string(R.string.game_claiming, string(R.string.game_role_duke))).fetchSemanticsNodes().isEmpty())
         compose.onNodeWithText(string(R.string.game_eliminated)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `자리의 상태는 글자 대신 그림이고 스크린리더에는 글로 읽힌다`() {
+        show(
+            state(
+                opponents = listOf(
+                    opponent(1, status = OpponentStatus.THINKING),
+                    opponent(2, status = OpponentStatus.RESPONDED),
+                    opponent(3, status = OpponentStatus.ACTING),
+                ),
+            ),
+        )
+        listOf(R.string.game_status_thinking, R.string.game_status_responded, R.string.game_status_acting).forEach { id ->
+            compose.onNodeWithContentDescription(string(id)).assertIsDisplayed()
+            assertTrue(compose.onAllNodesWithText(string(id)).fetchSemanticsNodes().isEmpty())
+        }
+    }
+
+    @Test
+    fun `들어 보인 카드는 자리 크기를 바꾸지 않는다`() {
+        show(state(opponents = listOf(opponent(1, claiming = setOf(RoleId("captain"))), opponent(2))))
+        val claiming = compose.onNodeWithTag(GameTags.opponent("p1")).getUnclippedBoundsInRoot()
+        val idle = compose.onNodeWithTag(GameTags.opponent("p2")).getUnclippedBoundsInRoot()
+        assertEquals(idle.bottom - idle.top, claiming.bottom - claiming.top)
+        // 카드는 자리 안, 카드 줄 위에 놓인다
+        val card = compose.onNodeWithTag(GameTags.claim("p1")).getUnclippedBoundsInRoot()
+        assertTrue("$card in $claiming", card.top >= claiming.top && card.bottom <= claiming.bottom)
+        val hidden = compose.onNodeWithTag(GameTags.hidden("p1", 0)).getUnclippedBoundsInRoot()
+        assertTrue("들어 보인 카드가 카드 줄과 겹친다: $card / $hidden", card.top < hidden.bottom && hidden.top < card.bottom)
     }
 
     // ---- 자리를 눌러 대상 고르기 ----
@@ -215,31 +247,36 @@ class GameTableTest {
     // ---- 표시줄, 가운데 무대, 코인 ----
 
     @Test
-    fun `표시줄에 몇 번째 턴인지 나온다`() {
+    fun `몇 번째 턴인지는 기록 창의 머리에 나온다`() {
         show(state())
-        compose.onNodeWithText(string(R.string.game_turn, 7)).assertIsDisplayed()
+        assertTrue("테이블에는 턴 글자가 없다", compose.onAllNodesWithText(string(R.string.game_turn, 7)).fetchSemanticsNodes().isEmpty())
+        compose.onNodeWithTag(GameTags.LOG_OPEN).performClick()
+        compose.onNode(hasText(string(R.string.game_turn, 7)) and hasAnyAncestor(hasTestTag(GameTags.LOG_SHEET))).assertIsDisplayed()
     }
 
     @Test
-    fun `가운데 무대에 지금 상황과 덱이 나온다`() {
+    fun `가운데 판은 그림이고 스크린리더에는 지금 상황이 문장으로 읽힌다, 덱은 표시줄 구석에 있다`() {
         show(state(banner = Banner.WaitingFor(PlayerId("p2"))))
         compose.onNodeWithTag(GameTags.BANNER).assertIsDisplayed()
-        compose.onNode(hasText(string(R.string.game_waiting_for, "AI 2")) and hasAnyAncestor(hasTestTag(GameTags.BANNER))).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.game_waiting_for, "AI 2")) and hasAnyAncestor(hasTestTag(GameTags.BANNER))).assertIsDisplayed()
+        assertTrue("판에 문장을 쓰지 않는다", compose.onAllNodesWithText(string(R.string.game_waiting_for, "AI 2")).fetchSemanticsNodes().none { node ->
+            generateSequence(node.parent) { it.parent }.any { it.config.getOrElse(SemanticsProperties.TestTag) { "" } == GameTags.BANNER }
+        })
         // 덱은 그림이지만 스크린리더에는 "덱 N장"으로 읽힌다
         compose.onNodeWithContentDescription(string(R.string.game_deck, 9)).assertIsDisplayed()
     }
 
     @Test
-    fun `응답을 기다리는 사람이 있으면 무대에 누구를 기다리는지 나온다`() {
+    fun `응답을 기다리는 사람이 있으면 판이 얼굴로 보이고 스크린리더에는 누구를 기다리는지 읽힌다`() {
         val banner = Banner.ActionDeclared(PlayerId("p1"), ActionId("tax"), null, setOf(RoleId("duke")), setOf(PlayerId("p2")))
         show(state(banner = banner))
-        compose.onNodeWithText(string(R.string.game_waiting_on, "AI 2")).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.game_waiting_on, "AI 2"), substring = true) and hasAnyAncestor(hasTestTag(GameTags.BANNER))).assertIsDisplayed()
     }
 
     @Test
-    fun `기다리는 사람이 없으면 기다림 줄이 없다`() {
+    fun `기다리는 사람이 없으면 기다림을 읽지 않는다`() {
         show(state(banner = Banner.ActionDeclared(PlayerId("p1"), ActionId("tax"), null, setOf(RoleId("duke")), emptySet())))
-        compose.onAllNodesWithText(string(R.string.game_waiting_on, ""), substring = true).assertCountEquals(0)
+        compose.onAllNodes(hasContentDescription(string(R.string.game_waiting_on, ""), substring = true)).assertCountEquals(0)
     }
 
     @Test
@@ -262,25 +299,30 @@ class GameTableTest {
     }
 
     @Test
-    fun `응답 시트의 머리말은 누가 누구에게 무엇을 하려는지 말하고, 주장은 따로 한 번만 나온다`() {
+    fun `응답 시트의 머리는 판과 같은 그림이고, 스크린리더에는 누가 누구에게 무엇을 하려는지와 주장이 한 번씩 읽힌다`() {
         val s = state(banner = assassinate, decision = respond)
         show(s)
         val texts = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, s)
         val headline = texts.respondHeadline(assassinate, respond.actor, respond.actionId, respond.windowKind)
         // 머리말에는 대상(나)이 들어 있고 주장 문구는 들어 있지 않다
         assertEquals(string(R.string.game_banner_action, "AI 1", texts.actionDescription(ActionId("assassinate"), me)), headline)
-        assertFalse(headline.contains(string(R.string.game_claiming, string(R.string.game_role_assassin))))
-        compose.onNodeWithText(headline).assertIsDisplayed()
-        compose.onAllNodesWithText(string(R.string.game_claiming, string(R.string.game_role_assassin)), substring = true).assertCountEquals(1)
+        val claim = string(R.string.game_claiming, string(R.string.game_role_assassin))
+        assertFalse(headline.contains(claim))
+        val spoken = compose.onNode(hasTestTag(GameTags.BANNER) and hasAnyAncestor(hasTestTag(GameTags.RESPONSE_SHEET)))
+            .assertIsDisplayed().fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertTrue(spoken, spoken.startsWith(headline))
+        assertEquals(spoken, 1, spoken.windowed(claim.length).count { it == claim })
+        // 글로 쓰지 않는다
+        assertTrue(compose.onAllNodesWithText(headline).fetchSemanticsNodes().isEmpty())
     }
 
     @Test
-    fun `막기에 응답할 때의 머리말은 막기 선언 문장이다`() {
+    fun `막기에 응답할 때의 머리는 막기 선언이다`() {
         val block = Banner.BlockDeclared(PlayerId("p2"), RoleId("contessa"), PlayerId("p1"), ActionId("assassinate"), setOf(me))
         val s = state(banner = block, decision = respond.copy(windowKind = WindowKind.BLOCK_CHALLENGE, claimant = PlayerId("p2"), claimedRoles = setOf(RoleId("contessa"))))
         show(s)
         val texts = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, s)
-        compose.onNodeWithText(texts.banner(block)).assertIsDisplayed()
+        compose.onNode(hasTestTag(GameTags.BANNER) and hasContentDescription(texts.banner(block), substring = true)).assertIsDisplayed()
     }
 
     @Test
@@ -311,29 +353,44 @@ class GameTableTest {
         actions.buttons.forEach { compose.onNodeWithTag(GameTags.action(it.actionId.value)).assertIsDisplayed().assertHeightIsAtLeast(48.dp) }
     }
 
+    private fun descriptions(tag: String): List<String> =
+        compose.onNodeWithTag(tag).fetchSemanticsNode().config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() }
+
+    private fun texts(tag: String): List<String> =
+        compose.onNodeWithTag(tag).fetchSemanticsNode().config.getOrElse(SemanticsProperties.Text) { emptyList() }.map { it.text }
+
     @Test
-    fun `들고 있는 역할의 행동에는 역할 이름이, 블러핑에는 블러핑이 글자로 나온다`() {
+    fun `행동 칸의 글은 이름 하나뿐이고, 역할과 블러핑은 그림이며 스크린리더에는 이름부터 글로 읽힌다`() {
         show(state(decision = actions))
-        compose.onNodeWithTag(GameTags.action("tax")).assertTextContains(string(R.string.game_role_duke))
-        compose.onNodeWithTag(GameTags.action("steal")).assertTextContains(string(R.string.game_bluff))
+        val tax = string(R.string.game_action_tax)
+        assertEquals(listOf(tax), texts(GameTags.action("tax")))
+        assertEquals(listOf("$tax, " + string(R.string.game_role_duke)), descriptions(GameTags.action("tax")))
+        val steal = string(R.string.game_action_steal)
+        assertEquals(listOf(steal), texts(GameTags.action("steal")))
+        assertEquals(listOf("$steal, " + string(R.string.game_role_captain), string(R.string.game_bluff)), descriptions(GameTags.action("steal")))
+        // 드는 코인은 이름과 함께: "암살 (-3), 암살자"
+        val assassinate = string(R.string.game_action_cost, string(R.string.game_action_assassinate), 3)
+        assertEquals(listOf("$assassinate, " + string(R.string.game_role_assassin), string(R.string.game_bluff)), descriptions(GameTags.action("assassinate")))
         // 역할을 주장하지 않는 행동에는 둘 다 없다
-        val config = compose.onNodeWithTag(GameTags.action("income")).fetchSemanticsNode().config
-        val income = (if (config.contains(SemanticsProperties.Text)) config[SemanticsProperties.Text] else emptyList()).map { it.text }
-        assertEquals(listOf(string(R.string.game_action_income)), income)
+        assertEquals(listOf(string(R.string.game_action_income)), texts(GameTags.action("income")))
+        assertEquals(emptyList<String>(), descriptions(GameTags.action("income")))
     }
 
     @Test
-    fun `할 수 없는 행동은 잠겨 있고 이유가 글자로 나오며, 이유가 블러핑 표시보다 먼저다`() {
+    fun `할 수 없는 행동은 잠겨 있고 자물쇠의 이유가 읽히며, 이유가 블러핑 표시보다 먼저다`() {
         val buttons = DecisionUi.Actions(listOf(action("assassinate", cost = 3, enabled = false, bluff = true, claim = "assassin", reason = DisabledReason.NO_VALID_TARGET), action("income")))
         show(state(decision = buttons))
-        compose.onNodeWithTag(GameTags.action("assassinate")).assertIsNotEnabled().assertTextContains(string(R.string.game_reason_no_target))
+        compose.onNodeWithTag(GameTags.action("assassinate")).assertIsNotEnabled()
+        val said = descriptions(GameTags.action("assassinate"))
+        assertTrue(said.toString(), string(R.string.game_reason_no_target) in said)
+        assertFalse(said.toString(), string(R.string.game_bluff) in said)
         compose.onNodeWithTag(GameTags.action("income")).assertIsEnabled()
     }
 
     @Test
-    fun `쿠만 할 수 있을 때는 필수라고 나온다`() {
+    fun `쿠만 할 수 있을 때는 필수 표시가 붙는다`() {
         show(state(decision = DecisionUi.Actions(listOf(action("coup", cost = 7, forced = true)))))
-        compose.onNodeWithTag(GameTags.action("coup")).assertTextContains(string(R.string.game_forced))
+        assertTrue(string(R.string.game_forced) in descriptions(GameTags.action("coup")))
     }
 
     @Test
@@ -353,13 +410,57 @@ class GameTableTest {
     // ---- 기록 ----
 
     @Test
+    fun `기록은 테이블에 없고 표시줄 구석의 버튼으로 연다`() {
+        val log = listOf(LogEntry.Conceded(PlayerId("p1")))
+        val s = state(log = log)
+        show(s)
+        val line = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, s).log(log[0])!!
+        assertTrue("폰의 테이블 가운데에는 기록이 없다", compose.onAllNodesWithText(line).fetchSemanticsNodes().isEmpty())
+        // 그림 버튼이지만 스크린리더에는 "진행 기록"으로 읽히고, 누르는 영역은 48dp다
+        compose.onNodeWithTag(GameTags.LOG_OPEN).assertIsDisplayed().assertContentDescriptionEquals(string(R.string.game_log_title)).assertHeightIsAtLeast(48.dp).performClick()
+        compose.onNode(hasText(line) and hasAnyAncestor(hasTestTag(GameTags.LOG_SHEET))).assertIsDisplayed()
+        compose.onNodeWithTag(GameTags.LOG_CLOSE).performClick()
+        assertFalse(exists(GameTags.LOG_SHEET))
+    }
+
+    @Test
     fun `기록은 가장 최근 일이 맨 위에 나온다`() {
         val log = listOf(LogEntry.Conceded(PlayerId("p1")), LogEntry.Eliminated(PlayerId("p2")))
         val s = state(log = log)
         show(s)
+        compose.onNodeWithTag(GameTags.LOG_OPEN).performClick()
         val texts = GameTexts(ApplicationProvider.getApplicationContext<Context>().resources, s)
         val older = compose.onNodeWithText(texts.log(log[0])!!).getUnclippedBoundsInRoot().top
         val newest = compose.onNodeWithText(texts.log(log[1])!!).getUnclippedBoundsInRoot().top
         assertTrue("최근 일($newest)이 옛 일($older)보다 위에 있어야 한다", newest < older)
+    }
+
+    @Test
+    fun `기권은 표시줄 구석의 깃발 그림이고 스크린리더에는 기권으로 읽힌다`() {
+        show(state())
+        compose.onNodeWithTag(GameTags.CONCEDE).assertIsDisplayed().assertContentDescriptionEquals(string(R.string.game_concede)).assertHeightIsAtLeast(48.dp)
+        assertTrue(compose.onAllNodesWithText(string(R.string.game_concede)).fetchSemanticsNodes().isEmpty())
+    }
+
+    // ---- 자리 카드 크기 ----
+
+    @Test
+    fun `자리에 줄 높이가 남으면 카드가 커지고, 모자라면 기본 크기다`() {
+        assertEquals(50.dp, seatCardHeight(null, 1, 120.dp))
+        assertEquals(50.dp, seatCardHeight(120.dp, 1, 120.dp))
+        // 넉넉하면 너비(카드 두 장)가 상한이다: (120 - 20) / 2 / 0.714
+        assertEquals(70.0f, seatCardHeight(400.dp, 1, 120.dp).value, 0.1f)
+        // 아주 넓고 높아도 상한을 넘지 않는다
+        assertEquals(84.dp, seatCardHeight(800.dp, 1, 200.dp))
+        // 두 줄이면 남는 높이를 나눠 쓴다: (360 - 10 - 140 x 2 - 18) / 2 = 26 -> 50 + 26 x 0.75
+        assertTrue(seatCardHeight(300.dp, 2, 200.dp) < seatCardHeight(300.dp, 1, 200.dp))
+        assertEquals(69.5f, seatCardHeight(360.dp, 2, 200.dp).value, 0.1f)
+    }
+
+    @Test
+    fun `높이가 남는 화면에서는 자리의 카드가 기본보다 크다`() {
+        show(state(opponents = listOf(opponent(1), opponent(2))))
+        val card = compose.onNodeWithTag(GameTags.hidden("p1", 0)).getUnclippedBoundsInRoot()
+        assertTrue("$card", card.bottom - card.top > 50.dp)
     }
 }
