@@ -190,7 +190,7 @@ internal fun StagePanel(state: GameUiState, texts: GameTexts, compact: Boolean =
     Column(
         Modifier
             .fillMaxWidth()
-            .then(anchors?.stageArea() ?: Modifier)
+            .then(if (anchors != null) Modifier.stageAnchor(anchors) else Modifier)
             .testTag(GameTags.BANNER)
             .felt()
             .padding(horizontal = 12.dp, vertical = if (compact) 6.dp else 8.dp),

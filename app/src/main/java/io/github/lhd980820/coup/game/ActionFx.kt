@@ -80,20 +80,31 @@ internal class TableAnchors {
 
     operator fun get(id: PlayerId): Rect? = rects[id]
 
-    fun place(id: PlayerId): Modifier = Modifier.onGloballyPositioned { rects[id] = it.boundsInRoot() }
-
     private val purses = mutableStateMapOf<PlayerId, Rect>()
 
     /** 그 사람의 코인 더미가 놓인 곳(날아가는 코인의 끝점). 아직 모르면 자리. */
     fun purse(id: PlayerId): Rect? = purses[id] ?: rects[id]
 
-    fun placePurse(id: PlayerId): Modifier = Modifier.onGloballyPositioned { purses[id] = it.boundsInRoot() }
-
     /** 가운데 판이 놓인 곳. 화살표는 판 아래로 지나간다(판의 그림을 가리지 않는다). 판이 없으면(응답 시트가 대신할 때) null. */
     var stage: Rect? by mutableStateOf(null)
 
-    fun stageArea(): Modifier = Modifier.onGloballyPositioned { stage = it.boundsInRoot() }
+    internal fun seatAt(id: PlayerId, rect: Rect) {
+        rects[id] = rect
+    }
+
+    internal fun purseAt(id: PlayerId, rect: Rect) {
+        purses[id] = rect
+    }
 }
+
+/** 이 자리(상대 자리, 내 손패)가 놓인 곳을 [anchors]에 적는다(화살표가 잇는다). */
+internal fun Modifier.seatAnchor(anchors: TableAnchors, id: PlayerId): Modifier = onGloballyPositioned { anchors.seatAt(id, it.boundsInRoot()) }
+
+/** 이 코인 더미가 놓인 곳을 [anchors]에 적는다(날아가는 코인이 떠나고 닿는다). */
+internal fun Modifier.purseAnchor(anchors: TableAnchors, id: PlayerId): Modifier = onGloballyPositioned { anchors.purseAt(id, it.boundsInRoot()) }
+
+/** 가운데 판이 놓인 곳을 [anchors]에 적는다. */
+internal fun Modifier.stageAnchor(anchors: TableAnchors): Modifier = onGloballyPositioned { anchors.stage = it.boundsInRoot() }
 
 internal enum class ArrowKind {
     /** 행동이 대상을 노린다(갈취·암살·쿠). */

@@ -103,7 +103,7 @@ internal fun MyArea(
             // 이름이 길면 줄여 써서 코인이 밀려나지 않게 한다
             Text(me.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             // 날아가는 코인은 내 코인 더미에서 떠나고 여기에 닿는다
-            CoinCount(me.coins, GameTags.MY_COINS, modifier = anchors?.placePurse(me.id) ?: Modifier, large = true, player = me.id)
+            CoinCount(me.coins, GameTags.MY_COINS, modifier = if (anchors != null) Modifier.purseAnchor(anchors, me.id) else Modifier, large = true, player = me.id)
         }
         BoxWithConstraints(
             Modifier
@@ -118,7 +118,7 @@ internal fun MyArea(
             if (!me.isAlive) EliminatedStamp(animate = sawAlive, Modifier.align(Alignment.Center).zIndex(1f).testTag(GameTags.MY_STAMP), large = true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
               // 화살표가 가리키는 내 자리는 카드들이 놓인 곳이다
-              Row(anchors?.place(me.id) ?: Modifier, horizontalArrangement = Arrangement.spacedBy(HAND_GAP)) {
+              Row(if (anchors != null) Modifier.seatAnchor(anchors, me.id) else Modifier, horizontalArrangement = Arrangement.spacedBy(HAND_GAP)) {
                 cards.forEach { card ->
                     // 고르는 중에는 탭이 선택(처리 중에는 잠긴다)이고, 아니면 탭이 확대다. 길게 누르면 언제나 확대한다
                     val onClick: () -> Unit = when {

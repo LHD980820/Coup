@@ -286,7 +286,7 @@ private fun Seat(
     Box(
         Modifier
             .fillMaxSize()
-            .then(anchors.place(op.id))
+            .seatAnchor(anchors, op.id)
             .testTag(GameTags.opponent(op.id.value))
             // 차례인 자리는 금빛이 돌고 테두리가 금색이다(맥박치는 테두리는 그 위에 겹친다)
             .then(if (turn) Modifier.panel(top = TurnGlow, line = Gold, lineWidth = 2.dp) else Modifier.panel())
@@ -315,7 +315,7 @@ private fun Seat(
             Avatar(op.name, seatTint(index), size = 30.dp, ring = if (busy) Gold else GoldDeep.copy(alpha = 0.6f))
             Column(Modifier.weight(1f, fill = false)) {
                 Text(op.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                CoinCount(op.coins, GameTags.coins(op.id.value), modifier = anchors.placePurse(op.id), player = op.id)
+                CoinCount(op.coins, GameTags.coins(op.id.value), modifier = Modifier.purseAnchor(anchors, op.id), player = op.id)
             }
         }
         Box(contentAlignment = Alignment.Center) {
