@@ -195,4 +195,17 @@ class CoinScreenTest {
         assertEquals(7, shown(GameTags.MY_COINS))
         assertTrue(SoundCue.COIN_GAIN in sounds)
     }
+
+    @Test
+    fun `판이 끝나 결과가 뜨면 아직 날던 코인은 그만 날고 숫자는 끝난 값이다`() {
+        val s = mutableStateOf(state(myCoins = 4))
+        show(s)
+        // 마지막 세금으로 이겼다: 결과와 코인 신호가 함께 온다(극적인 순간이 없으니 결과는 곧 뜬다)
+        happen(s, state(myCoins = 7).copy(result = io.github.lhd980820.coup.presentation.ResultUi(me, listOf(me, a1, a2), iWon = true, myRank = 1)), UiEffect.CoinsChanged(me, 3))
+        frames(48)
+        assertEquals("아직 날아오는 중", 4, shown(GameTags.MY_COINS))
+        frames(300)
+        assertTrue(compose.onAllNodesWithTag(GameTags.RESULT).fetchSemanticsNodes().isNotEmpty())
+        assertEquals("결과가 뜨면 바로 끝난 값", 7, shown(GameTags.MY_COINS))
+    }
 }

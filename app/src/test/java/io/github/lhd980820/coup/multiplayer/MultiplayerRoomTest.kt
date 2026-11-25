@@ -228,4 +228,37 @@ class MultiplayerRoomTest : MpScreenTest() {
         waitFor(LobbyTags.PROBLEM)
         compose.onNodeWithText(string(R.string.mp_room_error_not_found)).assertIsDisplayed()
     }
+
+    @Test
+    fun `로비 - 참가 코드 칸이 비어 있으면 입장 그림 버튼이 잠기고, 코드를 넣으면 풀린다`() {
+        signInAndOpenLobby()
+        assertEnabled(LobbyTags.CODE_JOIN, false)
+        type(LobbyTags.CODE, "ABC123")
+        assertEnabled(LobbyTags.CODE_JOIN, true)
+    }
+
+    @Test
+    fun `대기실 - 내보내기 X는 내보낼 수 있는 자리에만 붙는다`() {
+        signInAndOpenLobby()
+        click(LobbyTags.CREATE)
+        waitFor(CreateTags.TITLE)
+        click(CreateTags.SUBMIT)
+        waitFor(WaitingTags.ADD_BOT_EASY)
+        click(WaitingTags.ADD_BOT_EASY)
+        waitFor(WaitingTags.kick("bot-1"))
+        assertTrue("방장인 내 자리에는 X가 없다", !exists(WaitingTags.kick("kim")))
+    }
+
+    @Test
+    fun `대기실 - 최대 인원은 규칙의 최소 인원 아래로 줄일 수 없다`() {
+        signInAndOpenLobby()
+        click(LobbyTags.CREATE)
+        waitFor(CreateTags.TITLE)
+        click(CreateTags.max(2))
+        click(CreateTags.SUBMIT)
+        waitFor(WaitingTags.MAX_VALUE)
+        assertText(WaitingTags.MAX_VALUE, string(R.string.mp_max_players, 2))
+        assertEnabled(WaitingTags.MAX_MINUS, false)
+        assertEnabled(WaitingTags.MAX_PLUS, true)
+    }
 }
