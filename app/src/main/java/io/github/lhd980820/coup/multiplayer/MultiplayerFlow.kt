@@ -13,9 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,6 +29,24 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
+import io.github.lhd980820.coup.ui.theme.ParchmentDim
+import io.github.lhd980820.coup.ui.theme.Parchment
+import io.github.lhd980820.coup.ui.theme.PanelTop
+import io.github.lhd980820.coup.ui.theme.Panel
+import io.github.lhd980820.coup.ui.theme.GoldBright
+import io.github.lhd980820.coup.ui.theme.Gold
+import io.github.lhd980820.coup.ui.theme.CrimsonLight
+import io.github.lhd980820.coup.ui.kit.panel
+import io.github.lhd980820.coup.ui.kit.PrimaryButton
+import io.github.lhd980820.coup.ui.kit.CoupIcons
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import io.github.lhd980820.coup.game.GameScreen
 import io.github.lhd980820.coup.game.GameViewModel
 import io.github.lhd980820.coup.remote.Settlement
@@ -109,13 +125,31 @@ private fun RoomWithBackGuard(room: WaitingRoomModel, shell: ShellViewModel, mod
     }
 }
 
+/** 계정을 준비하는 중(도는 고리) 또는 실패(느낌표)와 한 줄, 다시 시도·뒤로. */
 @Composable
 private fun CenteredMessage(message: Int, tag: String, onBack: (() -> Unit)?, onRetry: (() -> Unit)?, modifier: Modifier) {
     TableSurface(modifier) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(stringResource(message), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(tag))
-            onRetry?.let { Button(onClick = it, modifier = Modifier.testTag(FlowTags.ACCOUNT_RETRY)) { Text(stringResource(R.string.mp_retry)) } }
-            onBack?.let { TextButton(onClick = it, modifier = Modifier.testTag(FlowTags.ACCOUNT_BACK)) { Text(stringResource(R.string.mp_back)) } }
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.size(72.dp).panel(CircleShape, top = PanelTop, bottom = Panel, line = Gold.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+                if (onRetry == null) {
+                    CircularProgressIndicator(Modifier.size(34.dp), color = Gold, strokeWidth = 3.dp)
+                } else {
+                    Icon(CoupIcons.Exclaim, contentDescription = null, tint = CrimsonLight, modifier = Modifier.size(34.dp))
+                }
+            }
+            Text(
+                stringResource(message),
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(tag),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Parchment,
+                textAlign = TextAlign.Center,
+            )
+            onRetry?.let { PrimaryButton(stringResource(R.string.mp_retry), it, Modifier.fillMaxWidth().testTag(FlowTags.ACCOUNT_RETRY), icon = CoupIcons.Refresh) }
+            onBack?.let { TextButton(onClick = it, modifier = Modifier.testTag(FlowTags.ACCOUNT_BACK)) { Text(stringResource(R.string.mp_back), color = ParchmentDim) } }
         }
     }
 }
@@ -153,5 +187,14 @@ internal fun RatingNote(shell: ShellViewModel) {
         Settlement.NotApplied, Settlement.Abandoned -> return
         Settlement.Verifying, null -> stringResource(R.string.mp_result_rating_pending)
     }
-    Text(text, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(FlowTags.RATING), style = MaterialTheme.typography.bodyMedium)
+    val applied = shell.settlement is Settlement.Applied
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Icon(CoupIcons.Star, contentDescription = null, tint = if (applied) GoldBright else ParchmentDim, modifier = Modifier.size(16.dp))
+        Text(
+            text,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }.testTag(FlowTags.RATING),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (applied) GoldBright else Parchment,
+        )
+    }
 }

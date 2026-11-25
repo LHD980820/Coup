@@ -1,6 +1,7 @@
 package io.github.lhd980820.coup.multiplayer
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -110,7 +111,7 @@ class MultiplayerAuthTest : MpScreenTest() {
         click(LobbyTags.BACK)
 
         waitFor(ProfileTags.CARD)
-        compose.onNodeWithText(string(R.string.mp_profile_line, "kim", 1000)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.mp_profile_line, "kim", 1000))).assertIsDisplayed() // 얼굴·이름·별과 레이팅이 한 문장으로 읽힌다
         click(ProfileTags.EDIT)
         waitFor(ProfileTags.NICKNAME)
         compose.onNodeWithTag(ProfileTags.NICKNAME).performTextReplacement("a")
@@ -121,7 +122,7 @@ class MultiplayerAuthTest : MpScreenTest() {
         click(ProfileTags.SAVE)
         waitGone(ProfileTags.NICKNAME) // 저장하면 편집이 닫힌다
         compose.waitUntil(10_000) { fx.shell.profile?.nickname == "김철수" }
-        compose.onNodeWithText(string(R.string.mp_profile_line, "김철수", 1000)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.mp_profile_line, "김철수", 1000))).assertIsDisplayed()
 
         click(ProfileTags.SIGN_OUT)
         waitGone(ProfileTags.CARD)

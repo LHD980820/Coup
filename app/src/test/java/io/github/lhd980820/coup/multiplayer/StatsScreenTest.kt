@@ -1,6 +1,7 @@
 package io.github.lhd980820.coup.multiplayer
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import io.github.lhd980820.coup.R
@@ -114,7 +115,7 @@ class StatsScreenTest : MpScreenTest() {
         click(ProfileTags.HISTORY)
         waitFor(StatsTags.history("g3"))
         assertEquals(listOf("history_row_g3", "history_row_g2", "history_row_g1"), rowTags("history_row_"))
-        compose.onNodeWithText(string(R.string.stats_history_summary, 4, 1, 25)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.stats_history_summary, 4, 1, 25))).assertIsDisplayed() // 판·승·승률 세 칸이 한 문장으로 읽힌다
         compose.onNodeWithText(string(R.string.stats_history_net, 3, 12 - 8 - 2)).assertIsDisplayed()
         compose.onNodeWithText(string(R.string.stats_history_row, 4, 1)).assertIsDisplayed() // g1: 4인전 1위
         compose.onNodeWithText("+12").assertIsDisplayed()
@@ -129,7 +130,7 @@ class StatsScreenTest : MpScreenTest() {
         click(ProfileTags.HISTORY)
         waitFor(StatsTags.EMPTY)
         compose.onNodeWithText(string(R.string.stats_history_empty)).assertIsDisplayed()
-        compose.onNodeWithText(string(R.string.stats_history_summary, 0, 0, 0)).assertIsDisplayed()
+        compose.onNode(hasContentDescription(string(R.string.stats_history_summary, 0, 0, 0))).assertIsDisplayed()
     }
 
     @Test

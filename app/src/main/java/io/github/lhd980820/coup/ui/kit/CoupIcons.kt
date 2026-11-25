@@ -116,6 +116,73 @@ object CoupIcons {
     /** 대상 고르기: 과녁. */
     val Target: ImageVector = stroked("target", 2f, "M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14z", "M12 1.8v4.4", "M12 17.8v4.4", "M1.8 12h4.4", "M17.8 12h4.4")
 
+    /** 뒤로. */
+    val ArrowLeft: ImageVector = stroked("arrow_left", 2.4f, "M20 12H5", "M11 5.5L4.5 12l6.5 6.5")
+
+    /** 새로고침. */
+    val Refresh: ImageVector = stroked("refresh", 2.2f, "M19.5 12a7.5 7.5 0 1 1-2.2-5.3", "M19.6 3.6v4.6H15")
+
+    /** 더하기 / 빼기. */
+    val Plus: ImageVector = stroked("plus", 2.4f, "M12 5v14", "M5 12h14")
+    val Minus: ImageVector = stroked("minus", 2.4f, "M5 12h14")
+
+    /** 공개(누구나): 지구. */
+    val Globe: ImageVector = stroked(
+        "globe", 1.9f,
+        "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", "M3 12h18",
+        "M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9", "M12 3c-2.5 2.6-3.7 5.6-3.7 9s1.2 6.4 3.7 9",
+    )
+
+    /** 봇: 눈이 뚫린 머리와 안테나. */
+    val Robot: ImageVector = holed(
+        "robot",
+        "M7 8.2h10a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z" +
+            "M9 12.3a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z" + "M15 12.3a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z" +
+            "M11.2 4.2h1.6v4h-1.6z" + "M12 1.6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z",
+    )
+
+    /** 복사 / 공유. */
+    val Copy: ImageVector = stroked(
+        "copy", 2f,
+        "M9.5 9h9.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H9.5a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z",
+        "M5 15h-.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5",
+    )
+    val Share: ImageVector = stroked(
+        "share", 2f,
+        "M18 2.8a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z", "M6 9.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z",
+        "M18 16.4a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z", "M8.2 10.8l7.6-4.4", "M8.2 13.2l7.6 4.4",
+    )
+
+    /** 참가 코드: 열쇠. */
+    val Key: ImageVector = stroked("key", 2.1f, "M7 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", "M11 12h10", "M17.5 12v3.2", "M20.5 12v2.4")
+
+    /** 이메일 / 비밀번호 보기·숨기기. */
+    val Mail: ImageVector = stroked("mail", 2f, "M3.5 6h17v12h-17z", "M3.8 6.6l8.2 6.4 8.2-6.4")
+    val Eye: ImageVector = stroked("eye", 2f, "M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z")
+    val EyeOff: ImageVector = stroked(
+        "eye_off", 2f,
+        "M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z", "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z", "M4 4l16 16",
+    )
+
+    /** 랭킹: 트로피. */
+    val Trophy: ImageVector = filled(
+        "trophy",
+        "M7 3h10v5.2a5 5 0 0 1-10 0z", "M11 12.6h2v4h-2z", "M7.5 18h9v2.6h-9z",
+        "M3.5 4h3.2v1.6H5.2c0 1.6 1 2.8 2 3.2l-.6 1.4C4.9 9.6 3.5 7.8 3.5 5.5z",
+        "M20.5 4h-3.2v1.6h1.5c0 1.6-1 2.8-2 3.2l.6 1.4c1.7-.6 3.1-2.4 3.1-4.7z",
+    )
+
+    /** 고치기(닉네임). */
+    val Pencil: ImageVector = filled("pencil", "M16.3 3.7a1.6 1.6 0 0 1 2.3 0l1.7 1.7a1.6 1.6 0 0 1 0 2.3L9.2 18.8 4 20l1.2-5.2z")
+
+    /** 나가기(방·로그아웃) / 들어가기(입장). */
+    val Exit: ImageVector = stroked("exit", 2.1f, "M10 4H5v16h5", "M14.5 8l4 4-4 4", "M18.5 12H9")
+    val Enter: ImageVector = stroked("enter", 2.1f, "M14 4h5v16h-5", "M10 8l4 4-4 4", "M14 12H4")
+
+    /** 올랐다 / 내렸다(레이팅 변화). */
+    val ArrowUp: ImageVector = stroked("arrow_up", 2.4f, "M12 19V5.5", "M6 11.5l6-6 6 6")
+    val ArrowDown: ImageVector = stroked("arrow_down", 2.4f, "M12 5v13.5", "M6 12.5l6 6 6-6")
+
     /** 나. */
     val Person: ImageVector = filled("person", "M12 12a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4z", "M3.8 21c0-4.1 3.7-6.9 8.2-6.9s8.2 2.8 8.2 6.9z")
 

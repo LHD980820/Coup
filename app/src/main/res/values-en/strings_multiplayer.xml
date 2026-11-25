@@ -93,7 +93,6 @@
     <string name="mp_create_name">Room title</string>
     <string name="mp_create_default_name">%1$s\'s room</string>
     <string name="mp_create_public">Public</string>
-    <string name="mp_create_private">Private (join code only)</string>
     <string name="mp_create_max">Max players</string>
     <string name="mp_create_submit">Create room</string>
 
@@ -167,4 +166,12 @@
     <string name="mp_code_share_chooser">Share join code</string>
     <string name="mp_code_share_message">Join my Coup room \"%1$s\"!\nJoin code: %2$s</string>
     <string name="mp_code_paste_hint">You can paste the whole message you received.</string>
+    <string name="mp_lobby_open_rooms">Open rooms: %1$d</string>
+    <string name="mp_section_seats">Seats and bots</string>
+    <string name="mp_create_private_short">Private</string>
+    <string name="mp_create_public_hint">Anyone can join from the list</string>
+    <string name="mp_create_private_hint">Join with the room code only</string>
+    <string name="stats_tile_plays">Games</string>
+    <string name="stats_tile_wins">Wins</string>
+    <string name="stats_tile_rate">Win rate</string>
 </resources>
