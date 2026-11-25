@@ -18,8 +18,9 @@ internal enum class MotionSpeed(val scale: Float) {
 /**
  * 화면 연출의 길이를 정하는 값. 기본 길이(밀리초)에 속도 배율을 곱한다.
  * [LocalMotion]의 기본값은 꺼짐이다 — 미리보기와 자동 테스트는 움직임 없이 결정적으로 그려지고, 앱은 설정에서 켠다.
+ * 같은 속도면 같은 값이다(화면을 다시 그리며 새로 만들어도 그 값을 열쇠로 쓰는 연출이 다시 시작되지 않는다).
  */
-internal class Motion(val speed: MotionSpeed) {
+internal data class Motion(val speed: MotionSpeed) {
     val enabled: Boolean get() = speed != MotionSpeed.OFF
     fun ms(base: Int): Int = (base * speed.scale).toInt()
 

@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import io.github.lhd980820.coup.presentation.UiEffect
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -44,6 +45,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +129,7 @@ internal object GameTags {
     const val TIMER_ZOOM = "timer_zoom"
     const val MOMENT = "moment"
     const val ARROWS = "arrows"
+    const val COINS = "coins_flying"
     const val TURN_CHIP = "turn_chip"
     const val MY_TURN = "turn_me"
     fun turn(id: String) = "turn_$id"
@@ -235,7 +238,12 @@ internal fun GameScreen(
     val director = remember { MomentDirector { me } }
     val hit = remember { Animatable(0f) }
     val haptics = LocalHapticFeedback.current
+    // ---- 날아가는 코인 ----
+    val coins = remember { CoinStage() }
+    val playSound = LocalSounds.current
+
     LaunchedEffect(effects, motion) {
+        var pairing: Job? = null
         effects.collect { effect ->
             // 내 카드를 잃었다: 손에 진동이 오고(기기의 터치 진동 설정을 따른다) 화면 가장자리가 붉게 번쩍이며 내 카드가 흔들린다
             if (effect is UiEffect.InfluenceLost && effect.player == me) {
@@ -246,8 +254,20 @@ internal fun GameScreen(
                 }
             }
             if (motion.enabled) director.moment(effect)?.let(stage::offer)
+            // 코인 변화는 날아가는 코인으로(순간 뒤에 오므로, 순간이 먼저 무대에 오르고 코인은 그 뒤에 난다).
+            // 잃음은 짝이 될 얻음(갈취)을 잠깐 기다렸다가 혼자면 은행으로 보낸다
+            if (motion.enabled) {
+                coins.take(effect)
+                pairing?.cancel()
+                if (coins.pairing) pairing = launch {
+                    delay(CoinDirector.PAIR_WAIT_MS)
+                    coins.endPairing()
+                }
+            }
         }
     }
+    // 코인은 극적인 순간이 다 지나간 뒤에 날고(결과를 미리 말하지 않게), 닿을 때 소리가 난다
+    LaunchedEffect(coins, motion) { if (motion.enabled) coins.play(motion, busy = { !stage.idle }, sound = playSound) }
 
     // 순간을 보여 주는 동안에는 AI가 다음 수를 기다린다(화면이 지난 일을 말하는 동안 새 일이 벌어지지 않게)
     val reportBusy by rememberUpdatedState(onStageBusy)
@@ -268,6 +288,8 @@ internal fun GameScreen(
         }
     }
     val showResult = ended && (!motion.enabled || finaleDone)
+    // 결과가 뜨면 남은 코인은 날리지 않는다(숫자는 바로 끝난 값)
+    LaunchedEffect(showResult) { if (showResult) coins.clear() }
     // 마지막 순간을 보는 동안의 뒤로 가기는 결과로 바로 넘긴다(결과 화면이 뜬 뒤에는 결과 화면이 받는다)
     BackHandler(enabled = ended && !showResult) { finaleDone = true }
 
@@ -277,16 +299,18 @@ internal fun GameScreen(
 
     // 보이는 판이 바뀔 때마다 이전과 비교해 소리를 낸다(처음 그릴 때나 회전으로 다시 그릴 때는 이전이 없어 무음).
     // 판을 따르므로 탈락 소리는 띠의 "탈락!"과 함께 난다
-    val playSound = LocalSounds.current
     val lastBoard = remember { arrayOfNulls<GameUiState>(1) }
     LaunchedEffect(board) {
-        SoundCues.between(lastBoard[0], board).forEach(playSound)
+        // 연출이 켜져 있으면 코인 소리는 날아가는 코인이 낸다
+        SoundCues.between(lastBoard[0], board, coins = !motion.enabled).forEach(playSound)
         lastBoard[0] = board
     }
 
     // 대상을 고르는 중이면 고를 수 있는 상대의 자리를 눌러서도 고를 수 있다(아래의 이름 버튼과 같은 동작)
     val onTarget: ((PlayerId) -> Unit)? = if (state.decision is DecisionUi.PickTarget && !state.busy) actions::chooseTarget else null
 
+    // 코인 숫자는 날아가는 코인이 닿은 만큼만 보인다(연출이 꺼져 있으면 바로 지금 값)
+    CompositionLocalProvider(LocalCoinOffsets provides if (motion.enabled) coins::offset else { _ -> 0 }) {
     TableSurface(modifier) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val compact = maxHeight < COMPACT_HEIGHT
@@ -359,6 +383,8 @@ internal fun GameScreen(
             }
             // 누가 누구에게 무엇을 하는지 테이블 위에 화살표로 잇는다(그림일 뿐이라 누르는 것을 가로채지 않는다)
             if (!showResult) ActionArrows(board.banner, anchors)
+            // 코인은 화살표 위, 극적인 순간의 띠 아래로 난다
+            if (!showResult) CoinOverlay(coins, anchors)
             // 극적인 순간은 판 위에 덧입힌다: 누르는 것을 가로채지 않는다. 결과가 뜨면 남은 순간은 보이지 않는다
             if (!showResult) MomentOverlay(stage, texts, board)
             Box(Modifier.fillMaxSize().damageVignette { hit.value })
@@ -366,6 +392,7 @@ internal fun GameScreen(
             // 기록 창도 보이는 판을 따른다(연출 중에 열어도 결과를 미리 말하지 않는다)
             if (showLog && !wide) LogSheet(board, texts, LOG_LINES, onDismiss = { showLog = false })
         }
+    }
     }
 
     zoomed?.let { target ->

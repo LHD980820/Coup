@@ -15,6 +15,9 @@ import io.github.lhd980820.coup.ui.theme.GoldBright
 import io.github.lhd980820.coup.ui.theme.GoldDeep
 import io.github.lhd980820.coup.ui.theme.ParchmentDim
 
+/** 코인 한 닢을 [center]에 반지름 [r]로 그린다(날아가는 코인처럼 캔버스에 직접 그릴 때). */
+fun DrawScope.drawCoin(center: Offset, r: Float) = coin(center, r)
+
 private fun DrawScope.coin(center: Offset, r: Float) {
     drawCircle(
         Brush.radialGradient(listOf(GoldBright, Gold, GoldDeep), center = center + Offset(-r * 0.35f, -r * 0.4f), radius = r * 1.7f),

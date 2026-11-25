@@ -315,7 +315,7 @@ private fun Seat(
             Avatar(op.name, seatTint(index), size = 30.dp, ring = if (busy) Gold else GoldDeep.copy(alpha = 0.6f))
             Column(Modifier.weight(1f, fill = false)) {
                 Text(op.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                CoinCount(op.coins, GameTags.coins(op.id.value))
+                CoinCount(op.coins, GameTags.coins(op.id.value), modifier = anchors.placePurse(op.id), player = op.id)
             }
         }
         Box(contentAlignment = Alignment.Center) {

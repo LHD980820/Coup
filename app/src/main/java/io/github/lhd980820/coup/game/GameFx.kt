@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.lhd980820.coup.R
+import io.github.lhd980820.coup.engine.model.PlayerId
 import io.github.lhd980820.coup.engine.model.RoleId
 import io.github.lhd980820.coup.ui.kit.CoinPile
 import io.github.lhd980820.coup.ui.kit.PlayingCardBack
@@ -131,21 +132,23 @@ internal fun FlipCard(role: RoleId, animate: Boolean, modifier: Modifier = Modif
  * [large]는 내 코인(크게).
  */
 @Composable
-internal fun CoinCount(coins: Int, tag: String, modifier: Modifier = Modifier, large: Boolean = false) {
+internal fun CoinCount(coins: Int, tag: String, modifier: Modifier = Modifier, large: Boolean = false, player: PlayerId? = null) {
     val motion = LocalMotion.current
+    // 스크린리더에는 언제나 지금 코인 수를, 화면에는 날아가는 코인이 닿은 만큼만 보인다(코인이 닿을 때 숫자가 하나씩 오른다)
     val label = stringResource(R.string.game_coins, coins)
+    val shown = (coins + (player?.let { LocalCoinOffsets.current(it) } ?: 0)).coerceAtLeast(0)
     val style = if (large) MaterialTheme.typography.titleMedium.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize * 1.25f) else MaterialTheme.typography.titleSmall
     Row(
-        modifier.testTag(tag).clearAndSetSemantics { contentDescription = label },
+        modifier.testTag(tag).clearAndSetSemantics { contentDescription = label; shownCoins = shown },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (large) 6.dp else 4.dp),
     ) {
-        CoinPile(coins, size = if (large) 22.dp else 15.dp)
+        CoinPile(shown, size = if (large) 22.dp else 15.dp)
         if (!motion.enabled) {
-            Text(coins.toString(), style = style, fontWeight = FontWeight.Bold)
+            Text(shown.toString(), style = style, fontWeight = FontWeight.Bold)
         } else {
             AnimatedContent(
-                targetState = coins,
+                targetState = shown,
                 transitionSpec = {
                     val up = targetState > initialState
                     val ms = motion.ms(COIN_MS)
@@ -157,6 +160,10 @@ internal fun CoinCount(coins: Int, tag: String, modifier: Modifier = Modifier, l
         }
     }
 }
+
+/** 화면에 보이는 코인 숫자(날아가는 코인이 아직 닿지 않았으면 지금 코인 수와 다르다). 자동 테스트용. */
+internal val ShownCoins = SemanticsPropertyKey<Int>("ShownCoins")
+private var SemanticsPropertyReceiver.shownCoins by ShownCoins
 
 /** 응답 시트가 아래에서 올라오며 나타난다. 연출이 꺼져 있으면 바로 나타난다. */
 @Composable

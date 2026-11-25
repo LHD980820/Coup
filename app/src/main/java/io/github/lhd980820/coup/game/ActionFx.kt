@@ -82,6 +82,13 @@ internal class TableAnchors {
 
     fun place(id: PlayerId): Modifier = Modifier.onGloballyPositioned { rects[id] = it.boundsInRoot() }
 
+    private val purses = mutableStateMapOf<PlayerId, Rect>()
+
+    /** 그 사람의 코인 더미가 놓인 곳(날아가는 코인의 끝점). 아직 모르면 자리. */
+    fun purse(id: PlayerId): Rect? = purses[id] ?: rects[id]
+
+    fun placePurse(id: PlayerId): Modifier = Modifier.onGloballyPositioned { purses[id] = it.boundsInRoot() }
+
     /** 가운데 판이 놓인 곳. 화살표는 판 아래로 지나간다(판의 그림을 가리지 않는다). 판이 없으면(응답 시트가 대신할 때) null. */
     var stage: Rect? by mutableStateOf(null)
 

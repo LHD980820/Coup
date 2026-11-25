@@ -337,6 +337,24 @@ class ScreenshotGalleryTest {
         shoot(name)
     }
 
+    // ---- 날아가는 코인: 상태가 먼저 바뀌고(세션이 그렇게 알린다) 코인이 뒤따라 난다 ----
+
+    @Test
+    fun `코인 - 세금이 은행에서 나에게`() = momentFrame("coins_tax", 420, UiEffect.CoinsChanged(me, 3), base = state(decision = null, deadline = null, coins = 7))
+
+    @Test
+    fun `코인 - 상대가 나에게서 갈취`() {
+        val ops = listOf(
+            OpponentUi(a1, "AI 1", 7, 2, emptyList(), true, OpponentStatus.IDLE, emptySet(), null, false),
+            OpponentUi(a2, "AI 2", 1, 1, listOf(role("contessa")), true, OpponentStatus.IDLE, emptySet(), null, false),
+            OpponentUi(a3, "AI 3", 0, 0, listOf(role("captain"), role("assassin")), false, OpponentStatus.ELIMINATED, emptySet(), null, false),
+        )
+        momentFrame(
+            "coins_steal", 330, UiEffect.CoinsChanged(me, -2), UiEffect.CoinsChanged(a1, 2),
+            base = state(banner = Banner.WaitingFor(a1), decision = null, deadline = null, opponents = ops, coins = 2, turn = a1),
+        )
+    }
+
     @Test
     fun `순간 - 도전`() = momentFrame("moment_challenge", 600, UiEffect.Challenged(a1, me, setOf(role("duke"))))
 

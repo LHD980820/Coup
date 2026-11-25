@@ -11,7 +11,8 @@ import io.github.lhd980820.coup.presentation.GameUiState
 internal object SoundCues {
     const val MAX_AT_ONCE = 2
 
-    fun between(previous: GameUiState?, next: GameUiState): List<SoundCue> {
+    /** [coins]가 false면 코인 소리는 뺀다(날아가는 코인이 닿을 때 따로 낸다). */
+    fun between(previous: GameUiState?, next: GameUiState, coins: Boolean = true): List<SoundCue> {
         if (previous == null) return emptyList()
         val cues = buildList {
             if (previous.result == null && next.result != null) add(if (next.result!!.iWon) SoundCue.WIN else SoundCue.LOSE)
@@ -20,7 +21,7 @@ internal object SoundCues {
             if (revealed(next) > revealed(previous)) add(SoundCue.CARD_REVEAL)
             if (next.decision is DecisionUi.Respond && previous.decision !is DecisionUi.Respond) add(SoundCue.RESPOND)
             if (next.decision is DecisionUi.Actions && previous.decision !is DecisionUi.Actions) add(SoundCue.YOUR_TURN)
-            coinCue(previous, next)?.let { add(it) }
+            if (coins) coinCue(previous, next)?.let { add(it) }
         }
         return cues.take(MAX_AT_ONCE)
     }

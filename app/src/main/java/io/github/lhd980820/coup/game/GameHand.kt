@@ -102,7 +102,8 @@ internal fun MyArea(
             }
             // 이름이 길면 줄여 써서 코인이 밀려나지 않게 한다
             Text(me.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            CoinCount(me.coins, GameTags.MY_COINS, large = true)
+            // 날아가는 코인은 내 코인 더미에서 떠나고 여기에 닿는다
+            CoinCount(me.coins, GameTags.MY_COINS, modifier = anchors?.placePurse(me.id) ?: Modifier, large = true, player = me.id)
         }
         BoxWithConstraints(
             Modifier
